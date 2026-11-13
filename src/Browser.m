@@ -107,8 +107,18 @@ static NSURL *Destination(NSString *input) {
 - (void)webView:(WKWebView *)web didFinishNavigation:(WKNavigation *)nav {
     [self sync:web];
     if ([@[@"http",@"https"] containsObject:web.URL.scheme.lowercaseString]) {
-        int rc = history_add(self.db, web.URL.absoluteString.UTF8String, (web.title ?: @"").UTF8String);
-        if (web == self.web) self.status.stringValue = rc ? @"Page loaded; history could not be saved." : @"Ready";
+        NSString *url = web.URL.absoluteString;
+        NSString *fallbackTitle = web.title ?: @"";
+        // WebKit can publish its title property after didFinishNavigation.
+        [web evaluateJavaScript:@"document.title" completionHandler:^(id title, NSError *error) {
+            NSString *resolved = [title isKindOfClass:NSString.class] ? title : fallbackTitle;
+            int rc = history_add(self.db, url.UTF8String, resolved.UTF8String);
+            if (web == self.web && [web.URL.absoluteString isEqualToString:url]) {
+                [self sync:web];
+                if (resolved.length) self.window.title = [resolved stringByAppendingString:@" — Oogabooga"];
+                self.status.stringValue = rc ? @"Page loaded; history could not be saved." : @"Ready";
+            }
+        }];
     }
 }
 - (void)failed:(WKWebView *)web error:(NSError *)error { if (web == self.web && error.code != NSURLErrorCancelled) self.status.stringValue = error.localizedDescription; }

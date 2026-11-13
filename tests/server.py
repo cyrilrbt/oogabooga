@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Local manual integration fixture: no third-party accounts required."""
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import base64
 
 class Handler(BaseHTTPRequestHandler):
@@ -28,4 +28,4 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == '__main__':
     print('Open http://localhost:8765 — HTTP auth: test / browser', flush=True)
-    HTTPServer(('127.0.0.1', 8765), Handler).serve_forever()
+    ThreadingHTTPServer(('127.0.0.1', 8765), Handler).serve_forever()
