@@ -1,4 +1,4 @@
-name: macOS download
+name: Browser downloads
 
 on:
   push:
@@ -8,18 +8,15 @@ on:
 permissions:
   contents: read
 
-# Finish publishing one build before starting another; never cancel uploads halfway.
 concurrency:
-  group: macos-release
+  group: browser-release
   cancel-in-progress: false
 
 jobs:
-  release:
+  macos:
     if: github.ref == 'refs/heads/main'
     runs-on: macos-15
     timeout-minutes: 20
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Test assembly core
@@ -28,13 +25,79 @@ jobs:
         run: ./build.sh release
       - name: Package app and disk image
         run: ./tools/package-mac.sh
-      - name: Keep workflow downloads
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: Oogabooga-macos-arm64
-          path: build/dist/*
+          name: macos-downloads
+          path: |
+            build/dist/*.app.zip
+            build/dist/*.dmg
           if-no-files-found: error
           retention-days: 14
+
+  linux:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native development and test libraries
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libsqlite3-dev xvfb xauth dbus-x11
+      - name: Test assembly core and browser
+        run: |
+          ./build.sh test
+          ./tools/test-linux.sh
+      - name: Package native executable
+        run: |
+          ./build.sh release
+          ./tools/package-linux.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-downloads
+          path: build/dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  flatpak:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          manifest-path: flatpak/dev.oogabooga.Browser.json
+          bundle: Oogabooga-linux-x86_64.flatpak
+          arch: x86_64
+          branch: stable
+          upload-artifact: false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-downloads
+          path: Oogabooga-linux-x86_64.flatpak
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    needs: [macos, linux, flatpak]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: '*-downloads'
+          path: dist
+          merge-multiple: true
+      - name: Checksum all downloads
+        working-directory: dist
+        run: sha256sum *.app.zip *.dmg *.flatpak *.tar.gz > SHA256SUMS
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -45,27 +108,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tag="main-${RUN_ID}-${RUN_ATTEMPT}"
-          cat > build/release-notes.md <<EOF_NOTES
-          Automated Apple silicon macOS build from commit ${COMMIT}.
+          version=$(./tools/version.sh)
+          tag="v${version}+build.${RUN_ID}.${RUN_ATTEMPT}"
+          cat > release-notes.md <<EOF_NOTES
+          Oogabooga ${version}, built from commit ${COMMIT}.
 
-          Download the DMG and drag Oogabooga into Applications, or extract the app ZIP.
-          Requires Apple silicon and macOS 12 or later.
+          Linux x86-64: install the Flatpak bundle with:
+          \`flatpak install --user ./Oogabooga-linux-x86_64.flatpak\`
+          Then run \`flatpak run dev.oogabooga.Browser\`.
+          A native archive for Ubuntu 24.04+ with GTK 3 / WebKitGTK 4.1 is also included.
 
-          This build is ad-hoc signed, not Apple Developer ID signed or notarized. macOS Gatekeeper may block downloaded builds. No signing secrets are configured.
+          Apple silicon macOS 12+: open the DMG and drag Oogabooga into Applications, or extract the app ZIP.
+          macOS builds are ad-hoc signed, not Developer ID signed or notarized; Gatekeeper may block downloaded builds.
 
-          SHA-256 checksums are included in SHA256SUMS.
+          SHA-256 checksums are included in SHA256SUMS. Flatpak bundles are published here, not on Flathub.
           EOF_NOTES
-          gh release create "$tag" \
-            build/dist/Oogabooga-macos-arm64.app.zip \
-            build/dist/Oogabooga-macos-arm64.dmg \
-            build/dist/SHA256SUMS \
+          gh release create "$tag" dist/* \
             --target "$COMMIT" \
-            --title "macOS build ${COMMIT:0:7}" \
-            --notes-file build/release-notes.md \
+            --title "Oogabooga ${version} (${COMMIT:0:7})" \
+            --notes-file release-notes.md \
             --latest
           {
-            echo '### macOS downloads'
-            echo "- [DMG](https://github.com/${GH_REPO}/releases/download/${tag}/Oogabooga-macos-arm64.dmg)"
-            echo "- [App ZIP](https://github.com/${GH_REPO}/releases/download/${tag}/Oogabooga-macos-arm64.app.zip)"
+            echo '### Downloads'
+            echo "- [Linux Flatpak](https://github.com/${GH_REPO}/releases/download/${tag}/Oogabooga-linux-x86_64.flatpak)"
+            echo "- [macOS DMG](https://github.com/${GH_REPO}/releases/download/${tag}/Oogabooga-macos-arm64.dmg)"
+            echo "- [All assets](https://github.com/${GH_REPO}/releases/tag/${tag})"
           } >> "$GITHUB_STEP_SUMMARY"

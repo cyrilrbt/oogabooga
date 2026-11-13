@@ -69,7 +69,4 @@ _history_add:
     ldp x29, x30, [sp], #64
     ret
 .section __TEXT,__cstring,cstring_literals
-schema:
-.asciz "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=3000; CREATE TABLE IF NOT EXISTS visits(id INTEGER PRIMARY KEY, url TEXT NOT NULL, title TEXT NOT NULL, visited_at INTEGER NOT NULL DEFAULT (unixepoch())); CREATE INDEX IF NOT EXISTS visits_time ON visits(visited_at DESC,id DESC); PRAGMA user_version=1;"
-insert_sql:
-.asciz "INSERT INTO visits(url,title) VALUES(?1,?2)"
+.include "src/history.inc"

@@ -5,3 +5,8 @@ todo-api
 __pycache__/
 .DS_Store
 build/
+
+.flatpak-builder/
+flatpak-build/
+flatpak-repo/
+*.flatpak

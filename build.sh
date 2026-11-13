@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")"
+[ "$(uname -s)" != Linux ] || exec ./tools/build-linux.sh "$@"
 [ "$(uname -s)" = Darwin ] && [ "$(uname -m)" = arm64 ] || { echo 'Requires Apple silicon macOS and Xcode command-line tools.' >&2; exit 1; }
 mode=${1:-debug}
 case "$mode" in debug|release|test) ;; *) echo 'Usage: ./build.sh [debug|release|test]' >&2; exit 1 ;; esac
@@ -15,7 +16,8 @@ xcrun clang $flags build/obj/core.o build/obj/Browser.o -framework Cocoa -framew
 [ "$mode" != release ] || strip -x build/oogabooga
 cp build/oogabooga build/Oogabooga.app/Contents/MacOS/oogabooga.new
 mv -f build/Oogabooga.app/Contents/MacOS/oogabooga.new build/Oogabooga.app/Contents/MacOS/oogabooga
-cp assets/Info.plist build/Oogabooga.app/Contents/Info.plist
+./tools/generate-metadata.sh
+cp build/metadata/Info.plist build/Oogabooga.app/Contents/Info.plist
 codesign --force --sign - build/Oogabooga.app
 if [ "$mode" = test ]; then
     xcrun clang $flags -Wall -Wextra -Werror tests/history.c build/obj/core.o -lsqlite3 -o build/history-test

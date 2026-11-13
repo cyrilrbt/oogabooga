@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.oogabooga.Browser</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <name>Oogabooga</name>
+  <developer id="dev.oogabooga"><name>Oogabooga contributors</name></developer>
+  <summary>A small native browser written in assembly</summary>
+  <description>
+    <p>Browse with the system WebKit engine, persistent cookies, authentication dialogs, login popups, and searchable SQLite history.</p>
+    <p>The Linux application is written in handwritten x86-64 assembly and uses native GTK controls.</p>
+  </description>
+  <launchable type="desktop-id">dev.oogabooga.Browser.desktop</launchable>
+  <url type="homepage">https://github.com/cyrilrbt/oogabooga</url>
+  <provides><binary>oogabooga</binary></provides>
+  <releases><release version="@VERSION@" date="@RELEASE_DATE@"/></releases>
+  <content_rating type="oars-1.1"/>
+</component>
