@@ -1,0 +1,7 @@
+todo-api
+*.db
+*.db-shm
+*.db-wal
+__pycache__/
+.DS_Store
+build/
