@@ -18,14 +18,14 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Test assembly core
         run: ./build.sh test
       - name: Build release app
         run: ./build.sh release
       - name: Package app and disk image
         run: ./tools/package-mac.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: macos-downloads
           path: |
@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install native development and test libraries
         run: |
           sudo apt-get update -qq
@@ -52,7 +52,7 @@ jobs:
         run: |
           ./build.sh release
           ./tools/package-linux.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: linux-downloads
           path: build/dist/*.tar.gz
@@ -67,18 +67,17 @@ jobs:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
       options: --privileged
     steps:
-      - uses: actions/checkout@v4
-      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
-        with:
-          manifest-path: flatpak/dev.oogabooga.Browser.json
-          bundle: Oogabooga-linux-x86_64.flatpak
-          arch: x86_64
-          branch: stable
-          upload-artifact: false
-      - uses: actions/upload-artifact@v4
+      - uses: actions/checkout@v6
+      - name: Build Flatpak with the image's installed SDK
+        # Avoid --install-deps-from: updating preinstalled OSTree deployments on
+        # the container overlay filesystem can fail with EXDEV (cross-device link).
+        run: |
+          dbus-uuidgen --ensure=/etc/machine-id
+          dbus-run-session -- ./tools/build-flatpak.sh
+      - uses: actions/upload-artifact@v6
         with:
           name: flatpak-downloads
-          path: Oogabooga-linux-x86_64.flatpak
+          path: build/dist/Oogabooga-linux-x86_64.flatpak
           if-no-files-found: error
           retention-days: 14
 
@@ -89,8 +88,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v7
         with:
           pattern: '*-downloads'
           path: dist

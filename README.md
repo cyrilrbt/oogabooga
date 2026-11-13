@@ -55,6 +55,8 @@ flatpak-builder --user --install-deps-from=flathub --force-clean --repo=flatpak-
 flatpak build-bundle flatpak-repo build/Oogabooga-linux-x86_64.flatpak dev.oogabooga.Browser --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
 ```
 
+The GitHub Flatpak job uses `tools/build-flatpak.sh` inside the preloaded GNOME 50 build image. It deliberately uses the installed SDK/runtime without `--install-deps-from`, avoiding OSTree updates on the container overlay filesystem. Refresh the container image to obtain newer SDK/runtime builds.
+
 ### macOS
 
 Install Xcode command-line tools, then:
