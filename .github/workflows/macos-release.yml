@@ -1,0 +1,71 @@
+name: macOS download
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Finish publishing one build before starting another; never cancel uploads halfway.
+concurrency:
+  group: macos-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-15
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test assembly core
+        run: ./build.sh test
+      - name: Build release app
+        run: ./build.sh release
+      - name: Package app and disk image
+        run: ./tools/package-mac.sh
+      - name: Keep workflow downloads
+        uses: actions/upload-artifact@v4
+        with:
+          name: Oogabooga-macos-arm64
+          path: build/dist/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          COMMIT: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="main-${RUN_ID}-${RUN_ATTEMPT}"
+          cat > build/release-notes.md <<EOF_NOTES
+          Automated Apple silicon macOS build from commit ${COMMIT}.
+
+          Download the DMG and drag Oogabooga into Applications, or extract the app ZIP.
+          Requires Apple silicon and macOS 12 or later.
+
+          This build is ad-hoc signed, not Apple Developer ID signed or notarized. macOS Gatekeeper may block downloaded builds. No signing secrets are configured.
+
+          SHA-256 checksums are included in SHA256SUMS.
+          EOF_NOTES
+          gh release create "$tag" \
+            build/dist/Oogabooga-macos-arm64.app.zip \
+            build/dist/Oogabooga-macos-arm64.dmg \
+            build/dist/SHA256SUMS \
+            --target "$COMMIT" \
+            --title "macOS build ${COMMIT:0:7}" \
+            --notes-file build/release-notes.md \
+            --latest
+          {
+            echo '### macOS downloads'
+            echo "- [DMG](https://github.com/${GH_REPO}/releases/download/${tag}/Oogabooga-macos-arm64.dmg)"
+            echo "- [App ZIP](https://github.com/${GH_REPO}/releases/download/${tag}/Oogabooga-macos-arm64.app.zip)"
+          } >> "$GITHUB_STEP_SUMMARY"

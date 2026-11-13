@@ -2,6 +2,18 @@
 
 A small native browser for Apple silicon macOS 12+, inspired by rhun's direct assembly-and-link build. No Electron, npm, package manager, or downloaded engine. Uses the system AppKit, WebKit, and SQLite libraries.
 
+## Download
+
+Pushes to `main` run the macOS download workflow: test, build, package, and publish a GitHub Release with an app ZIP, DMG, and SHA-256 checksums. You can also run it manually from Actions on `main`. Each release points to the exact built commit.
+
+- [Download latest DMG](https://github.com/cyrilrbt/oogabooga/releases/latest/download/Oogabooga-macos-arm64.dmg)
+- [Download latest app ZIP](https://github.com/cyrilrbt/oogabooga/releases/latest/download/Oogabooga-macos-arm64.app.zip)
+- [All releases](https://github.com/cyrilrbt/oogabooga/releases)
+
+These links become available after the first successful workflow run. Open the DMG and drag Oogabooga into Applications. Builds target Apple silicon macOS 12+. They are ad-hoc signed, not Developer ID signed or notarized, so Gatekeeper may block downloaded copies. Public distribution without that warning requires Apple signing credentials and notarization.
+
+To package locally after building, run `./tools/package-mac.sh`; files appear in `build/dist/`. GitHub Actions also retains downloads as workflow artifacts for 14 days. The workflow uses its built-in token with release write permission; no additional secrets are required. Repository or organization policies must allow Actions to create releases.
+
 ## Build and run
 
 Install Xcode command-line tools, then:
