@@ -1,6 +1,6 @@
 # oogabooga
 
-A small native browser for Apple silicon macOS 12+ and x86-64 Linux, inspired by rhun's direct assembly-and-link build. The Linux application is entirely handwritten assembly and calls GTK 3, WebKitGTK 4.1, and SQLite directly. The macOS application uses an assembly core with an Objective-C UI bridge. No Electron or npm.
+A small native browser for Apple silicon macOS 12+ and x86-64 Linux, inspired by rhun's direct assembly-and-link build. Both applications are entirely handwritten assembly: ARM64 on macOS and x86-64 on Linux. They call native UI/WebKit and SQLite libraries directly. No Electron or npm.
 
 ## Download
 
@@ -72,7 +72,7 @@ Or launch with a starting URL:
 build/Oogabooga.app/Contents/MacOS/oogabooga https://github.com
 ```
 
-`./build.sh test` builds the app and runs the assembly SQLite tests. `./build.sh` makes a debug build. The app is signed ad hoc for local use; distribution would require Developer ID signing and notarization.
+`./build.sh test` builds the app and runs the assembly SQLite, ARM64 URL, and delegate callback tests. The test-only Objective-C harness checks block invocation, authentication cancellation/retries, JavaScript dialogs, and default TLS handling without displaying modal dialogs. `./build.sh` makes a debug build. The app is signed ad hoc for local use; distribution would require Developer ID signing and notarization.
 
 ## Features
 
@@ -87,14 +87,19 @@ Shortcuts: ⌘L address, ⌘R reload/stop, ⌘[ back, ⌘] forward, ⌘Y history
 
 ## Assembly and architecture
 
-Rhun builds native assembly and links system libraries. Oogabooga uses that approach. The Linux app is all handwritten assembly; the macOS UI still has an Objective-C bridge:
+Rhun builds native assembly and links system libraries. Both Oogabooga applications use that approach. No compiler-generated Objective-C bridge is linked into the shipped macOS app.
 
-- `src/linux/browser.s`: handwritten x86-64 GTK UI, event loop, URL handling, navigation, popup lifecycle, keyboard shortcuts, persistent WebKit profile setup, and searchable history. Calls library C ABIs directly.
-- `src/linux/core.s`: handwritten x86-64 SQLite operations, bound parameters, and error propagation. Both platform cores include `src/history.inc` for the shared schema and insert statement.
-- `src/core.s`: handwritten ARM64 entry point, SQLite schema initialization, prepared inserts, parameter binding, and error propagation. Uses Darwin's calling convention and preserves callee-saved registers.
-- `src/Browser.m`: ARC-managed Objective-C bridge for AppKit/WebKit, URL input, authentication, and history queries. Compiled to readable ARM64 assembly in `build/asm/Browser.s`, then assembled into an object.
-- `build.sh`: dispatches by OS. Linux assembles `.s` files and links GTK/WebKitGTK/SQLite into a PIE executable with RELRO, immediate binding, and a non-executable stack. macOS compiles the bridge to assembly, assembles, links, packages, and ad-hoc signs the `.app`.
+- `src/mac/browser.s`: ARM64 AppKit window/controls, native WebKit delegates, navigation, popup ownership, and title observation.
+- `src/mac/url.s`: ARM64 address/search handling, using Foundation for Unicode and URL construction.
+- `src/mac/history.s`: ARM64 history search integration and native table rendering.
+- `src/mac/menus.s` and `dialogs.s`: native menus, HTTP authentication, and JavaScript dialogs. Dialogs are app-modal; WebKit completion blocks are invoked synchronously, exactly once, before returning from the delegate call.
+- `src/mac/runtime.s`: Objective-C class/selector registration and method encodings; `mac.inc` documents register/stack conventions. AppKit/WebKit objects are managed with explicit retain/release ownership.
+- `src/mac/start.s` and `src/core.s`: macOS executable entry and ARM64 SQLite operations.
+- `src/linux/browser.s` and `core.s`: x86-64 GTK application and SQLite operations. Both platform cores expose search callbacks and updates by visit ID, using `src/history.inc` for shared SQL.
+- `build.sh`: dispatches by OS, assembles handwritten `.s` files, and links the native libraries. Linux uses PIE, RELRO, immediate binding, and a non-executable stack; macOS packages and ad-hoc signs the `.app`.
 - `flatpak/dev.oogabooga.Browser.json`: builds the Linux assembly app inside the GNOME 50 SDK, reusing the runtime's maintained WebKitGTK engine.
+
+C and Objective-C sources under `tests/` are assertion harnesses only. They are not linked into either shipped application. On macOS, `OOGABOOGA_PROFILE=/path/to/profile` selects an alternate SQLite history directory for isolated testing; WebKit website data still follows the app's bundle identity.
 
 The rendering engine is the OS WebKit installation, or the maintained GNOME runtime WebKitGTK in Flatpak. Assembly does not make HTML, JavaScript, TLS, or web compatibility inexpensive to reimplement; reusing the maintained system engine keeps the application small. WebKit helper processes still consume memory separately from the executable.
 
