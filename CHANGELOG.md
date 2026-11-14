@@ -4,6 +4,35 @@ Record user-visible changes here whenever `VERSION` changes. Keep the newest
 version first, use the same SemVer as `VERSION`, and distinguish added features,
 behavior changes, and fixes. Historical entries summarize the repository history.
 
+## 0.7.3 — 2026-11-14
+
+### Fixed
+
+- Center the macOS URL field vertically using its native single-line control
+  height, keeping display text and the editing caret aligned.
+- Disable URL wrapping and enable horizontal scrolling while editing long URLs.
+
+## 0.7.2 — 2026-11-14
+
+### Fixed
+
+- Use explicit Command menu shortcuts on macOS and native Control accelerators on
+  Linux for equivalent browser commands, including history and popup windows.
+- Open Location brings the main browser forward and selects the address on both
+  platforms; unrelated modifier combinations no longer trigger Linux commands.
+- Add macOS Shift-Command-Z Redo and enable undo/redo in assembly-engine textareas,
+  while preserving focused-widget editing shortcuts and clearing stale form actions
+  when navigating to a new document.
+
+## 0.7.1 — 2026-11-14
+
+### Changed
+
+- Include the central `VERSION` in macOS ZIP/DMG, Linux archive, Flatpak bundle,
+  and checksum filenames, both locally and in GitHub releases.
+- Update release notes, workflow download links, and README download instructions
+  for versioned assets.
+
 ## 0.7.0 — 2026-11-14
 
 ### Added

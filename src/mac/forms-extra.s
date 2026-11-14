@@ -69,6 +69,12 @@ _mac_textarea_create:
     RECT 0, 0, 200, 100
     MSG initFrame
     mov x21, x0
+    LOAD x2, _mac_delegate
+    MSG setDelegate
+    mov x0, x21
+    mov x2, #1
+    MSG setAllowsUndo
+    mov x0, x21
     mov x2, #0
     MSG setRichText
     ldr x0, [x19, #ATTR_VALUE]

@@ -94,6 +94,9 @@ Llaunch_profile_ready:
     MSG initWindow
     STORE x0, _mac_window
     mov x19, x0
+    LOAD x2, _mac_delegate
+    MSG setDelegate
+    mov x0, x19
     mov x2, #0
     MSG setReleasedWhenClosed
     STR app_title
@@ -129,6 +132,7 @@ Llaunch_profile_ready:
     MSG initFrame
     STORE x0, _mac_address
     mov x19, x0
+    bl _mac_address_configure
     STR address_hint
     mov x2, x0
     mov x0, x19
@@ -252,6 +256,52 @@ Llaunch_error:
     bl _exit
     LEAVE
 
+// Use the native single-line field height, centered in the toolbar slot. This
+// keeps display text, selection, and the field editor on the same baseline.
+// x0 NSTextField*, preserving the slot's horizontal bounds and vertical center.
+.globl _mac_address_configure
+_mac_address_configure:
+    ENTER
+    mov x19, x0
+    mov x2, #1
+    MSG setMaximumLines
+    mov x0, x19
+    MSG cell
+    mov x20, x0
+    mov x2, #1
+    MSG singleLine
+    mov x0, x20
+    mov x2, #1
+    MSG setScrollable
+    mov x0, x20
+    mov x2, #0
+    MSG setWraps
+    mov x0, x20
+    mov x2, #2                     // NSLineBreakByClipping; editing scrolls sideways
+    MSG setLineBreak
+    mov x0, x19
+    MSG frame
+    stp d0, d1, [sp, #144]
+    stp d2, d3, [sp, #160]
+    mov x0, x19
+    MSG intrinsicSize
+    fcmp d1, #0.0
+    b.le Laddress_configured
+    fmov d3, d1
+    ldr d1, [sp, #168]
+    fsub d1, d1, d3
+    fmov d4, #0.5
+    fmul d1, d1, d4
+    ldr d2, [sp, #152]
+    fadd d1, d1, d2
+    ldr d0, [sp, #144]
+    ldr d2, [sp, #160]
+    mov x0, x19
+    MSG setFrame
+Laddress_configured:
+    mov x0, x19
+    LEAVE
+
 // Create an autoreleased native button, retained by the content view.
 // x0 NSString title, x1 action SEL; d0-d3 frame.
 _mac_button:
@@ -289,6 +339,9 @@ _mac_add_root:
 .globl _mac_focus
 _mac_focus:
     ENTER
+    LOAD x0, _mac_window
+    mov x2, #0
+    MSG makeKey
     LOAD x0, _mac_window
     LOAD x2, _mac_address
     MSG makeFirstResponder

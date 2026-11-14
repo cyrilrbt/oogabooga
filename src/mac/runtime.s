@@ -94,6 +94,8 @@ method_table:
 .quad _sel_engineToggle, _mac_engine_toggle, engine_encoding_0
 .quad _sel_engineLink, _mac_engine_link, engine_encoding_1
 .quad _sel_engineSubmit, _mac_form_submit, encoding_0
+.quad _sel_windowUndo, _mac_window_undo, shortcut_undo_encoding
+.quad _sel_textUndo, _mac_text_undo, shortcut_undo_encoding
 .quad _sel_formToggle, _mac_form_toggle, encoding_0
 .quad _sel_selectToggle, _mac_select_toggle, encoding_0
 .quad _sel_windowResize, _mac_engine_resize, encoding_0
@@ -1304,6 +1306,46 @@ _sel_firstBaseline: .quad next_method_firstBaseline
 _sel_typesetter: .quad next_method_typesetter
 .globl _sel_typesetterBaseline
 _sel_typesetterBaseline: .quad next_method_typesetterBaseline
+
+
+.section __TEXT,__cstring,cstring_literals
+shortcut_keyMask: .asciz "setKeyEquivalentModifierMask:"
+shortcut_redo: .asciz "redo:"
+shortcut_allowsUndo: .asciz "setAllowsUndo:"
+shortcut_windowUndo: .asciz "windowWillReturnUndoManager:"
+shortcut_textUndo: .asciz "undoManagerForTextView:"
+shortcut_undoManager: .asciz "undoManager"
+shortcut_removeUndoActions: .asciz "removeAllActions"
+shortcut_undo_encoding: .asciz "@@:@"
+.globl _class_NSUndoManager
+_class_NSUndoManager: .asciz "NSUndoManager"
+.section __DATA,__data
+.p2align 3
+.globl _sel_setKeyMask, _sel_redo
+_sel_setKeyMask: .quad shortcut_keyMask
+_sel_redo: .quad shortcut_redo
+.globl _sel_setAllowsUndo
+_sel_setAllowsUndo: .quad shortcut_allowsUndo
+.globl _sel_windowUndo, _sel_undoManager, _sel_removeUndoActions
+_sel_windowUndo: .quad shortcut_windowUndo
+.globl _sel_textUndo
+_sel_textUndo: .quad shortcut_textUndo
+_sel_undoManager: .quad shortcut_undoManager
+_sel_removeUndoActions: .quad shortcut_removeUndoActions
+
+
+.section __TEXT,__cstring,cstring_literals
+address_scrollable: .asciz "setScrollable:"
+address_wraps: .asciz "setWraps:"
+address_lineBreak: .asciz "setLineBreakMode:"
+address_maxLines: .asciz "setMaximumNumberOfLines:"
+.section __DATA,__data
+.p2align 3
+.globl _sel_setScrollable, _sel_setWraps, _sel_setLineBreak, _sel_setMaximumLines
+_sel_setScrollable: .quad address_scrollable
+_sel_setWraps: .quad address_wraps
+_sel_setLineBreak: .quad address_lineBreak
+_sel_setMaximumLines: .quad address_maxLines
 
 selector_end:
 selectors_ready: .quad 0

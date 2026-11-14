@@ -238,7 +238,7 @@ int main(void) {
         [submit performClick:nil];
         waitFor(^BOOL { return [window.title hasPrefix:@"Submitted — Assembly"]; });
         assert([address.stringValue isEqual:@"https://engine.test/submitted?q=caf%C3%A9+%2B+%26+%F0%9F%8C%90&token=a%2Bb+%26+caf%C3%A9&dup=one&dup=two&csshidden=include&go=Search"]);
-        assert(text.subviews.count==0); // controls removed on navigation
+        assert(text.subviews.count==0 && !window.undoManager.canUndo); // no stale form actions
         navigate(@"/features"); waitFor(^BOOL { return [window.title hasPrefix:@"Features — Assembly"] && [status.stringValue containsString:@"ready."]; });
         NSTextField *returnField=nil;
         for(NSView *view in text.subviews) if ([view isKindOfClass:NSTextField.class] && [[(NSTextField *)view stringValue] isEqual:@"initial"]) returnField=(NSTextField *)view;
@@ -278,7 +278,15 @@ int main(void) {
         assert(radioB.frame.size.width==ceil(radioB.intrinsicContentSize.width) && radioB.frame.size.width<24);
         assert(flag && radioA && radioB && outside && send && flavor && colors && notes && edit);
         assert(flag.state==NSControlStateValueOn && radioA.state==NSControlStateValueOn && outside.state==NSControlStateValueOn);
-        assert(notes.frame.size.width<=251);
+        assert(notes.frame.size.width<=251 && [(NSTextView *)notes.documentView allowsUndo]);
+        NSTextView *editor=(NSTextView *)notes.documentView;
+        assert([window makeFirstResponder:editor]);
+        NSString *originalNotes=[editor.string copy];
+        [editor insertText:@"undo and redo" replacementRange:NSMakeRange(0,editor.string.length)];
+        [editor breakUndoCoalescing];
+        NSUndoManager *undo=editor.undoManager; assert(undo && undo.canUndo);
+        [undo undo]; assert([editor.string isEqual:originalNotes] && undo.canRedo);
+        [undo redo]; assert([editor.string isEqual:@"undo and redo"]);
         assert([flavor.selectedItem.representedObject isEqual:@"chocolate"] && !flavor.itemArray[0].enabled);
         [radioB performClick:nil]; assert(radioB.state==NSControlStateValueOn && radioA.state==NSControlStateValueOff && outside.state==NSControlStateValueOn);
         NSMenuItem *green=colors.itemArray[1]; assert([NSApp sendAction:green.action to:green.target from:green]);

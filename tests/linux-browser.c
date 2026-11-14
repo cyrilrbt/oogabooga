@@ -10,7 +10,7 @@ extern int browser_main(int, char **);
 extern char *destination(const char *);
 extern void __real_gtk_main(void);
 static WebKitWebView *view;
-static GtkWidget *main_window, *history_button, *search, *list, *status;
+static GtkWidget *main_window, *history_button, *location_entry, *search, *list, *status;
 static int phase, ticks, busy, finished, authenticated;
 static gboolean restart;
 static const char *base = "http://127.0.0.1:8765";
@@ -20,6 +20,7 @@ static void walk(GtkWidget *w, gpointer unused) {
     if (WEBKIT_IS_WEB_VIEW(w) && !view) view = WEBKIT_WEB_VIEW(w);
     if (GTK_IS_BUTTON(w) && g_strcmp0(gtk_button_get_label(GTK_BUTTON(w)), "History") == 0) history_button = w;
     if (GTK_IS_LABEL(w) && gtk_widget_get_parent(w) == gtk_bin_get_child(GTK_BIN(main_window))) status = w;
+    if (GTK_IS_ENTRY(w) && !GTK_IS_SEARCH_ENTRY(w) && !location_entry) location_entry = w;
     if (GTK_IS_SEARCH_ENTRY(w)) search = w;
     if (GTK_IS_LIST_BOX(w)) list = w;
     if (GTK_IS_CONTAINER(w)) gtk_container_foreach(GTK_CONTAINER(w), walk, NULL);
@@ -90,6 +91,8 @@ static gboolean tick(gpointer data) {
             if (w == main_window || !gtk_widget_get_visible(w)) continue;
             GtkWidget *child = gtk_bin_get_child(GTK_BIN(w));
             if (!WEBKIT_IS_WEB_VIEW(child) || webkit_web_view_is_loading(WEBKIT_WEB_VIEW(child))) continue;
+            assert(gtk_accel_groups_activate(G_OBJECT(w),GDK_KEY_l,GDK_CONTROL_MASK));
+            assert(gtk_window_get_focus(GTK_WINDOW(main_window))==location_entry);
             phase = 4; busy = 1;
             webkit_web_view_evaluate_javascript(WEBKIT_WEB_VIEW(child), "window.opener.document.title='Popup OK';window.close()", -1, NULL, NULL, NULL, close_popup, NULL);
             break;
@@ -99,16 +102,20 @@ static gboolean tick(gpointer data) {
         phase = 5; load("/second");
     } else if (phase == 5 && finished) {
         assert(webkit_web_view_can_go_back(view));
-        phase = 6; finished = 0; webkit_web_view_go_back(view);
+        phase = 6; finished = 0; assert(gtk_accel_groups_activate(G_OBJECT(main_window),GDK_KEY_bracketleft,GDK_CONTROL_MASK));
     } else if (phase == 6 && finished) {
         assert(g_str_has_suffix(webkit_web_view_get_uri(view), "/auth"));
         assert(webkit_web_view_can_go_forward(view));
-        phase = 7; finished = 0; webkit_web_view_go_forward(view);
+        phase = 7; finished = 0; assert(gtk_accel_groups_activate(G_OBJECT(main_window),GDK_KEY_bracketright,GDK_CONTROL_MASK));
     } else if (phase == 7 && finished) {
         assert(g_str_has_suffix(webkit_web_view_get_uri(view), "/second"));
-        gtk_button_clicked(GTK_BUTTON(history_button));
+        assert(gtk_accel_groups_activate(G_OBJECT(main_window),GDK_KEY_y,GDK_CONTROL_MASK));
         GList *windows = gtk_window_list_toplevels();
-        for (GList *it = windows; it; it = it->next) if (it->data != main_window) walk(it->data, NULL);
+        for (GList *it = windows; it; it = it->next) if (it->data != main_window) {
+            walk(it->data, NULL);
+            if(search && gtk_widget_get_toplevel(search)==it->data)
+                assert(gtk_accel_groups_activate(G_OBJECT(it->data),GDK_KEY_l,GDK_CONTROL_MASK));
+        }
         g_list_free(windows);
         assert(search && list);
         gtk_entry_set_text(GTK_ENTRY(search), "cookie"); phase = 8;
@@ -121,12 +128,15 @@ static gboolean tick(gpointer data) {
         phase = 9; finished = 0;
     } else if (phase == 9 && finished) {
         assert(g_str_has_suffix(webkit_web_view_get_uri(view), "/cookie"));
+        phase = 11; finished = 0;
+        assert(gtk_accel_groups_activate(G_OBJECT(main_window),GDK_KEY_r,GDK_CONTROL_MASK));
+    } else if (phase == 11 && finished) {
         phase = 10; finished = 0;
         webkit_web_view_load_uri(view, "http://127.0.0.1:18765/unreachable");
     } else if (phase == 10 && finished && !webkit_web_view_is_loading(view)) {
         assert(status && strcmp(gtk_label_get_text(GTK_LABEL(status)), "Ready") != 0);
         puts("PASS: rendering, cookies, HTTP auth, popup opener/close, back/forward, history search/open, failed navigation");
-        gtk_main_quit(); return G_SOURCE_REMOVE;
+        assert(gtk_accel_groups_activate(G_OBJECT(main_window),GDK_KEY_q,GDK_CONTROL_MASK)); return G_SOURCE_REMOVE;
     }
     return G_SOURCE_CONTINUE;
 }
@@ -135,7 +145,21 @@ void __wrap_gtk_main(void) {
     assert(windows);
     main_window = windows->data;
     walk(main_window, NULL); g_list_free(windows);
-    assert(view && history_button);
+    assert(view && history_button && location_entry);
+    gtk_widget_grab_focus(GTK_WIDGET(view));
+    assert(!gtk_accel_groups_activate(G_OBJECT(main_window),GDK_KEY_l,0));
+    assert(!gtk_accel_groups_activate(G_OBJECT(main_window),GDK_KEY_l,GDK_SUPER_MASK));
+    assert(!gtk_accel_groups_activate(G_OBJECT(main_window),GDK_KEY_l,GDK_CONTROL_MASK|GDK_SHIFT_MASK));
+    assert(!gtk_accel_groups_activate(G_OBJECT(main_window),GDK_KEY_l,GDK_CONTROL_MASK|GDK_MOD1_MASK));
+    assert(gtk_accel_groups_activate(G_OBJECT(main_window),GDK_KEY_l,GDK_CONTROL_MASK));
+    assert(gtk_window_get_focus(GTK_WINDOW(main_window))==location_entry);
+    int start,end;
+    assert(gtk_editable_get_selection_bounds(GTK_EDITABLE(location_entry),&start,&end));
+    assert(start==0 && end==(int)g_utf8_strlen(gtk_entry_get_text(GTK_ENTRY(location_entry)),-1));
+    gtk_editable_select_region(GTK_EDITABLE(location_entry),0,0);
+    assert(gtk_bindings_activate(G_OBJECT(location_entry),GDK_KEY_a,GDK_CONTROL_MASK));
+    assert(gtk_editable_get_selection_bounds(GTK_EDITABLE(location_entry),&start,&end) && start==0);
+    puts("PASS: native Control accelerators, modifier matching, address focus/select-all, and GTK editing binding");
     g_signal_connect(view, "load-changed", G_CALLBACK(changed), NULL);
     g_signal_connect(view, "authenticate", G_CALLBACK(auth), NULL);
     g_timeout_add(100, tick, NULL);

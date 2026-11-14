@@ -77,7 +77,7 @@ jobs:
       - uses: actions/upload-artifact@v6
         with:
           name: flatpak-downloads
-          path: build/dist/Oogabooga-linux-x86_64.flatpak
+          path: build/dist/*.flatpak
           if-no-files-found: error
           retention-days: 14
 
@@ -96,7 +96,12 @@ jobs:
           merge-multiple: true
       - name: Checksum all downloads
         working-directory: dist
-        run: sha256sum *.app.zip *.dmg *.flatpak *.tar.gz > SHA256SUMS
+        run: |
+          version=$(../tools/version.sh)
+          sha256sum "Oogabooga-${version}-macos-arm64.app.zip" \
+            "Oogabooga-${version}-macos-arm64.dmg" \
+            "Oogabooga-${version}-linux-x86_64.flatpak" \
+            "Oogabooga-${version}-linux-x86_64.tar.gz" > "SHA256SUMS-${version}.txt"
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -113,14 +118,14 @@ jobs:
           Oogabooga ${version}, built from commit ${COMMIT}.
 
           Linux x86-64: install the Flatpak bundle with:
-          \`flatpak install --user ./Oogabooga-linux-x86_64.flatpak\`
+          \`flatpak install --user ./Oogabooga-${version}-linux-x86_64.flatpak\`
           Then run \`flatpak run dev.oogabooga.Browser\`.
           A native archive for Ubuntu 24.04+ with GTK 3 / WebKitGTK 4.1 is also included.
 
           Apple silicon macOS 12+: open the DMG and drag Oogabooga into Applications, or extract the app ZIP.
           macOS builds are ad-hoc signed, not Developer ID signed or notarized; Gatekeeper may block downloaded builds.
 
-          SHA-256 checksums are included in SHA256SUMS. Flatpak bundles are published here, not on Flathub.
+          SHA-256 checksums are included in SHA256SUMS-${version}.txt. Flatpak bundles are published here, not on Flathub.
           EOF_NOTES
           gh release create "$tag" dist/* \
             --target "$COMMIT" \
@@ -129,7 +134,9 @@ jobs:
             --latest
           {
             echo '### Downloads'
-            echo "- [Linux Flatpak](https://github.com/${GH_REPO}/releases/download/${tag}/Oogabooga-linux-x86_64.flatpak)"
-            echo "- [macOS DMG](https://github.com/${GH_REPO}/releases/download/${tag}/Oogabooga-macos-arm64.dmg)"
+            echo "- [Linux Flatpak](https://github.com/${GH_REPO}/releases/download/${tag}/Oogabooga-${version}-linux-x86_64.flatpak)"
+            echo "- [macOS DMG](https://github.com/${GH_REPO}/releases/download/${tag}/Oogabooga-${version}-macos-arm64.dmg)"
+            echo "- [macOS app ZIP](https://github.com/${GH_REPO}/releases/download/${tag}/Oogabooga-${version}-macos-arm64.app.zip)"
+            echo "- [Linux archive](https://github.com/${GH_REPO}/releases/download/${tag}/Oogabooga-${version}-linux-x86_64.tar.gz)"
             echo "- [All assets](https://github.com/${GH_REPO}/releases/tag/${tag})"
           } >> "$GITHUB_STEP_SUMMARY"

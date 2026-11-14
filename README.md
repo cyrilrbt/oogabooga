@@ -6,30 +6,32 @@ A small native browser for Apple silicon macOS 12+ and x86-64 Linux, inspired by
 
 Pushes to `main` run the Browser downloads workflow: test both native builds, build a Linux Flatpak, and publish one GitHub Release with all downloads and SHA-256 checksums. A release is published only after all three build jobs pass. You can also run it manually from Actions on `main`. Each release points to the exact built commit.
 
-- [Download latest Linux Flatpak](https://github.com/cyrilrbt/oogabooga/releases/latest/download/Oogabooga-linux-x86_64.flatpak)
-- [Download latest Linux native archive](https://github.com/cyrilrbt/oogabooga/releases/latest/download/Oogabooga-linux-x86_64.tar.gz)
-- [Download latest macOS DMG](https://github.com/cyrilrbt/oogabooga/releases/latest/download/Oogabooga-macos-arm64.dmg)
-- [Download latest app ZIP](https://github.com/cyrilrbt/oogabooga/releases/latest/download/Oogabooga-macos-arm64.app.zip)
-- [All releases](https://github.com/cyrilrbt/oogabooga/releases)
+[Download the latest release](https://github.com/cyrilrbt/oogabooga/releases/latest) and choose the versioned asset for your platform:
 
-These links become available after the first successful workflow run. For macOS, open the DMG and drag Oogabooga into Applications. macOS builds target Apple silicon macOS 12+. They are ad-hoc signed, not Developer ID signed or notarized, so Gatekeeper may block downloaded copies. Public distribution without that warning requires Apple signing credentials and notarization.
+- `Oogabooga-VERSION-linux-x86_64.flatpak`
+- `Oogabooga-VERSION-linux-x86_64.tar.gz`
+- `Oogabooga-VERSION-macos-arm64.dmg`
+- `Oogabooga-VERSION-macos-arm64.app.zip`
+- `SHA256SUMS-VERSION.txt`
+
+Downloads become available after a successful workflow run. For macOS, open the DMG and drag Oogabooga into Applications. macOS builds target Apple silicon macOS 12+. They are ad-hoc signed, not Developer ID signed or notarized, so Gatekeeper may block downloaded copies. Public distribution without that warning requires Apple signing credentials and notarization.
 
 To package locally after building, run `./tools/package-mac.sh`; files appear in `build/dist/`. GitHub Actions also retains downloads as workflow artifacts for 14 days. The workflow uses its built-in token with release write permission; no additional secrets are required. Repository or organization policies must allow Actions to create releases.
 
 Install the Linux Flatpak with:
 
 ```sh
-flatpak install --user ./Oogabooga-linux-x86_64.flatpak
+flatpak install --user ./Oogabooga-VERSION-linux-x86_64.flatpak
 flatpak run dev.oogabooga.Browser
 ```
 
-Install Flatpak through your distribution first. The bundle references the GNOME 50 runtime on Flathub and installs the runtime as needed; this does not publish Oogabooga to Flathub. Bundles are downloaded from GitHub and installed manually. The app has network, display, GPU, and audio access, with no blanket access to your home directory. Its profile lives under `~/.var/app/dev.oogabooga.Browser/`. The optional native archive requires Ubuntu 24.04+ or a compatible x86-64 distribution with GTK 3, WebKitGTK 4.1, SQLite, and a sufficiently recent glibc.
+Replace `VERSION` with the version in the downloaded filename. Install Flatpak through your distribution first. The bundle references the GNOME 50 runtime on Flathub and installs the runtime as needed; this does not publish Oogabooga to Flathub. Bundles are downloaded from GitHub and installed manually. The app has network, display, GPU, and audio access, with no blanket access to your home directory. Its profile lives under `~/.var/app/dev.oogabooga.Browser/`. The optional native archive requires Ubuntu 24.04+ or a compatible x86-64 distribution with GTK 3, WebKitGTK 4.1, SQLite, and a sufficiently recent glibc.
 
 ## Versioning
 
 `VERSION` is the single source of truth for the app version. Change only that file when bumping a stable SemVer release (`MAJOR.MINOR.PATCH`). Update [CHANGELOG.md](CHANGELOG.md) in the same change, documenting additions, behavior changes, and fixes under the matching version and date.
 
-Builds generate macOS bundle versions and Flatpak release metadata from this file; AppStream release dates use the UTC build date. Generated metadata lives in `build/metadata/`, and the files in `assets/` are templates. Linux packages also include the `VERSION` file. GitHub release titles include the version, and each push gets a unique tag such as `v0.2.0+build.RUN_ID.ATTEMPT`; download filenames stay fixed for the latest-download links.
+Builds generate macOS bundle versions and Flatpak release metadata from this file; AppStream release dates use the UTC build date. Generated metadata lives in `build/metadata/`, and the files in `assets/` are templates. Linux packages also include the `VERSION` file. GitHub release titles include the version, and each push gets a unique tag such as `v0.2.0+build.RUN_ID.ATTEMPT`; download filenames include the stable version from `VERSION`. The latest-release page always points to the newest successful build.
 
 ## Build and run
 
@@ -52,7 +54,7 @@ To build a Flatpak locally, install `flatpak` and `flatpak-builder`, then:
 ```sh
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 flatpak-builder --user --install-deps-from=flathub --force-clean --repo=flatpak-repo flatpak-build flatpak/dev.oogabooga.Browser.json
-flatpak build-bundle flatpak-repo build/Oogabooga-linux-x86_64.flatpak dev.oogabooga.Browser --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
+flatpak build-bundle flatpak-repo Oogabooga-$(./tools/version.sh)-linux-x86_64.flatpak dev.oogabooga.Browser --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
 ```
 
 The GitHub Flatpak job uses `tools/build-flatpak.sh` inside the preloaded GNOME 50 build image. It deliberately uses the installed SDK/runtime without `--install-deps-from`, avoiding OSTree updates on the container overlay filesystem. Refresh the container image to obtain newer SDK/runtime builds.
@@ -83,7 +85,20 @@ build/Oogabooga.app/Contents/MacOS/oogabooga https://github.com
 - SQLite visit history with titles and timestamps, searchable from the History window; double-click a result to open it. Shows the latest 1,000 matching visits.
 - JavaScript alert, confirm, and prompt dialogs; normal copy/paste shortcuts.
 
-Shortcuts: ⌘L address, ⌘R reload/stop, ⌘[ back, ⌘] forward, ⌘Y history, ⌘Q quit. Linux uses Ctrl for the same shortcuts. Linux uses the standard WebKitGTK HTTP authentication and JavaScript dialogs.
+Use **⌘ (Command) on macOS** and **Ctrl on Linux** for the same shortcuts:
+
+| Action | macOS | Linux |
+| --- | --- | --- |
+| Address/search bar | ⌘L | Ctrl+L |
+| Reload/stop | ⌘R | Ctrl+R |
+| Back / forward | ⌘[ / ⌘] | Ctrl+[ / Ctrl+] |
+| History | ⌘Y | Ctrl+Y |
+| Quit | ⌘Q | Ctrl+Q |
+| Cut / copy / paste | ⌘X / ⌘C / ⌘V | Ctrl+X / Ctrl+C / Ctrl+V |
+| Select all | ⌘A | Ctrl+A |
+| Undo / redo | ⌘Z / ⇧⌘Z | Ctrl+Z / Ctrl+Shift+Z |
+
+Editing commands act on the focused field/page and depend on that widget's editing support. Browser commands also work from history and popup windows; Open Location brings the main address bar forward. The experimental engine toggle is macOS-only (⌘E). Linux uses the standard WebKitGTK HTTP authentication and JavaScript dialogs.
 
 ## Experimental assembly renderer (macOS)
 

@@ -122,9 +122,7 @@ browser_main:
     mov rdi, [rip + window]
     xor ecx, ecx
     connect sig_destroy, quit
-    mov rdi, [rip + window]
-    xor ecx, ecx
-    connect sig_key, key_pressed
+    call setup_shortcuts
     mov edi, 1                       # GTK_ORIENTATION_VERTICAL
     mov esi, 8
     call gtk_box_new@PLT
@@ -634,6 +632,9 @@ create_popup:
     call gtk_window_new@PLT
     mov r12, rax
     mov rdi, rax
+    mov rsi, [rip + shortcuts]
+    call gtk_window_add_accel_group@PLT
+    mov rdi, r12
     mov esi, 760
     mov edx, 720
     call gtk_window_set_default_size@PLT
@@ -658,59 +659,55 @@ popup_close:
     mov rdi, rsi
     jmp gtk_widget_destroy@PLT
 
-# Keyboard shortcuts, using GDK accessor functions rather than event struct offsets.
-key_pressed:
+# Platform primary modifier is Control on Linux. GtkAccelGroup performs native
+# modifier/layout matching before focused widgets consume browser commands.
+setup_shortcuts:
     enter
-    mov rbx, rsi
-    mov rdi, rsi
-    lea rsi, [rbp - 24]
-    call gdk_event_get_state@PLT
-    test DWORD PTR [rbp - 24], 4     # GDK_CONTROL_MASK
-    jz .Lkey_default
-    mov rdi, rbx
-    lea rsi, [rbp - 28]
-    call gdk_event_get_keyval@PLT
-    mov edi, [rbp - 28]
-    call gdk_keyval_to_lower@PLT
-    cmp eax, 108                      # l
-    je .Lfocus
-    cmp eax, 114                      # r
-    je .Lkey_reload
-    cmp eax, 121                      # y
-    je .Lkey_history
-    cmp eax, 113                      # q
-    je .Lkey_quit
-    cmp eax, 91
-    je .Lkey_back
-    cmp eax, 93
-    je .Lkey_forward
-.Lkey_default:
-    xor eax, eax
+    call gtk_accel_group_new@PLT
+    mov [rip + shortcuts], rax
+    mov r12, rax
+    mov rdi, [rip + window]
+    mov rsi, r12
+    call gtk_window_add_accel_group@PLT
+    lea rbx, [rip + shortcut_table]
+.Lshortcut_next:
+    cmp QWORD PTR [rbx], 0
+    je .Lshortcut_done
+    lea rdi, [rip + shortcut_activated]
+    mov rsi, [rbx + 8]
+    xor edx, edx
+    call g_cclosure_new@PLT
+    mov r8, rax
+    mov rdi, r12
+    mov esi, DWORD PTR [rbx]
+    mov edx, 4                       # GDK_CONTROL_MASK
+    mov ecx, 1                       # GTK_ACCEL_VISIBLE
+    call gtk_accel_group_connect@PLT
+    add rbx, 16
+    jmp .Lshortcut_next
+.Lshortcut_done:
+    # Windows retain the group; this global is borrowed while they exist.
+    mov rdi, r12
+    call g_object_unref@PLT
     leave
-.Lfocus:
+
+# gboolean(accel_group, window, keyval, modifiers, callback in user_data).
+shortcut_activated:
+    enter
+    call r8
+    mov eax, 1
+    leave
+
+focus_address:
+    enter
+    mov rdi, [rip + window]
+    call gtk_window_present@PLT
     mov rdi, [rip + address]
     call gtk_widget_grab_focus@PLT
     mov rdi, [rip + address]
     xor esi, esi
     mov edx, -1
     call gtk_editable_select_region@PLT
-    jmp .Lkey_handled
-.Lkey_reload:
-    call reload_clicked
-    jmp .Lkey_handled
-.Lkey_history:
-    call show_history
-    jmp .Lkey_handled
-.Lkey_quit:
-    call gtk_main_quit@PLT
-    jmp .Lkey_handled
-.Lkey_back:
-    call back_clicked
-    jmp .Lkey_handled
-.Lkey_forward:
-    call forward_clicked
-.Lkey_handled:
-    mov eax, 1
     leave
 
 # Searchable history in GTK; all query, binding, and list construction is assembly.
@@ -722,6 +719,9 @@ show_history:
     call gtk_window_new@PLT
     mov [rip + history_window], rax
     mov rdi, rax
+    mov rsi, [rip + shortcuts]
+    call gtk_window_add_accel_group@PLT
+    mov rdi, [rip + history_window]
     lea rsi, [rip + history_title]
     call gtk_window_set_title@PLT
     mov rdi, [rip + history_window]
@@ -921,7 +921,6 @@ row_format: .asciz "%s\n%s   •   %s"
 history_sql: .asciz "SELECT title,url,datetime(visited_at,'unixepoch','localtime') FROM visits WHERE instr(lower(url),lower(?1)) OR instr(lower(title),lower(?1)) ORDER BY visited_at DESC,id DESC LIMIT 1000"
 title_sql: .asciz "UPDATE visits SET title=?1 WHERE id=?2"
 sig_destroy: .asciz "destroy"
-sig_key: .asciz "key-press-event"
 sig_clicked: .asciz "clicked"
 sig_activate: .asciz "activate"
 sig_load: .asciz "load-changed"
@@ -934,8 +933,19 @@ sig_ready: .asciz "ready-to-show"
 sig_close: .asciz "close"
 sig_search: .asciz "search-changed"
 sig_row: .asciz "row-activated"
+.section .data.rel.ro
+.p2align 3
+shortcut_table:
+.quad 108, focus_address             # Ctrl+L
+.quad 114, reload_clicked            # Ctrl+R
+.quad 121, show_history              # Ctrl+Y
+.quad 113, quit                      # Ctrl+Q
+.quad 91, back_clicked               # Ctrl+[
+.quad 93, forward_clicked            # Ctrl+]
+.quad 0, 0
 .section .bss
 .p2align 3
+shortcuts: .zero 8
 window: .zero 8
 web: .zero 8
 address: .zero 8

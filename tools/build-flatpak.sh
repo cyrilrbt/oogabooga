@@ -2,6 +2,7 @@
 # CI's GNOME image already contains the SDK/runtime. Do not update its layered OSTree install.
 set -eu
 cd "$(dirname "$0")/.."
+version=$(./tools/version.sh)
 mkdir -p build/dist
 flatpak-builder \
     --arch=x86_64 \
@@ -13,5 +14,5 @@ flatpak-builder \
 flatpak build-bundle \
     --arch=x86_64 \
     --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \
-    build/flatpak-repo build/dist/Oogabooga-linux-x86_64.flatpak \
+    build/flatpak-repo "build/dist/Oogabooga-${version}-linux-x86_64.flatpak" \
     dev.oogabooga.Browser stable

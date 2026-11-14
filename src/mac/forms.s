@@ -9,6 +9,7 @@ _mac_controls_reset:
     ENTER
     LOAD x9, _engine_reflowing
     cbnz x9, Lcontrols_removed_keep
+    bl _mac_undo_clear
     LOAD x0, _engine_controls
     MSG release
     CLASS NSMutableDictionary
