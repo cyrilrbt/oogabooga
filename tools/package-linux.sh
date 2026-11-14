@@ -9,4 +9,5 @@ trap 'find "$stage" -depth -delete' EXIT
 mkdir -p "$stage/Oogabooga-linux-x86_64"
 install -m755 build/linux/oogabooga "$stage/Oogabooga-linux-x86_64/oogabooga"
 install -m644 VERSION README.md CHANGELOG.md LICENSE assets/oogabooga.desktop "$stage/Oogabooga-linux-x86_64/"
+install -m644 assets/oogabooga-512.png "$stage/Oogabooga-linux-x86_64/oogabooga.png"
 tar -C "$stage" -czf "build/dist/Oogabooga-${version}-linux-x86_64.tar.gz" Oogabooga-linux-x86_64

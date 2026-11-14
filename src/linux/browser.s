@@ -41,6 +41,7 @@ browser_main:
     call gtk_init_check@PLT
     test eax, eax
     jz .Lno_display
+    call setup_icon
     call g_get_user_data_dir@PLT
     mov rdi, rax
     lea rsi, [rip + app_dir]
@@ -224,6 +225,45 @@ browser_main:
     mov eax, 1
     leave
 .size browser_main,.-browser_main
+
+# Native archives/development builds carry the supplied PNG beside the binary.
+# Flatpak finds the same artwork by its installed desktop icon name instead.
+setup_icon:
+    enter
+    lea rdi, [rip + icon_name]
+    call gtk_window_set_default_icon_name@PLT
+    lea rdi, [rip + executable_link]
+    xor esi, esi
+    call g_file_read_link@PLT
+    test rax, rax
+    jz .Licon_done
+    mov rbx, rax
+    mov rdi, rax
+    call g_path_get_dirname@PLT
+    mov r12, rax
+    mov rdi, rbx
+    call g_free@PLT
+    mov rdi, r12
+    lea rsi, [rip + icon_file]
+    xor edx, edx
+    xor eax, eax
+    call g_build_filename@PLT
+    mov rbx, rax
+    mov rdi, r12
+    call g_free@PLT
+    mov rdi, rbx
+    mov esi, 1                      # G_FILE_TEST_IS_REGULAR
+    call g_file_test@PLT
+    test eax, eax
+    jz .Licon_free
+    mov rdi, rbx
+    xor esi, esi
+    call gtk_window_set_default_icon_from_file@PLT
+.Licon_free:
+    mov rdi, rbx
+    call g_free@PLT
+.Licon_done:
+    leave
 
 # GtkButton *toolbar_button(label, callback)
 toolbar_button:
@@ -886,6 +926,9 @@ open_history:
 
 .section .rodata
 app_dir: .asciz "oogabooga"
+icon_name: .asciz "dev.oogabooga.Browser"
+icon_file: .asciz "oogabooga.png"
+executable_link: .asciz "/proc/self/exe"
 app_title: .asciz "Oogabooga"
 history_file: .asciz "history.sqlite3"
 cookie_file: .asciz "cookies.sqlite3"

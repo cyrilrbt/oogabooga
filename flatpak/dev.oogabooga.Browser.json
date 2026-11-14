@@ -24,8 +24,7 @@
         "install -Dm644 LICENSE /app/share/licenses/oogabooga/LICENSE",
         "install -Dm644 CHANGELOG.md /app/share/doc/oogabooga/CHANGELOG.md",
         "install -Dm644 assets/oogabooga.desktop /app/share/applications/dev.oogabooga.Browser.desktop",
-        "sed -i 's/^Icon=.*/Icon=dev.oogabooga.Browser/' /app/share/applications/dev.oogabooga.Browser.desktop",
-        "install -Dm644 assets/oogabooga.svg /app/share/icons/hicolor/scalable/apps/dev.oogabooga.Browser.svg",
+        "install -Dm644 assets/oogabooga-512.png /app/share/icons/hicolor/512x512/apps/dev.oogabooga.Browser.png",
         "install -Dm644 build/metadata/dev.oogabooga.Browser.metainfo.xml /app/share/metainfo/dev.oogabooga.Browser.metainfo.xml"
       ],
       "sources": [

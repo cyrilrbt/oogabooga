@@ -4,6 +4,22 @@ Record user-visible changes here whenever `VERSION` changes. Keep the newest
 version first, use the same SemVer as `VERSION`, and distinguish added features,
 behavior changes, and fixes. Historical entries summarize the repository history.
 
+## 0.7.5 — 2026-11-14
+
+### Fixed
+
+- Trim excess transparent padding around the project logo and regenerate macOS,
+  Linux, and Flatpak icons so the artwork fills more of the available space.
+
+## 0.7.4 — 2026-11-14
+
+### Changed
+
+- Adopt the supplied artwork as the project logo, macOS application icon, Linux
+  window/desktop icon, and Flatpak icon, preserving its colors and transparency.
+- Include the native Linux icon in release archives and generate macOS icon sizes
+  from the original PNG during macOS builds.
+
 ## 0.7.3 — 2026-11-14
 
 ### Fixed

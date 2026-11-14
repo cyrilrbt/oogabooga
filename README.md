@@ -1,5 +1,7 @@
 # oogabooga
 
+<img src="assets/oogabooga.png" alt="Oogabooga logo" width="160">
+
 A small native browser for Apple silicon macOS 12+ and x86-64 Linux, inspired by rhun's direct assembly-and-link build. Both applications are entirely vibecoded assembly: ARM64 on macOS and x86-64 on Linux. They call native UI/WebKit and SQLite libraries directly. No Electron or npm.
 
 ## Download
@@ -45,7 +47,7 @@ sudo apt-get install build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-d
 ./build/linux/oogabooga https://github.com
 ```
 
-`./build.sh test` runs the same assembly SQLite tests as macOS. `./tools/package-linux.sh` makes the native archive. Linux currently targets x86-64 only, using the System V ABI. Run in an X11 or Wayland desktop session.
+`./build.sh test` runs the same assembly SQLite tests as macOS. `./tools/package-linux.sh` makes the native archive. Linux currently targets x86-64 only, using the System V ABI. Run in an X11 or Wayland desktop session. The native archive includes `oogabooga.png`; keep it beside the executable for the window icon. To use the supplied desktop launcher, also install that PNG as `~/.local/share/icons/hicolor/512x512/apps/dev.oogabooga.Browser.png` and put the executable on your PATH.
 
 To run browser integration tests, install `xvfb xauth dbus-x11 python3`, run `./build.sh test`, then `./tools/test-linux.sh`. The harness checks real WebKit rendering, cookie persistence across process restart, HTTP authentication, popup opener/close behavior, navigation, history search/reopening, and failed-load history exclusion. Its small C harness is test-only; no C application code is linked into the shipped Linux executable. It requires a working WebKit process sandbox and uses an isolated temporary profile and localhost fixture.
 

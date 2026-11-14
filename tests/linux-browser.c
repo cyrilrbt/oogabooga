@@ -146,6 +146,9 @@ void __wrap_gtk_main(void) {
     main_window = windows->data;
     walk(main_window, NULL); g_list_free(windows);
     assert(view && history_button && location_entry);
+    GList *icons=gtk_window_get_default_icon_list(); assert(icons);
+    assert(gdk_pixbuf_get_width(icons->data)==512 && gdk_pixbuf_get_height(icons->data)==512);
+    g_list_free(icons);
     gtk_widget_grab_focus(GTK_WIDGET(view));
     assert(!gtk_accel_groups_activate(G_OBJECT(main_window),GDK_KEY_l,0));
     assert(!gtk_accel_groups_activate(G_OBJECT(main_window),GDK_KEY_l,GDK_SUPER_MASK));

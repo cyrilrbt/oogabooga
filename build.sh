@@ -21,6 +21,7 @@ mv -f build/Oogabooga.app/Contents/MacOS/oogabooga.new build/Oogabooga.app/Conte
 ./tools/generate-metadata.sh
 cp build/metadata/Info.plist build/Oogabooga.app/Contents/Info.plist
 cp LICENSE CHANGELOG.md build/Oogabooga.app/Contents/Resources/
+./tools/build-mac-icon.sh
 codesign --force --sign - build/Oogabooga.app
 if [ "$mode" = test ]; then
     xcrun clang $flags -Wall -Wextra -Werror tests/history.c build/obj/core.o -lsqlite3 -o build/history-test

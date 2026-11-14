@@ -8,6 +8,7 @@ cc=${CC:-cc}
 pkg-config --exists gtk+-3.0 webkit2gtk-4.1 sqlite3 || { echo 'Install GTK 3, WebKitGTK 4.1, and SQLite development packages.' >&2; exit 1; }
 ./tools/generate-metadata.sh
 mkdir -p build/linux/obj
+install -m644 assets/oogabooga-512.png build/linux/oogabooga.png
 flags='-g'
 [ "$mode" != release ] || flags=''
 "$cc" $flags -c src/linux/core.s -o build/linux/obj/core.o
