@@ -91,6 +91,12 @@ method_table:
 .quad _sel_shouldQuit, _mac_should_quit, encoding_25
 .quad _sel_willTerminate, _mac_terminate, encoding_26
 .quad _sel_observeValue, _mac_title_changed, encoding_27
+.quad _sel_engineToggle, _mac_engine_toggle, engine_encoding_0
+.quad _sel_engineLink, _mac_engine_link, engine_encoding_1
+.quad _sel_engineResponse, _mac_engine_response, engine_encoding_2
+.quad _sel_engineData, _mac_engine_data, engine_encoding_3
+.quad _sel_engineComplete, _mac_engine_complete, engine_encoding_4
+.quad _sel_engineRedirect, _mac_engine_redirect, engine_encoding_5
 .quad 0, 0, 0
 protocol_table:
 .quad protocol_0
@@ -98,6 +104,9 @@ protocol_table:
 .quad protocol_2
 .quad protocol_3
 .quad protocol_4
+.quad engine_protocol_0
+.quad engine_protocol_1
+.quad engine_protocol_2
 .quad 0
 .section __TEXT,__cstring,cstring_literals
 browser_class: .asciz "OogaboogaBrowser"
@@ -679,6 +688,175 @@ _sel_paste: .quad method_paste
 _sel_selectAll: .quad method_selectAll
 .globl _sel_terminate
 _sel_terminate: .quad method_terminate
+
+.section __TEXT,__cstring,cstring_literals
+engine_method_engineToggle: .asciz "toggleAssemblyEngine:"
+engine_method_engineLink: .asciz "textView:clickedOnLink:atIndex:"
+engine_method_engineResponse: .asciz "URLSession:dataTask:didReceiveResponse:completionHandler:"
+engine_method_engineData: .asciz "URLSession:dataTask:didReceiveData:"
+engine_method_engineComplete: .asciz "URLSession:task:didCompleteWithError:"
+engine_method_engineRedirect: .asciz "URLSession:task:willPerformHTTPRedirection:newRequest:completionHandler:"
+engine_method_setState: .asciz "setState:"
+engine_method_setHidden: .asciz "setHidden:"
+engine_method_setEditable: .asciz "setEditable:"
+engine_method_setSelectable: .asciz "setSelectable:"
+engine_method_setRichText: .asciz "setRichText:"
+engine_method_setAutomaticLinks: .asciz "setAutomaticLinkDetectionEnabled:"
+engine_method_setImportsGraphics: .asciz "setImportsGraphics:"
+engine_method_setHorizontallyResizable: .asciz "setHorizontallyResizable:"
+engine_method_setVerticallyResizable: .asciz "setVerticallyResizable:"
+engine_method_setMinSize: .asciz "setMinSize:"
+engine_method_setMaxSize: .asciz "setMaxSize:"
+engine_method_setTextInset: .asciz "setTextContainerInset:"
+engine_method_ephemeralConfiguration: .asciz "ephemeralSessionConfiguration"
+engine_method_mainQueue: .asciz "mainQueue"
+engine_method_sessionWithConfiguration: .asciz "sessionWithConfiguration:delegate:delegateQueue:"
+engine_method_dataTask: .asciz "dataTaskWithRequest:"
+engine_method_resume: .asciz "resume"
+engine_method_cancel: .asciz "cancel"
+engine_method_expectedLength: .asciz "expectedContentLength"
+engine_method_statusCode: .asciz "statusCode"
+engine_method_MIMEType: .asciz "MIMEType"
+engine_method_appendData: .asciz "appendData:"
+engine_method_initDataEncoding: .asciz "initWithData:encoding:"
+engine_method_bytes: .asciz "bytes"
+engine_method_removeLastObject: .asciz "removeLastObject"
+engine_method_initBytesEncoding: .asciz "initWithBytes:length:encoding:"
+engine_method_initString: .asciz "initWithString:"
+engine_method_monospacedFont: .asciz "monospacedSystemFontOfSize:weight:"
+engine_method_addAttribute: .asciz "addAttribute:value:range:"
+engine_method_textColor: .asciz "textColor"
+engine_method_relativeURL: .asciz "URLWithString:relativeToURL:"
+engine_method_absoluteURL: .asciz "absoluteURL"
+engine_method_textStorage: .asciz "textStorage"
+engine_method_setAttributedString: .asciz "setAttributedString:"
+engine_method_setFrameSize: .asciz "setFrameSize:"
+engine_method_scrollRange: .asciz "scrollRangeToVisible:"
+engine_encoding_0: .asciz "v@:@"
+engine_encoding_1: .asciz "B@:@@Q"
+engine_encoding_2: .asciz "v@:@@@@?"
+engine_encoding_3: .asciz "v@:@@@"
+engine_encoding_4: .asciz "v@:@@@"
+engine_encoding_5: .asciz "v@:@@@@@?"
+engine_protocol_0: .asciz "NSTextViewDelegate"
+engine_protocol_1: .asciz "NSURLSessionDataDelegate"
+engine_protocol_2: .asciz "NSURLSessionTaskDelegate"
+.globl _class_NSTextView
+_class_NSTextView: .asciz "NSTextView"
+.globl _class_NSMutableData
+_class_NSMutableData: .asciz "NSMutableData"
+.globl _class_NSMutableAttributedString
+_class_NSMutableAttributedString: .asciz "NSMutableAttributedString"
+.globl _class_NSOperationQueue
+_class_NSOperationQueue: .asciz "NSOperationQueue"
+.globl _class_NSURLSession
+_class_NSURLSession: .asciz "NSURLSession"
+.globl _class_NSURLSessionConfiguration
+_class_NSURLSessionConfiguration: .asciz "NSURLSessionConfiguration"
+
+.section __DATA,__data
+.p2align 3
+.globl _sel_engineToggle
+_sel_engineToggle: .quad engine_method_engineToggle
+.globl _sel_engineLink
+_sel_engineLink: .quad engine_method_engineLink
+.globl _sel_engineResponse
+_sel_engineResponse: .quad engine_method_engineResponse
+.globl _sel_engineData
+_sel_engineData: .quad engine_method_engineData
+.globl _sel_engineComplete
+_sel_engineComplete: .quad engine_method_engineComplete
+.globl _sel_engineRedirect
+_sel_engineRedirect: .quad engine_method_engineRedirect
+.globl _sel_setState
+_sel_setState: .quad engine_method_setState
+.globl _sel_setHidden
+_sel_setHidden: .quad engine_method_setHidden
+.globl _sel_setEditable
+_sel_setEditable: .quad engine_method_setEditable
+.globl _sel_setSelectable
+_sel_setSelectable: .quad engine_method_setSelectable
+.globl _sel_setRichText
+_sel_setRichText: .quad engine_method_setRichText
+.globl _sel_setAutomaticLinks
+_sel_setAutomaticLinks: .quad engine_method_setAutomaticLinks
+.globl _sel_setImportsGraphics
+_sel_setImportsGraphics: .quad engine_method_setImportsGraphics
+.globl _sel_setHorizontallyResizable
+_sel_setHorizontallyResizable: .quad engine_method_setHorizontallyResizable
+.globl _sel_setVerticallyResizable
+_sel_setVerticallyResizable: .quad engine_method_setVerticallyResizable
+.globl _sel_setMinSize
+_sel_setMinSize: .quad engine_method_setMinSize
+.globl _sel_setMaxSize
+_sel_setMaxSize: .quad engine_method_setMaxSize
+.globl _sel_setTextInset
+_sel_setTextInset: .quad engine_method_setTextInset
+.globl _sel_ephemeralConfiguration
+_sel_ephemeralConfiguration: .quad engine_method_ephemeralConfiguration
+.globl _sel_mainQueue
+_sel_mainQueue: .quad engine_method_mainQueue
+.globl _sel_sessionWithConfiguration
+_sel_sessionWithConfiguration: .quad engine_method_sessionWithConfiguration
+.globl _sel_dataTask
+_sel_dataTask: .quad engine_method_dataTask
+.globl _sel_resume
+_sel_resume: .quad engine_method_resume
+.globl _sel_cancel
+_sel_cancel: .quad engine_method_cancel
+.globl _sel_expectedLength
+_sel_expectedLength: .quad engine_method_expectedLength
+.globl _sel_statusCode
+_sel_statusCode: .quad engine_method_statusCode
+.globl _sel_MIMEType
+_sel_MIMEType: .quad engine_method_MIMEType
+.globl _sel_appendData
+_sel_appendData: .quad engine_method_appendData
+.globl _sel_initDataEncoding
+_sel_initDataEncoding: .quad engine_method_initDataEncoding
+.globl _sel_bytes
+_sel_bytes: .quad engine_method_bytes
+.globl _sel_removeLastObject
+_sel_removeLastObject: .quad engine_method_removeLastObject
+.globl _sel_initBytesEncoding
+_sel_initBytesEncoding: .quad engine_method_initBytesEncoding
+.globl _sel_initString
+_sel_initString: .quad engine_method_initString
+.globl _sel_monospacedFont
+_sel_monospacedFont: .quad engine_method_monospacedFont
+.globl _sel_addAttribute
+_sel_addAttribute: .quad engine_method_addAttribute
+.globl _sel_textColor
+_sel_textColor: .quad engine_method_textColor
+.globl _sel_relativeURL
+_sel_relativeURL: .quad engine_method_relativeURL
+.globl _sel_absoluteURL
+_sel_absoluteURL: .quad engine_method_absoluteURL
+.globl _sel_textStorage
+_sel_textStorage: .quad engine_method_textStorage
+.globl _sel_setAttributedString
+_sel_setAttributedString: .quad engine_method_setAttributedString
+.globl _sel_setFrameSize
+_sel_setFrameSize: .quad engine_method_setFrameSize
+.globl _sel_scrollRange
+_sel_scrollRange: .quad engine_method_scrollRange
+
+.section __TEXT,__cstring,cstring_literals
+engine_method_setHorizontalScroller: .asciz "setHasHorizontalScroller:"
+.section __DATA,__data
+.p2align 3
+.globl _sel_setHorizontalScroller
+_sel_setHorizontalScroller: .quad engine_method_setHorizontalScroller
+.section __TEXT,__cstring,cstring_literals
+charset_method_textEncodingName: .asciz "textEncodingName"
+charset_method_dataUsingEncoding: .asciz "dataUsingEncoding:"
+
+.section __DATA,__data
+.p2align 3
+.globl _sel_textEncodingName
+_sel_textEncodingName: .quad charset_method_textEncodingName
+.globl _sel_dataUsingEncoding
+_sel_dataUsingEncoding: .quad charset_method_dataUsingEncoding
 
 selector_end:
 selectors_ready: .quad 0

@@ -85,10 +85,29 @@ build/Oogabooga.app/Contents/MacOS/oogabooga https://github.com
 
 Shortcuts: ⌘L address, ⌘R reload/stop, ⌘[ back, ⌘] forward, ⌘Y history, ⌘Q quit. Linux uses Ctrl for the same shortcuts. Linux uses the standard WebKitGTK HTTP authentication and JavaScript dialogs.
 
+## Experimental assembly renderer (macOS)
+
+Choose **Navigate → Use Assembly Engine (Experimental)** or press **⌘E** to switch the current page between the assembly renderer and WebKit. WebKit remains the default. To start in assembly mode:
+
+```sh
+OOGABOOGA_ENGINE=asm build/Oogabooga.app/Contents/MacOS/oogabooga http://localhost:8765/engine/
+```
+
+The ARM64 engine tokenizes static HTML into a bounded flow tree, decodes named/numeric entities, collapses whitespace, and wraps text at 90 Unicode scalar columns. It supports paragraphs, headings, lists, preformatted text, titles, and relative HTTP(S) links. Native AppKit text services supply glyph shaping, drawing, text selection, link hit testing, and scrolling; WebKit is not used to parse or render this mode. Back/forward/reload and SQLite history work in both modes, with independent in-window navigation stacks.
+
+This first engine is macOS-only. Linux continues to use WebKitGTK. It does **not** implement HTML5 tree-construction rules, CSS, JavaScript, images, forms, anchors, or modern login flows. Comments and script/style bodies are excluded. Layout is a simple fixed-column text flow, not pixel-accurate browser layout; combining/wide characters may differ from the column estimate. Unsupported pages can be opened in WebKit with ⌘E.
+
+Fetching uses `NSURLSession` with normal system TLS validation and an independent ephemeral cookie jar; it does not share WebKit logins or persist experimental-engine cookies across app restarts. Successful HTML responses are decoded using their HTTP charset header and normalized to UTF-8 before parsing. Foundation supplies the codecs; HTML Latin-1/ASCII labels use Windows-1252. Missing charset headers currently default to UTF-8; HTML meta-charset sniffing is not implemented. Unknown encodings or invalid byte sequences are rejected. Limits: 1 MiB for both the response and normalized UTF-8, 4,096 tree nodes, 64 open elements, 1,024 title bytes, and 2,048 bytes per link target. Late callbacks from canceled requests are ignored, and failed/unsupported responses are not recorded as visits.
+
+`python3 tests/server.py` serves `/engine/` for manual rendering checks, `/engine/second` for link navigation, and `/engine/redirect` for redirects. `./build.sh test` includes guarded-buffer/truncated-input parser tests, a malformed-byte corpus, Unicode layout/range assertions, and in-process native-view/HTTP-transport tests. The renderer integration test uses a WebKit stand-in to verify that rendering works without a WebKit instance.
+
 ## Assembly and architecture
 
 Rhun builds native assembly and links system libraries. Both Oogabooga applications use that approach. No compiler-generated Objective-C bridge is linked into the shipped macOS app.
 
+- `src/engine/`: handwritten ARM64 HTML tokenizer, entity/attribute scanner, flow tree, line wrapping, and UTF-16 range mapping.
+- `src/mac/charset.s`: HTTP charset selection and UTF-8 normalization through platform codecs.
+- `src/mac/engine.s`: native text presentation, asynchronous HTTP/TLS integration, experimental-engine navigation, and engine switching.
 - `src/mac/browser.s`: ARM64 AppKit window/controls, native WebKit delegates, navigation, popup ownership, and title observation.
 - `src/mac/url.s`: ARM64 address/search handling, using Foundation for Unicode and URL construction.
 - `src/mac/history.s`: ARM64 history search integration and native table rendering.
@@ -101,7 +120,7 @@ Rhun builds native assembly and links system libraries. Both Oogabooga applicati
 
 C and Objective-C sources under `tests/` are assertion harnesses only. They are not linked into either shipped application. On macOS, `OOGABOOGA_PROFILE=/path/to/profile` selects an alternate SQLite history directory for isolated testing; WebKit website data still follows the app's bundle identity.
 
-The rendering engine is the OS WebKit installation, or the maintained GNOME runtime WebKitGTK in Flatpak. Assembly does not make HTML, JavaScript, TLS, or web compatibility inexpensive to reimplement; reusing the maintained system engine keeps the application small. WebKit helper processes still consume memory separately from the executable.
+The default rendering engine is the OS WebKit installation, or the maintained GNOME runtime WebKitGTK in Flatpak. The experimental macOS static renderer is described above. Assembly does not make HTML, JavaScript, TLS, or web compatibility inexpensive to reimplement; reusing the maintained system engine keeps the application small. WebKit helper processes still consume memory separately from the executable.
 
 ## Storage
 

@@ -29,8 +29,8 @@
     ldr \reg, [\reg, \label@PAGEOFF]
 .endm
 .macro STORE reg, label
-    adrp x9, \label@PAGE
-    str \reg, [x9, \label@PAGEOFF]
+    adrp x16, \label@PAGE
+    str \reg, [x16, \label@PAGEOFF]
 .endm
 .macro SELECT reg, name
     LOAD \reg, _sel_\name

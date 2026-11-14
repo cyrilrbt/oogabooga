@@ -224,6 +224,16 @@ Llaunch_initial:
     mov x2, x0
     LOAD x0, _mac_address
     MSG setStringValue
+    ADDR x0, engine_environment
+    bl _getenv
+    cbz x0, Llaunch_webkit
+    ADDR x1, engine_name
+    bl _strcmp
+    cbnz w0, Llaunch_webkit
+    mov x2, #0
+    bl _mac_engine_toggle
+    LEAVE
+Llaunch_webkit:
     bl _mac_navigate
     LEAVE
 Llaunch_error:
@@ -288,6 +298,10 @@ _mac_focus:
     LEAVE
 .globl _mac_navigate
 _mac_navigate:
+    LOAD x9, _mac_engine_enabled
+    cbz x9, _mac_navigate_webkit_action
+    b _mac_engine_navigate
+_mac_navigate_webkit_action:
     ENTER
     LOAD x0, _mac_address
     MSG stringValue
@@ -307,18 +321,30 @@ Lnavigate_invalid:
     LEAVE
 .globl _mac_back_clicked
 _mac_back_clicked:
+    LOAD x9, _mac_engine_enabled
+    cbz x9, _mac_back_clicked_webkit_action
+    b _mac_engine_back
+_mac_back_clicked_webkit_action:
     ENTER
     LOAD x0, _mac_web
     MSG goBackNative
     LEAVE
 .globl _mac_forward_clicked
 _mac_forward_clicked:
+    LOAD x9, _mac_engine_enabled
+    cbz x9, _mac_forward_clicked_webkit_action
+    b _mac_engine_forward
+_mac_forward_clicked_webkit_action:
     ENTER
     LOAD x0, _mac_web
     MSG goForwardNative
     LEAVE
 .globl _mac_reload
 _mac_reload:
+    LOAD x9, _mac_engine_enabled
+    cbz x9, _mac_reload_webkit_action
+    b _mac_engine_reload
+_mac_reload_webkit_action:
     ENTER
     LOAD x0, _mac_web
     MSG isLoading
@@ -331,6 +357,7 @@ Lreload_load:
     MSG reloadNative
     LEAVE
 
+.globl _mac_status_text
 _mac_status_text:
     ENTER
     mov x2, x0
@@ -362,6 +389,13 @@ _mac_setup_web:
 
 // Title-only changes must not replace text the person is typing in the address bar.
 _mac_sync_title:
+    LOAD x9, _mac_engine_enabled
+    cbz x9, _mac_sync_title_webkit
+    LOAD x9, _mac_web
+    cmp x0, x9
+    b.ne _mac_sync_title_webkit
+    ret
+_mac_sync_title_webkit:
     ENTER
     mov x19, x0
     MSG title
@@ -386,6 +420,13 @@ Lsync_title:
 // Navigation events synchronize the address bar and back/forward controls as well.
 .globl _mac_sync
 _mac_sync:
+    LOAD x9, _mac_engine_enabled
+    cbz x9, _mac_sync_webkit
+    LOAD x9, _mac_web
+    cmp x0, x9
+    b.ne _mac_sync_webkit
+    ret
+_mac_sync_webkit:
     ENTER
     mov x19, x0
     bl _mac_sync_title
@@ -415,6 +456,13 @@ Lsync_done:
 
 .globl _mac_load_started
 _mac_load_started:
+    LOAD x9, _mac_engine_enabled
+    cbz x9, _mac_load_started_webkit
+    LOAD x9, _mac_web
+    cmp x2, x9
+    b.ne _mac_load_started_webkit
+    ret
+_mac_load_started_webkit:
     ENTER
     mov x19, x2
     mov x0, x19
@@ -435,6 +483,13 @@ _mac_load_committed:
     b _mac_sync
 .globl _mac_load_finished
 _mac_load_finished:
+    LOAD x9, _mac_engine_enabled
+    cbz x9, _mac_load_finished_webkit
+    LOAD x9, _mac_web
+    cmp x2, x9
+    b.ne _mac_load_finished_webkit
+    ret
+_mac_load_finished_webkit:
     ENTER
     mov x19, x2
     mov x0, x19
@@ -509,6 +564,13 @@ Ltitle_done:
 
 .globl _mac_load_failed
 _mac_load_failed:
+    LOAD x9, _mac_engine_enabled
+    cbz x9, _mac_load_failed_webkit
+    LOAD x9, _mac_web
+    cmp x2, x9
+    b.ne _mac_load_failed_webkit
+    ret
+_mac_load_failed_webkit:
     ENTER
     LOAD x9, _mac_web
     cmp x2, x9
@@ -525,6 +587,13 @@ Lfailure_done:
     LEAVE
 .globl _mac_process_stopped
 _mac_process_stopped:
+    LOAD x9, _mac_engine_enabled
+    cbz x9, _mac_process_stopped_webkit
+    LOAD x9, _mac_web
+    cmp x2, x9
+    b.ne _mac_process_stopped_webkit
+    ret
+_mac_process_stopped_webkit:
     ENTER
     LOAD x9, _mac_web
     cmp x2, x9
@@ -669,6 +738,8 @@ _mac_terminate:
 
 .section __TEXT,__cstring,cstring_literals
 app_title: .asciz "Oogabooga"
+engine_environment: .asciz "OOGABOOGA_ENGINE"
+engine_name: .asciz "asm"
 profile_environment: .asciz "OOGABOOGA_PROFILE"
 profile_path: .asciz "Library/Application Support/Oogabooga"
 history_file: .asciz "history.sqlite3"
@@ -694,7 +765,7 @@ empty_text: .asciz ""
 .section __DATA,__bss
 .p2align 3
 .globl _mac_app, _mac_delegate, _mac_window, _mac_web, _mac_address, _mac_db
-.globl _mac_history_window, _mac_search, _mac_table, _mac_rows, _mac_popups
+.globl _mac_history_window, _mac_search, _mac_table, _mac_rows, _mac_popups, _mac_back, _mac_forward, _mac_status
 _mac_app: .space 8
 _mac_delegate: .space 8
 _mac_window: .space 8

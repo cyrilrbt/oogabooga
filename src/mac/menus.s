@@ -100,8 +100,11 @@ nav_items:
 .quad back_text, _sel_goBack, left_key, 1
 .quad forward_text, _sel_goForward, right_key, 1
 .quad history_text, _sel_showHistory, y_key, 1
+.quad engine_text, _sel_engineToggle, e_key, 1
 .quad 0, 0, 0, 0
 .section __TEXT,__cstring,cstring_literals
+engine_text: .asciz "Use Assembly Engine (Experimental)"
+e_key: .asciz "e"
 app_text: .asciz "Oogabooga"
 edit_text: .asciz "Edit"
 nav_text: .asciz "Navigate"
