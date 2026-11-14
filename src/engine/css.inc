@@ -1,9 +1,9 @@
-// CSS metadata: one 256-byte record per node. id*, classes*, inline*, tag*;
-// 14 computed values at +32; 14 cascade priorities at +144.
-// Rule: selector*, length, declaration mask, important mask, 14 values (144 bytes).
-.set CSS_META_SIZE, 256
-.set CSS_RULE_SIZE, 144
-.set CSS_PROPERTIES, 14
+// CSS metadata: one 512-byte record per node. id*, classes*, inline*, tag*;
+// 22 computed values at +32; 22 cascade priorities at +208; 13 owned attributes at +400.
+// Rule: selector*, length, declaration mask, important mask, 22 values (208 bytes).
+.set CSS_META_SIZE, 512
+.set CSS_RULE_SIZE, 208
+.set CSS_PROPERTIES, 22
 .set CSS_MAX_SOURCE, 65536
 .set CSS_MAX_RULES, 256
 .set CSS_COLOR, 0
@@ -25,3 +25,26 @@
 .set CSS_INHERIT, -2
 .set CSS_INITIAL, -3
 .set CSS_UNSET, -4
+
+.set CSS_WIDTH, 14
+.set CSS_HEIGHT, 15
+.set CSS_PAD_TOP, 16
+.set CSS_PAD_RIGHT, 17
+.set CSS_PAD_BOTTOM, 18
+.set CSS_PAD_LEFT, 19
+.set CSS_BORDER, 20
+.set CSS_BORDER_COLOR, 21
+// Owned decoded HTML attributes. These are independent of computed CSS.
+.set ATTR_SRC, 400
+.set ATTR_ACTION, 408
+.set ATTR_NAME, 416
+.set ATTR_VALUE, 424
+.set ATTR_TYPE, 432
+.set ATTR_ALT, 440
+.set ATTR_WIDTH, 448
+.set ATTR_HEIGHT, 456
+.set ATTR_METHOD, 464
+.set ATTR_REL, 472
+.set ATTR_DISABLED, 480
+.set ATTR_MEDIA, 488
+.set ATTR_LABEL, 496

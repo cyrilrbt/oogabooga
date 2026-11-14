@@ -93,6 +93,7 @@ method_table:
 .quad _sel_observeValue, _mac_title_changed, encoding_27
 .quad _sel_engineToggle, _mac_engine_toggle, engine_encoding_0
 .quad _sel_engineLink, _mac_engine_link, engine_encoding_1
+.quad _sel_engineSubmit, _mac_form_submit, encoding_0
 .quad _sel_engineResponse, _mac_engine_response, engine_encoding_2
 .quad _sel_engineData, _mac_engine_data, engine_encoding_3
 .quad _sel_engineComplete, _mac_engine_complete, engine_encoding_4
@@ -935,6 +936,186 @@ _sel_layoutManager: .quad css_method_layoutManager
 _sel_ensureTextLayout: .quad css_method_ensureTextLayout
 .globl _sel_usedTextRect
 _sel_usedTextRect: .quad css_method_usedTextRect
+
+
+.section __TEXT,__cstring,cstring_literals
+feature_method_resourceRequest: .asciz "requestWithURL:cachePolicy:timeoutInterval:"
+feature_method_initData: .asciz "initWithData:"
+feature_method_setSize: .asciz "setSize:"
+feature_method_setObjectKey: .asciz "setObject:forKey:"
+feature_method_objectKey: .asciz "objectForKey:"
+feature_method_hasPrefix: .asciz "hasPrefix:"
+.globl _class_NSImage
+_class_NSImage: .asciz "NSImage"
+
+.section __DATA,__data
+.p2align 3
+.globl _sel_resourceRequest
+_sel_resourceRequest: .quad feature_method_resourceRequest
+.globl _sel_initData
+_sel_initData: .quad feature_method_initData
+.globl _sel_setSize
+_sel_setSize: .quad feature_method_setSize
+.globl _sel_objectKey
+_sel_objectKey: .quad feature_method_objectKey
+
+
+.section __TEXT,__cstring,cstring_literals
+feature_method_blockWidth: .asciz "setContentWidth:type:"
+feature_method_blockValue: .asciz "setValue:type:forDimension:"
+feature_method_blockEdge: .asciz "setWidth:type:forLayer:edge:"
+feature_method_blockBorderColor: .asciz "setBorderColor:"
+feature_method_setTextBlocks: .asciz "setTextBlocks:"
+feature_method_insertObjectIndex: .asciz "insertObject:atIndex:"
+feature_method_attributeIndex: .asciz "attribute:atIndex:effectiveRange:"
+feature_method_mutableCopy: .asciz "mutableCopy"
+feature_method_size: .asciz "size"
+feature_method_setImage: .asciz "setImage:"
+feature_method_setBounds: .asciz "setBounds:"
+feature_method_initTextCell: .asciz "initTextCell:"
+feature_method_setAttachmentCell: .asciz "setAttachmentCell:"
+feature_method_setCellSize: .asciz "setCellSize:"
+feature_method_subviews: .asciz "subviews"
+feature_method_removeFromSuperview: .asciz "removeFromSuperview"
+feature_method_glyphRange: .asciz "glyphRangeForCharacterRange:actualCharacterRange:"
+feature_method_glyphRect: .asciz "boundingRectForGlyphRange:inTextContainer:"
+feature_method_setTag: .asciz "setTag:"
+feature_method_tag: .asciz "tag"
+feature_method_engineSubmit: .asciz "engineSubmit:"
+feature_method_queryItems: .asciz "queryItems"
+feature_method_componentsURL: .asciz "componentsWithURL:resolvingAgainstBaseURL:"
+feature_method_setQueryItems: .asciz "setQueryItems:"
+feature_method_queryItem: .asciz "queryItemWithName:value:"
+feature_method_setPlaceholder: .asciz "setPlaceholderString:"
+.globl _class_NSTextBlock
+_class_NSTextBlock: .asciz "NSTextBlock"
+.globl _class_NSTextAttachment
+_class_NSTextAttachment: .asciz "NSTextAttachment"
+.globl _class_NSTextAttachmentCell
+_class_NSTextAttachmentCell: .asciz "NSTextAttachmentCell"
+
+.section __DATA,__data
+.p2align 3
+.globl _sel_blockWidth
+_sel_blockWidth: .quad feature_method_blockWidth
+.globl _sel_blockValue
+_sel_blockValue: .quad feature_method_blockValue
+.globl _sel_blockEdge
+_sel_blockEdge: .quad feature_method_blockEdge
+.globl _sel_blockBorderColor
+_sel_blockBorderColor: .quad feature_method_blockBorderColor
+.globl _sel_setTextBlocks
+_sel_setTextBlocks: .quad feature_method_setTextBlocks
+.globl _sel_insertObjectIndex
+_sel_insertObjectIndex: .quad feature_method_insertObjectIndex
+.globl _sel_attributeIndex
+_sel_attributeIndex: .quad feature_method_attributeIndex
+.globl _sel_mutableCopy
+_sel_mutableCopy: .quad feature_method_mutableCopy
+.globl _sel_size
+_sel_size: .quad feature_method_size
+.globl _sel_setImage
+_sel_setImage: .quad feature_method_setImage
+.globl _sel_setBounds
+_sel_setBounds: .quad feature_method_setBounds
+.globl _sel_initTextCell
+_sel_initTextCell: .quad feature_method_initTextCell
+.globl _sel_setAttachmentCell
+_sel_setAttachmentCell: .quad feature_method_setAttachmentCell
+.globl _sel_setCellSize
+_sel_setCellSize: .quad feature_method_setCellSize
+.globl _sel_subviews
+_sel_subviews: .quad feature_method_subviews
+.globl _sel_removeFromSuperview
+_sel_removeFromSuperview: .quad feature_method_removeFromSuperview
+.globl _sel_glyphRange
+_sel_glyphRange: .quad feature_method_glyphRange
+.globl _sel_glyphRect
+_sel_glyphRect: .quad feature_method_glyphRect
+.globl _sel_setTag
+_sel_setTag: .quad feature_method_setTag
+.globl _sel_tag
+_sel_tag: .quad feature_method_tag
+.globl _sel_engineSubmit
+_sel_engineSubmit: .quad feature_method_engineSubmit
+.globl _sel_queryItems
+_sel_queryItems: .quad feature_method_queryItems
+.globl _sel_componentsURL
+_sel_componentsURL: .quad feature_method_componentsURL
+
+
+.section __TEXT,__cstring,cstring_literals
+feature_method_initSize: .asciz "initWithSize:"
+feature_method_setEncodedQuery: .asciz "setPercentEncodedQuery:"
+feature_method_formAppend: .asciz "appendString:"
+feature_method_setBordered: .asciz "setBordered:"
+
+.section __DATA,__data
+.p2align 3
+.globl _sel_initSize
+_sel_initSize: .quad feature_method_initSize
+.globl _sel_setEncodedQuery
+_sel_setEncodedQuery: .quad feature_method_setEncodedQuery
+.globl _sel_formAppend
+_sel_formAppend: .quad feature_method_formAppend
+.globl _sel_setBordered
+_sel_setBordered: .quad feature_method_setBordered
+
+
+.section __TEXT,__cstring,cstring_literals
+.globl _class_NSMutableString
+_class_NSMutableString: .asciz "NSMutableString"
+
+.section __DATA,__data
+.p2align 3
+
+
+.section __TEXT,__cstring,cstring_literals
+feature_method_tableColumns: .asciz "setNumberOfColumns:"
+feature_method_tableBlock: .asciz "initWithTable:startingRow:rowSpan:startingColumn:columnSpan:"
+.globl _class_NSTextTable
+_class_NSTextTable: .asciz "NSTextTable"
+.globl _class_NSTextTableBlock
+_class_NSTextTableBlock: .asciz "NSTextTableBlock"
+
+.section __DATA,__data
+.p2align 3
+.globl _sel_tableColumns
+_sel_tableColumns: .quad feature_method_tableColumns
+.globl _sel_tableBlock
+_sel_tableBlock: .quad feature_method_tableBlock
+
+
+.section __TEXT,__cstring,cstring_literals
+feature_method_appearanceNamed: .asciz "appearanceNamed:"
+feature_method_setAppearance: .asciz "setAppearance:"
+feature_method_lockFocus: .asciz "lockFocus"
+feature_method_unlockFocus: .asciz "unlockFocus"
+feature_method_drawTextPoint: .asciz "drawAtPoint:withAttributes:"
+feature_method_accessibilityChildren: .asciz "accessibilityChildren"
+feature_method_setAccessibilityChildren: .asciz "setAccessibilityChildren:"
+feature_method_setImageDescription: .asciz "setAccessibilityDescription:"
+.globl _class_NSAppearance
+_class_NSAppearance: .asciz "NSAppearance"
+
+.section __DATA,__data
+.p2align 3
+.globl _sel_appearanceNamed
+_sel_appearanceNamed: .quad feature_method_appearanceNamed
+.globl _sel_setAppearance
+_sel_setAppearance: .quad feature_method_setAppearance
+.globl _sel_lockFocus
+_sel_lockFocus: .quad feature_method_lockFocus
+.globl _sel_unlockFocus
+_sel_unlockFocus: .quad feature_method_unlockFocus
+.globl _sel_drawTextPoint
+_sel_drawTextPoint: .quad feature_method_drawTextPoint
+.globl _sel_accessibilityChildren
+_sel_accessibilityChildren: .quad feature_method_accessibilityChildren
+.globl _sel_setAccessibilityChildren
+_sel_setAccessibilityChildren: .quad feature_method_setAccessibilityChildren
+.globl _sel_setImageDescription
+_sel_setImageDescription: .quad feature_method_setImageDescription
 
 selector_end:
 selectors_ready: .quad 0

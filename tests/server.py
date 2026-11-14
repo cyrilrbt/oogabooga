@@ -3,9 +3,38 @@
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import base64
 import argparse
+from pathlib import Path
+from urllib.parse import urlsplit, parse_qs
+from html import escape
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        path = urlsplit(self.path).path
+        fixture_files = {
+            '/engine/features': ('fixtures/engine-features.html', 'text/html; charset=utf-8'),
+            '/engine/features.css': ('fixtures/engine-features.css', 'text/css; charset=utf-8'),
+            '/engine/image.png': ('engine-image.png', 'image/png'),
+        }
+        if path in fixture_files:
+            file, mime = fixture_files[path]
+            data = (Path(__file__).parent / file).read_bytes()
+            self.send_response(200)
+            self.send_header('Content-Type', mime)
+            self.send_header('Content-Length', str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+        if path == '/engine/missing.png':
+            self.send_error(404)
+            return
+        if path == '/engine/result':
+            query = parse_qs(urlsplit(self.path).query)
+            body = '<title>GET Result</title><h1>Form submitted</h1><p>' + escape(str(query)) + '</p><p><a href="features">Return to features</a></p>'
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(body.encode())
+            return
         if self.path == '/engine/redirect':
             self.send_response(302)
             self.send_header('Location', '/engine/')
@@ -48,7 +77,7 @@ class Handler(BaseHTTPRequestHandler):
                 <p class="center">Centered paragraphs with native glyph shaping.</p>
                 <p class="hidden">HIDDEN CONTENT MUST NOT RENDER 🌐</p>
                 <p><a href="/engine/second">Links still work after hidden Unicode content</a></p>
-                <p>This is a text-flow CSS subset. Linked sheets, flex/grid, positioning, borders, padding, and JavaScript are not implemented yet.</p>'''
+                <p>This is a text-flow CSS subset. Linked sheets, boxes, images, and GET forms are available in the <a href="/engine/features">features fixture</a>. Flex/grid, positioning, and JavaScript are not implemented.</p>'''
             if self.path.startswith('/engine/second'):
                 body = '<!doctype html><meta charset="utf-8"><title>Second Assembly Page</title><h1>Link navigation works</h1><p>This is the second page. Use Back to return.</p><p><a href="/engine/">Return to the fixture</a></p>'
             self.send_response(200)

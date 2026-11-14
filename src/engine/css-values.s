@@ -340,6 +340,13 @@ _css_value:
     cbnz w0, Lvalue_unset
     cmp x19, #CSS_BACKGROUND
     b.ls Lvalue_color
+    cmp x19, #CSS_BORDER_COLOR
+    b.eq Lvalue_color
+    cmp x19, #CSS_WIDTH
+    b.lo Lvalue_old_lengths
+    cmp x19, #CSS_BORDER
+    b.ls Lvalue_length
+Lvalue_old_lengths:
     cmp x19, #CSS_SIZE
     b.eq Lvalue_length
     cmp x19, #CSS_TOP
@@ -398,6 +405,19 @@ Lvalue_color:
     b.ne Lvalue_bad                 // transparent foreground not supported
     b Lvalue_good
 Lvalue_length:
+    mov x0, x20
+    mov x1, x21
+    ADDR x2, auto_text
+    bl _css_eq
+    cbz w0, Lvalue_length_normal
+    cmp x19, #CSS_WIDTH
+    b.eq Lvalue_auto
+    cmp x19, #CSS_HEIGHT
+    b.ne Lvalue_bad
+Lvalue_auto:
+    mov x0, #-1
+    b Lvalue_good
+Lvalue_length_normal:
     mov x0, x20
     mov x1, x21
     ADDR x2, normal_text
@@ -494,7 +514,7 @@ Lvalue_bad:
     mov x1, #0
     LEAVE
 
-// declarations(start,end,decl): mask, important-mask, 14 value slots. Caller zeroes it.
+// declarations(start,end,decl): mask, important-mask, 22 value slots. Caller zeroes it.
 .globl _css_declarations
 _css_declarations:
     ENTER
@@ -609,7 +629,9 @@ Ldecl_property_next:
     b Ldecl_property_next
 Ldecl_property_found:
     ldr x28, [x27, #8]
-    cmp x28, #14                    // margin shorthand
+    cmp x28, #100                    // margin shorthand
+    b.eq Ldecl_margin
+    cmp x28, #101
     b.eq Ldecl_margin
     mov x0, x28
     mov x1, x24
@@ -623,6 +645,7 @@ Ldecl_property_found:
     bl _css_store_decl
     b Ldecl_advance
 Ldecl_margin:
+    str x28, [sp, #176]
     // Parse up to four whitespace-delimited lengths, then expand T/R/B/L.
     mov x22, x24
     mov x23, #0
@@ -646,6 +669,10 @@ Lmargin_token_end:
     b Lmargin_token_end
 Lmargin_value:
     mov x0, #CSS_TOP
+    ldr x9, [sp, #176]
+    cmp x9, #101
+    mov x9, #CSS_PAD_TOP
+    csel x0, x9, x0, eq
     mov x1, x22
     mov x2, x24
     bl _css_value
@@ -674,21 +701,37 @@ Lmargin_expand:
 Lmargin_store:
     mov x0, x21
     mov x1, #CSS_TOP
+    ldr x9, [sp, #176]
+    cmp x9, #101
+    mov x9, #CSS_PAD_TOP
+    csel x1, x9, x1, eq
     mov x2, x26
     mov x3, x22
     bl _css_store_decl
     mov x0, x21
     mov x1, #CSS_RIGHT
+    ldr x9, [sp, #176]
+    cmp x9, #101
+    mov x9, #CSS_PAD_RIGHT
+    csel x1, x9, x1, eq
     mov x2, x26
     mov x3, x24
     bl _css_store_decl
     mov x0, x21
     mov x1, #CSS_BOTTOM
+    ldr x9, [sp, #176]
+    cmp x9, #101
+    mov x9, #CSS_PAD_BOTTOM
+    csel x1, x9, x1, eq
     mov x2, x26
     mov x3, x27
     bl _css_store_decl
     mov x0, x21
     mov x1, #CSS_LEFT
+    ldr x9, [sp, #176]
+    cmp x9, #101
+    mov x9, #CSS_PAD_LEFT
+    csel x1, x9, x1, eq
     mov x2, x26
     mov x3, x28
     bl _css_store_decl
@@ -739,7 +782,16 @@ property_table:
 .quad p_family, CSS_FAMILY
 .quad p_left, CSS_LEFT
 .quad p_right, CSS_RIGHT
-.quad p_margin, 14
+.quad p_margin, 100
+.quad p_width, CSS_WIDTH
+.quad p_height, CSS_HEIGHT
+.quad p_padding_top, CSS_PAD_TOP
+.quad p_padding_right, CSS_PAD_RIGHT
+.quad p_padding_bottom, CSS_PAD_BOTTOM
+.quad p_padding_left, CSS_PAD_LEFT
+.quad p_border_width, CSS_BORDER
+.quad p_border_color, CSS_BORDER_COLOR
+.quad p_padding, 101
 .quad 0, 0
 color_table:
 .quad c_black, 0x000000
@@ -868,3 +920,14 @@ f_serif: .asciz "serif"
 f_times: .asciz "times"
 f_times_new: .asciz "times new roman"
 f_georgia: .asciz "georgia"
+
+auto_text: .asciz "auto"
+p_width: .asciz "width"
+p_height: .asciz "height"
+p_padding_top: .asciz "padding-top"
+p_padding_right: .asciz "padding-right"
+p_padding_bottom: .asciz "padding-bottom"
+p_padding_left: .asciz "padding-left"
+p_border_width: .asciz "border-width"
+p_border_color: .asciz "border-color"
+p_padding: .asciz "padding"

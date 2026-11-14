@@ -21,14 +21,15 @@ Lengine_menu_done:
     LOAD x0, _mac_web
     MSG stopLoading
     bl _mac_engine_cancel
-    LOAD x0, engine_scroll
+    bl _mac_resources_reset
+    LOAD x0, _engine_scroll
     cbnz x0, Lengine_view_exists
     bl _mac_engine_create
 Lengine_view_exists:
     LOAD x0, _mac_web
     mov x2, x20
     MSG setHidden
-    LOAD x0, engine_scroll
+    LOAD x0, _engine_scroll
     eor x2, x20, #1
     MSG setHidden
     bl _mac_navigate
@@ -40,7 +41,7 @@ _mac_engine_create:
     MSG alloc
     RECT 0, 26, 1160, 700
     MSG initFrame
-    STORE x0, engine_scroll
+    STORE x0, _engine_scroll
     mov x19, x0
     mov x2, #18
     MSG setAutoresizing
@@ -54,7 +55,7 @@ _mac_engine_create:
     MSG alloc
     RECT 0, 0, 900, 700
     MSG initFrame
-    STORE x0, engine_text
+    STORE x0, _engine_text
     mov x20, x0
     mov x2, #0
     MSG setEditable
@@ -127,7 +128,7 @@ _mac_engine_create:
     mov x4, x20
     MSG sessionWithConfiguration
     MSG retain
-    STORE x0, engine_session
+    STORE x0, _engine_session
     LEAVE
 
 // Called by the ordinary address bar/history commands while this engine is active.
@@ -162,29 +163,30 @@ _mac_engine_request:
     ENTER
     mov x19, x0
     bl _mac_engine_cancel
-    LOAD x0, engine_charset
+    bl _mac_resources_reset
+    LOAD x0, _engine_charset
     MSG release
-    STORE xzr, engine_charset
-    LOAD x0, engine_pending_url
+    STORE xzr, _engine_charset
+    LOAD x0, _engine_pending_url
     MSG release
     mov x0, x19
     MSG retain
-    STORE x0, engine_pending_url
+    STORE x0, _engine_pending_url
     MSG absoluteString
     mov x2, x0
     LOAD x0, _mac_address
     MSG setStringValue
     CLASS NSMutableData
     MSG new
-    STORE x0, engine_data
+    STORE x0, _engine_data
     CLASS NSURLRequest
     mov x2, x19
     MSG requestWithURL
     mov x2, x0
-    LOAD x0, engine_session
+    LOAD x0, _engine_session
     MSG dataTask
     MSG retain
-    STORE x0, engine_task
+    STORE x0, _engine_task
     MSG resume
     STR loading_text
     bl _mac_status_text
@@ -193,15 +195,15 @@ _mac_engine_request:
 .globl _mac_engine_cancel
 _mac_engine_cancel:
     ENTER
-    LOAD x19, engine_task
-    STORE xzr, engine_task
+    LOAD x19, _engine_task
+    STORE xzr, _engine_task
     mov x0, x19
     MSG cancel
     mov x0, x19
     MSG release
-    LOAD x0, engine_data
+    LOAD x0, _engine_data
     MSG release
-    STORE xzr, engine_data
+    STORE xzr, _engine_data
     LEAVE
 
 .globl _mac_engine_back
@@ -235,14 +237,15 @@ Lengine_back_done:
 .globl _mac_engine_reload
 _mac_engine_reload:
     ENTER
-    LOAD x0, engine_task
+    LOAD x0, _engine_task
     cbz x0, Lengine_reload_page
     bl _mac_engine_cancel
+    bl _mac_resources_reset
     STR stopped_text
     bl _mac_status_text
     LEAVE
 Lengine_reload_page:
-    LOAD x0, engine_url
+    LOAD x0, _engine_url
     cbz x0, Lengine_reload_done
     mov x9, #1
     STORE x9, engine_traversal
@@ -258,9 +261,24 @@ _mac_engine_response:
     ENTER
     mov x19, x5
     mov x20, x4
-    LOAD x9, engine_task
+    LOAD x9, _engine_task
     cmp x3, x9
     b.ne Lresponse_cancel
+    LOAD x9, _engine_phase
+    cbz x9, Lresponse_document
+    mov x0, x20
+    bl _mac_resource_response
+    mov x21, x0
+    mov x0, x19
+    mov x1, x21
+    ldr x8, [x19, #16]
+    blr x8
+    cbnz x21, Lresponse_resource_done
+    mov x0, #1
+    bl _mac_resource_complete
+Lresponse_resource_done:
+    LEAVE
+Lresponse_document:
     mov x0, x20
     MSG expectedLength
     mov x9, #ENGINE_MAX_INPUT
@@ -290,18 +308,18 @@ Lresponse_mime:
     MSG equal
     cbz w0, Lresponse_type
 Lresponse_accept:
-    LOAD x0, engine_charset
+    LOAD x0, _engine_charset
     MSG release
     mov x0, x20
     MSG textEncodingName
     MSG retain
-    STORE x0, engine_charset
-    LOAD x0, engine_pending_url
+    STORE x0, _engine_charset
+    LOAD x0, _engine_pending_url
     MSG release
     mov x0, x20
     MSG URL
     MSG retain
-    STORE x0, engine_pending_url
+    STORE x0, _engine_pending_url
     mov x1, #1                       // NSURLSessionResponseAllow
     b Lresponse_complete
 Lresponse_large:
@@ -327,24 +345,35 @@ Lresponse_complete:
 .globl _mac_engine_data
 _mac_engine_data:
     ENTER
-    LOAD x9, engine_task
+    LOAD x9, _engine_task
     cmp x3, x9
     b.ne Ldata_done
     mov x19, x4
     mov x0, x19
     MSG length
     mov x20, x0
-    LOAD x0, engine_data
+    LOAD x0, _engine_data
     MSG length
     add x0, x0, x20
-    mov x9, #ENGINE_MAX_INPUT
-    cmp x0, x9
+    mov x21, x0
+    bl _mac_resource_limit
+    LOAD x9, _engine_phase
+    cbnz x9, Ldata_resource_limit
+    mov x1, #ENGINE_MAX_INPUT
+Ldata_resource_limit:
+    cmp x21, x1
     b.hi Ldata_large
-    LOAD x0, engine_data
+    LOAD x0, _engine_data
     mov x2, x19
     MSG appendData
     b Ldata_done
 Ldata_large:
+    LOAD x9, _engine_phase
+    cbz x9, Ldata_document_large
+    mov x0, #1
+    bl _mac_resource_complete
+    b Ldata_done
+Ldata_document_large:
     STR large_text
     bl _mac_status_text
     bl _mac_engine_cancel
@@ -357,7 +386,7 @@ _mac_engine_redirect:
     ENTER
     mov x19, x6
     mov x20, x5
-    LOAD x9, engine_task
+    LOAD x9, _engine_task
     cmp x3, x9
     b.ne Lredirect_cancel
     mov x0, x20
@@ -379,17 +408,23 @@ Lredirect_complete:
 .globl _mac_engine_complete
 _mac_engine_complete:
     ENTER
-    LOAD x9, engine_task
+    LOAD x9, _engine_task
     cmp x3, x9
     b.ne Lcomplete_done
+    LOAD x9, _engine_phase
+    cbz x9, Lcomplete_document
+    mov x0, x4
+    bl _mac_resource_complete
+    b Lcomplete_done
+Lcomplete_document:
     cbz x4, Lcomplete_parse
     mov x0, x4
     MSG localizedDescription
     bl _mac_status_text
     b Lcomplete_cleanup
 Lcomplete_parse:
-    LOAD x0, engine_data
-    LOAD x1, engine_charset
+    LOAD x0, _engine_data
+    LOAD x1, _engine_charset
     bl _mac_engine_decode
     cbz x0, Lcomplete_encoding
     mov x19, x0                      // owned normalized UTF-8 data
@@ -407,30 +442,8 @@ Lcomplete_parse:
     MSG release
     mov x0, x21
     cbz x0, Lcomplete_limit
-    mov x19, x0
-    LOAD x1, engine_pending_url
-    bl _mac_engine_display
-    cbz w0, Lcomplete_render_failed
-    LOAD x0, engine_document
-    bl _engine_document_free
-    STORE x19, engine_document
-    LOAD x0, engine_url
-    MSG release
-    LOAD x0, engine_pending_url
-    MSG retain
-    STORE x0, engine_url
-    bl _mac_engine_record
-    cbnz w0, Lcomplete_history_error
-    STR ready_text
-    bl _mac_status_text
-    b Lcomplete_cleanup
-Lcomplete_history_error:
-    STR history_error
-    bl _mac_status_text
-    b Lcomplete_cleanup
-Lcomplete_render_failed:
-    mov x0, x19
-    bl _engine_document_free
+    bl _mac_resources_begin
+    b Lcomplete_done
 Lcomplete_limit:
     STR parse_error
     bl _mac_status_text
@@ -447,6 +460,38 @@ Lcomplete_encoding:
 Lcomplete_cleanup:
     bl _mac_engine_cancel
 Lcomplete_done:
+    LEAVE
+
+ .globl _mac_engine_commit
+_mac_engine_commit:
+    ENTER
+    mov x19, x0
+    LOAD x1, _engine_pending_url
+    bl _mac_engine_display
+    cbz w0, Lcommit_failed
+    LOAD x0, _engine_document
+    bl _engine_document_free
+    STORE x19, _engine_document
+    LOAD x0, _engine_url
+    MSG release
+    LOAD x0, _engine_pending_url
+    MSG retain
+    STORE x0, _engine_url
+    bl _mac_engine_record
+    cbnz w0, Lcommit_history_error
+    STR ready_text
+    bl _mac_status_text
+    b Lcommit_done
+Lcommit_history_error:
+    STR history_error
+    bl _mac_status_text
+    b Lcommit_done
+Lcommit_failed:
+    mov x0, x19
+    bl _engine_document_free
+    STR parse_error
+    bl _mac_status_text
+Lcommit_done:
     LEAVE
 
 // Record final URL/title and maintain independent engine back/forward navigation.
@@ -466,7 +511,7 @@ Lrecord_trim_forward:
     b Lrecord_trim_forward
 Lrecord_append:
     LOAD x0, engine_history
-    LOAD x2, engine_url
+    LOAD x2, _engine_url
     MSG addObject
     STORE x19, engine_index
     b Lrecord_history
@@ -474,12 +519,12 @@ Lrecord_traverse:
     LOAD x9, engine_pending_index
     STORE x9, engine_index
 Lrecord_history:
-    LOAD x0, engine_url
+    LOAD x0, _engine_url
     MSG absoluteString
     mov x19, x0
     MSG UTF8String
     mov x20, x0
-    LOAD x9, engine_document
+    LOAD x9, _engine_document
     ldr x2, [x9, #32]
     LOAD x0, _mac_db
     mov x1, x20
@@ -488,13 +533,13 @@ Lrecord_history:
     LOAD x0, _mac_address
     mov x2, x19
     MSG setStringValue
-    LOAD x0, engine_document
+    LOAD x0, _engine_document
     ldr x0, [x0, #32]
     bl _mac_string
     mov x19, x0
     MSG length
     cbnz x0, Lrecord_title
-    LOAD x0, engine_url
+    LOAD x0, _engine_url
     MSG host
     mov x19, x0
 Lrecord_title:
@@ -537,7 +582,7 @@ _mac_engine_display:
     ENTER
     mov x19, x0
     mov x20, x1
-    mov x1, #90
+    mov x1, #0
     bl _engine_layout
     cbz x0, Ldisplay_fail
     mov x21, x0
@@ -557,8 +602,8 @@ _mac_engine_display:
     mov x0, x22
     MSG release
     mov x0, x19
-    LOAD x1, engine_text
-    LOAD x2, engine_scroll
+    LOAD x1, _engine_text
+    LOAD x2, _engine_scroll
     bl _mac_css_canvas
     ldr x26, [x19, #16]
     ldr x27, [x19, #24]
@@ -576,7 +621,7 @@ Ldisplay_node:
     ldr x9, [x19, #24]
     sub x9, x9, x27
     ldr x1, [x19, #72]
-    add x1, x1, x9, lsl #8
+    add x1, x1, x9, lsl #9
     ldr x4, [x26]
     mov x0, x23
     bl _mac_css_attributes
@@ -621,11 +666,19 @@ Ldisplay_node_next:
     sub x27, x27, #1
     b Ldisplay_node
 Ldisplay_install:
-    LOAD x0, engine_text
+    mov x0, x19
+    mov x1, x21
+    mov x2, x23
+    bl _mac_attachments
+    mov x0, x19
+    mov x1, x21
+    mov x2, x23
+    bl _mac_blocks
+    LOAD x0, _engine_text
     MSG textStorage
     mov x2, x23
     MSG setAttributedString
-    LOAD x0, engine_text
+    LOAD x0, _engine_text
     MSG textContainer
     mov x24, x0
     NUM d0, 860
@@ -634,7 +687,7 @@ Ldisplay_install:
     mov x0, x24
     mov x2, #0
     MSG setWidthTracksView
-    LOAD x0, engine_text
+    LOAD x0, _engine_text
     MSG layoutManager
     mov x25, x0
     mov x2, x24
@@ -645,12 +698,15 @@ Ldisplay_install:
     NUM d4, 60
     fadd d1, d3, d4
     NUM d0, 900
-    LOAD x0, engine_text
+    LOAD x0, _engine_text
     MSG setFrameSize
-    LOAD x0, engine_text
+    LOAD x0, _engine_text
     mov x2, #0
     mov x3, #0
     MSG scrollRange
+    mov x0, x19
+    mov x1, x21
+    bl _mac_controls_position
     mov x0, x23
     MSG release
     mov x0, x21
@@ -668,7 +724,7 @@ Ldisplay_fail:
 history_error: .asciz "Assembly engine: page loaded, but history could not be saved."
 invalid_text: .asciz "Enter an HTTP(S) address or search terms."
 loading_text: .asciz "Assembly engine (experimental): loading HTML…"
-ready_text: .asciz "Assembly engine — static HTML and basic CSS; JavaScript and forms are not supported. ⌘E switches back to WebKit."
+ready_text: .asciz "Assembly engine — static HTML, CSS, images and GET forms; JavaScript is not supported. ⌘E switches back to WebKit."
 stopped_text: .asciz "Assembly engine: loading stopped."
 large_text: .asciz "Assembly engine: this page exceeds the 1 MiB limit. Switch to WebKit with ⌘E."
 http_error: .asciz "Assembly engine: the server did not return a successful page. Try WebKit for login pages."
@@ -682,15 +738,24 @@ title_suffix: .asciz " — Assembly · Oogabooga"
 .p2align 3
 .globl _mac_engine_enabled
 _mac_engine_enabled: .space 8
-engine_scroll: .space 8
-engine_text: .space 8
-engine_session: .space 8
-engine_task: .space 8
-engine_data: .space 8
-engine_charset: .space 8
-engine_pending_url: .space 8
-engine_url: .space 8
-engine_document: .space 8
+.globl _engine_scroll
+_engine_scroll: .space 8
+.globl _engine_text
+_engine_text: .space 8
+.globl _engine_session
+_engine_session: .space 8
+.globl _engine_task
+_engine_task: .space 8
+.globl _engine_data
+_engine_data: .space 8
+.globl _engine_charset
+_engine_charset: .space 8
+.globl _engine_pending_url
+_engine_pending_url: .space 8
+.globl _engine_url
+_engine_url: .space 8
+.globl _engine_document
+_engine_document: .space 8
 engine_history: .space 8
 engine_index: .space 8
 engine_pending_index: .space 8

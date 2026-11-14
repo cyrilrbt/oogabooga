@@ -158,7 +158,7 @@ _css_compound:
     sub x9, x9, #1
     str x9, [x19, #88]
     ldr x23, [x19, #72]
-    add x23, x23, x1, lsl #8
+    add x23, x23, x1, lsl #9
     ldr x24, [x23, #24]
     cbz x24, Lcompound_no
     cmp x20, x21

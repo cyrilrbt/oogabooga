@@ -7,7 +7,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 typedef struct { uint64_t type,parent,start,end; char *href; } Node;
-typedef struct { char *id,*classes,*inline_style,*tag; int64_t value[14]; uint64_t priority[14]; } Meta;
+typedef struct { char *id,*classes,*inline_style,*tag; int64_t value[22]; uint64_t priority[22]; char reserved[16]; char *attrs[13]; char tail[8]; } Meta;
 typedef struct { char *text; uint64_t length; Node *nodes; uint64_t count; char *title; uint64_t capacity,title_length; char *css; uint64_t css_length; Meta *meta; unsigned char *hidden; uint64_t work; } Doc;
 typedef struct { char *text; uint64_t length,*map,lines; } Layout;
 extern Doc *engine_parse(const char *,size_t);
@@ -15,12 +15,13 @@ extern void engine_document_free(Doc *);
 extern Layout *engine_layout(Doc *,size_t);
 extern void engine_layout_free(Layout *);
 extern void css_declarations(const char *,const char *,void *);
+extern char *engine_form_encode(const char *);
 extern uint64_t css_match(Doc *,uint64_t,const char *,const char *);
 static Doc *parse(const char *s) { Doc *d=engine_parse(s,strlen(s)); assert(d); return d; }
 static size_t id(Doc *d,const char *name) { for(size_t i=0;i<d->count;i++) if(d->meta[i].id && strcmp(d->meta[i].id,name)==0) return i; abort(); }
 static uint64_t match(Doc *d,size_t i,const char *selector) { return css_match(d,i,selector,selector+strlen(selector)); }
 int main(void) {
-    _Static_assert(sizeof(Meta)==256,"CSS ABI");
+    _Static_assert(sizeof(Meta)==512,"CSS ABI");
     Doc *d=parse("<html><body class='page'><p id='target' class='note loud' style='color:purple; margin: 1px 2px 3px 4px'>Hello <span id=child>child</span></p><p id=other>Other</p><style>/* comment */p {color:red;font-size:20px} .note{color:blue} #target{color:green} body.page p.note {font-weight:700} #other{color:#abc} @media print {p{display:none}}</style></body></html>");
     size_t a=id(d,"target"),b=id(d,"other"),child=id(d,"child");
     assert(d->meta[a].value[0]==0x800080); // inline beats id/class/type
@@ -66,12 +67,16 @@ int main(void) {
     for(int i=0;i<128;i++) strcat(high_specificity,"#x");
     strcat(high_specificity,"{color:red}</style><p id=x style='color:blue'>x</p>");
     d=parse(high_specificity); assert(d->meta[id(d,"x")].value[0]==0x0000ff); engine_document_free(d);
+    d=parse("<div id=box style='width:320px;height:auto;padding:2px 3px 4px 5px;border-width:2px;border-color:blue'>x</div><input type=hidden name=token value=secret>");
+    s=&d->meta[id(d,"box")]; assert(s->value[14]==320 && s->value[15]==-1 && s->value[16]==2 && s->value[17]==3 && s->value[18]==4 && s->value[19]==5 && s->value[20]==2 && s->value[21]==255);
+    l=engine_layout(d,0); assert(l && !strstr(l->text,"￼")); engine_layout_free(l); engine_document_free(d);
     // Every declaration prefix ends at a protected boundary.
     size_t page=(size_t)sysconf(_SC_PAGESIZE);
     char *guard=mmap(NULL,page*2,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0); assert(guard!=MAP_FAILED); assert(!mprotect(guard+page,page,PROT_NONE));
     const char *css="/*c*/color:#abc!important; font-family:'Times New Roman',serif; margin:1.5em 0 2px 3px; broken:url('x;z}');font-size:120%";
-    for(size_t k=0;k<=strlen(css);k++) { char *p=guard+page-k; memcpy(p,css,k); uint64_t decl[16]={0}; css_declarations(p,p+k,decl); }
+    for(size_t k=0;k<=strlen(css);k++) { char *p=guard+page-k; memcpy(p,css,k); uint64_t decl[24]={0}; css_declarations(p,p+k,decl); }
     munmap(guard,page*2);
+    char *encoded=engine_form_encode("café +&=🌐"); assert(encoded && !strcmp(encoded,"caf%C3%A9+%2B%26%3D%F0%9F%8C%90")); free(encoded);
     // Malformed sheets, unsupported at-rules and declaration data must remain bounded.
     const char *bad[]={"<style>p{color:red", "<style>/*", "<style>@import url('x;y');p{color:blue}", "<style>@media screen{{\"}\"}}p{color:green}", "<style>p{background:url('x}');color:red}</style><p>x</p>"};
     for(size_t i=0;i<sizeof(bad)/sizeof(*bad);i++) { d=parse(bad[i]); engine_document_free(d); }

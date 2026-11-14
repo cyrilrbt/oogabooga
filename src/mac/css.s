@@ -138,6 +138,90 @@ Lattributes_underline:
     b.eq Lattributes_done
     cmp x23, #NODE_EM
     b.eq Lattributes_done
+    cmp x23, #NODE_INPUT
+    b.eq Lattributes_done
+    cmp x23, #NODE_IMG
+    b.eq Lattributes_done
+    cmp x23, #NODE_BUTTON
+    b.eq Lattributes_done
+    cmp x23, #NODE_LINK
+    b.eq Lattributes_done
+    cmp x23, #NODE_SHEET
+    b.eq Lattributes_done
+    mov x0, x20
+    bl _mac_css_paragraph
+    mov x24, x0
+    STYLE_ATTR _NSParagraphStyleAttributeName, x24
+    mov x0, x24
+    MSG release
+Lattributes_done:
+    LEAVE
+Lattributes_return:
+    ret
+
+// canvas(document, text_view, scroll_view) resets colors between styled/unstyled pages.
+.globl _mac_css_canvas
+_mac_css_canvas:
+    ENTER
+    mov x19, x1
+    mov x20, x2
+    mov x22, x0
+    ldr x9, [x0, #72]
+    ldr x0, [x9, #40]
+    bl _mac_css_color
+    cbnz x0, Lcanvas_color
+    CLASS NSColor
+    MSG textBackgroundColor
+Lcanvas_color:
+    mov x21, x0
+    mov x0, x19
+    mov x2, x21
+    MSG setBackgroundColor
+    mov x0, x20
+    mov x2, x21
+    MSG setBackgroundColor
+    mov x0, x20
+    mov x2, #1
+    MSG setDrawsBackground
+    ldr x9, [x22, #72]
+    ldr x9, [x9, #40]
+    tbnz x9, #63, Lcanvas_system_appearance
+    ubfx x10, x9, #16, #8
+    ubfx x11, x9, #8, #8
+    and x9, x9, #255
+    add x9, x9, x10
+    add x9, x9, x11
+    cmp x9, #384
+    b.lo Lcanvas_dark_appearance
+    STR light_appearance
+    b Lcanvas_named_appearance
+Lcanvas_dark_appearance:
+    STR dark_appearance
+Lcanvas_named_appearance:
+    mov x21, x0
+    CLASS NSAppearance
+    mov x2, x21
+    MSG appearanceNamed
+    b Lcanvas_appearance
+Lcanvas_system_appearance:
+    mov x0, #0
+Lcanvas_appearance:
+    mov x2, x0
+    mov x0, x19
+    MSG setAppearance
+    LEAVE
+.section __TEXT,__cstring,cstring_literals
+times_regular: .asciz "Times-Roman"
+times_bold: .asciz "Times-Bold"
+light_appearance: .asciz "NSAppearanceNameAqua"
+dark_appearance: .asciz "NSAppearanceNameDarkAqua"
+
+.text
+.p2align 2
+.globl _mac_css_paragraph
+_mac_css_paragraph:
+    ENTER
+    mov x20, x0
     CLASS NSMutableParagraphStyle
     MSG new
     mov x24, x0
@@ -173,46 +257,13 @@ Lparagraph_alignment:
     scvtf d0, x9
     MSG setTailIndent
     ldr w25, [x20, #112]            // low 32 bits are resolved line height
-    cbz x25, Lattributes_paragraph
+    cbz x25, Lparagraph_done
     mov x0, x24
     scvtf d0, x25
     MSG setMinimumLine
     mov x0, x24
-    scvtf d0, x25
+    fmov d0, xzr                    // attachments may enlarge the line box
     MSG setMaximumLine
-Lattributes_paragraph:
-    STYLE_ATTR _NSParagraphStyleAttributeName, x24
+Lparagraph_done:
     mov x0, x24
-    MSG release
-Lattributes_done:
     LEAVE
-Lattributes_return:
-    ret
-
-// canvas(document, text_view, scroll_view) resets colors between styled/unstyled pages.
-.globl _mac_css_canvas
-_mac_css_canvas:
-    ENTER
-    mov x19, x1
-    mov x20, x2
-    ldr x9, [x0, #72]
-    ldr x0, [x9, #40]
-    bl _mac_css_color
-    cbnz x0, Lcanvas_color
-    CLASS NSColor
-    MSG textBackgroundColor
-Lcanvas_color:
-    mov x21, x0
-    mov x0, x19
-    mov x2, x21
-    MSG setBackgroundColor
-    mov x0, x20
-    mov x2, x21
-    MSG setBackgroundColor
-    mov x0, x20
-    mov x2, #1
-    MSG setDrawsBackground
-    LEAVE
-.section __TEXT,__cstring,cstring_literals
-times_regular: .asciz "Times-Roman"
-times_bold: .asciz "Times-Bold"

@@ -79,7 +79,7 @@ _engine_parse:
     mov x4, #0
     bl _engine_node
     ldr x9, [x19, #72]
-    add x9, x9, #512
+    add x9, x9, #1024
     ADDR x10, tag_body
     str x10, [x9, #24]
     mov x24, #2
@@ -250,6 +250,14 @@ Lparse_tag_ready:
     cmp x22, #TAG_HR
     b.eq Lparse_br
     cbnz x27, Lparse_close
+    cmp x22, #NODE_LINK
+    b.eq Lparse_leaf
+    cmp x22, #NODE_INPUT
+    b.eq Lparse_leaf
+    cmp x22, #NODE_IMG
+    b.eq Lparse_leaf
+    cmp x22, #NODE_BUTTON
+    b.eq Lparse_leaf
     cmp x22, #NODE_A
     b.eq Lparse_open
     cmp x22, #NODE_SPAN
@@ -305,6 +313,64 @@ Lparse_check_pre:
     cmp x22, #NODE_PRE
     b.ne Lparse_next
     orr x26, x26, #1
+    b Lparse_next
+// Void resources/controls use one object-replacement character for native flow.
+Lparse_leaf:
+    mov x0, x19
+    mov x1, x22
+    mov x2, x24
+    ldr x3, [x19, #8]
+    mov x4, #0
+    bl _engine_node
+    tbnz x0, #63, Lparse_error
+    mov x23, x0
+    mov x1, x0
+    mov x0, x19
+    ldr x2, [sp, #160]
+    ldr x3, [sp, #176]
+    ldr x4, [sp, #184]
+    bl _engine_css_capture
+    cmp x22, #NODE_LINK
+    b.ne Lparse_object
+    ldr x0, [sp, #160]
+    ldr x1, [sp, #176]
+    bl _engine_href
+    ldr x9, [x19, #16]
+    mov x10, #40
+    madd x9, x23, x10, x9
+    str x0, [x9, #32]
+    b Lparse_next
+Lparse_object:
+    mov x0, x19
+    ADDR x1, object_character
+    mov x2, #3
+    mov x3, #0
+    bl _engine_append
+    ldr x9, [x19, #16]
+    mov x10, #40
+    madd x9, x23, x10, x9
+    ldr x10, [x19, #8]
+    str x10, [x9, #24]
+    cmp x22, #NODE_BUTTON
+    b.ne Lparse_next
+    mov x0, x20
+    mov x1, x21
+    str x20, [sp, #192]
+    ADDR x2, button_close
+    mov x3, #8
+    bl _engine_find_close
+    mov x20, x0
+    ldr x9, [x19, #72]
+    add x9, x9, x23, lsl #9
+    ldr x0, [x9, #ATTR_LABEL]
+    bl _free
+    ldr x0, [sp, #192]
+    mov x1, x20
+    bl _css_trim
+    bl _engine_decode_attribute
+    ldr x9, [x19, #72]
+    add x9, x9, x23, lsl #9
+    str x0, [x9, #ATTR_LABEL]
     b Lparse_next
 Lparse_close:
     // Unwind to a matching supported element, ignoring unmatched closing tags.
@@ -387,6 +453,21 @@ Lparse_skip:
     mov x1, x23
     sub x2, x20, x23
     bl _engine_css_source
+    // Preserve embedded/link source order for the asynchronous resource loader.
+    sub x1, x20, x23
+    mov x9, #CSS_MAX_SOURCE
+    cmp x1, x9
+    b.hi Lparse_next
+    mov x0, x23
+    bl _strndup
+    cbz x0, Lparse_error
+    mov x4, x0
+    mov x0, x19
+    mov x1, #NODE_SHEET
+    mov x2, x24
+    ldr x3, [x19, #8]
+    bl _engine_node
+    tbnz x0, #63, Lparse_error
     b Lparse_next
 Lparse_less_than:
     mov x0, x19
@@ -644,6 +725,11 @@ Lfind_found:
 .section __DATA,__const
 .p2align 3
 tag_table:
+.quad tag_link, 4, NODE_LINK
+.quad tag_input, 5, NODE_INPUT
+.quad tag_img, 3, NODE_IMG
+.quad tag_form, 4, NODE_FORM
+.quad tag_button, 6, NODE_BUTTON
 .quad tag_span, 4, NODE_SPAN
 .quad tag_body, 4, NODE_BODY
 .quad tag_html, 4, NODE_HTML
@@ -722,3 +808,11 @@ tag_header: .asciz "header"
 tag_footer: .asciz "footer"
 
 tag_nav: .asciz "nav"
+
+tag_link: .asciz "link"
+tag_input: .asciz "input"
+tag_img: .asciz "img"
+tag_form: .asciz "form"
+tag_button: .asciz "button"
+object_character: .asciz "￼"
+button_close: .asciz "</button"

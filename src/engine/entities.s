@@ -165,7 +165,7 @@ Lhref_name:
     mov x21, x19
 Lhref_name_scan:
     cmp x19, x20
-    b.hs Lhref_none
+    b.hs Lhref_name_done
     ldrb w9, [x19]
     cmp w9, #61
     b.eq Lhref_name_done
@@ -177,14 +177,17 @@ Lhref_name_done:
     sub x22, x19, x21
 Lhref_equal:
     cmp x19, x20
-    b.hs Lhref_none
+    b.hs Lhref_boolean
     ldrb w9, [x19], #1
     cmp w9, #32
     b.ls Lhref_equal
     cmp w9, #61
     b.eq Lhref_value_space
     sub x19, x19, #1
-    b Lhref_next
+Lhref_boolean:
+    mov x24, x19
+    mov x25, x19
+    b Lhref_test
 Lhref_value_space:
     cmp x19, x20
     b.hs Lhref_none
@@ -234,8 +237,8 @@ Lhref_test:
     mov x2, x22
     bl _strncasecmp
     cbnz w0, Lhref_next
+Lhref_allocate:
     sub x22, x25, x24
-    cbz x22, Lhref_none
     cmp x22, #2048
     b.hi Lhref_none
     add x0, x22, #1
@@ -294,3 +297,12 @@ entity_quot: .asciz "quot;"
 entity_apos: .asciz "apos;"
 entity_nbsp: .asciz "nbsp;"
 href_name: .asciz "href"
+
+.text
+.p2align 2
+.globl _engine_decode_attribute
+_engine_decode_attribute:
+    ENTER
+    mov x24, x0
+    mov x25, x1
+    b Lhref_allocate

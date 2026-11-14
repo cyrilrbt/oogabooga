@@ -11,10 +11,15 @@ _engine_layout:
     mov x19, x0
     mov x26, x1
     cbz x0, Llayout_nil
+    cbz x1, Llayout_native
     cmp x1, #8
     b.lo Llayout_nil
     cmp x1, #240
     b.hi Llayout_nil
+Llayout_native:
+    cbnz x26, Llayout_allocate
+    mov x26, #ENGINE_MAX_INPUT
+Llayout_allocate:
     mov x0, #1
     mov x1, #32
     bl _calloc

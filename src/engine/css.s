@@ -8,7 +8,7 @@
 _engine_css_capture:
     ENTER
     ldr x19, [x0, #72]
-    add x19, x19, x1, lsl #8
+    add x19, x19, x1, lsl #9
     str x4, [x19, #24]              // borrowed canonical tag name
     mov x20, x2
     mov x21, x3
@@ -34,6 +34,22 @@ _engine_css_capture:
     ADDR x2, style_name
     bl _engine_attribute
     str x0, [x19, #16]
+    mov x22, #0
+    ADDR x23, html_attributes
+Lcapture_extra:
+    ldr x2, [x23, x22, lsl #3]
+    cbz x2, Lcapture_done
+    add x24, x19, #400
+    ldr x0, [x24, x22, lsl #3]
+    bl _free
+    mov x0, x20
+    mov x1, x21
+    ldr x2, [x23, x22, lsl #3]
+    bl _engine_attribute
+    str x0, [x24, x22, lsl #3]
+    add x22, x22, #1
+    b Lcapture_extra
+Lcapture_done:
     LEAVE
 
 // Append a complete embedded block if it fits; oversized blocks are ignored whole.
@@ -79,6 +95,14 @@ Lcss_free_meta:
     bl _free
     ldr x0, [x20, #16]
     bl _free
+    mov x22, #0
+Lfree_extra:
+    add x9, x20, #400
+    ldr x0, [x9, x22, lsl #3]
+    bl _free
+    add x22, x22, #1
+    cmp x22, #13
+    b.lo Lfree_extra
     add x20, x20, #CSS_META_SIZE
     sub x21, x21, #1
     b Lcss_free_meta
@@ -256,7 +280,7 @@ Lcascade_property:
     b.eq Lcascade_compare
     orr x7, x7, #0x1000000000000
 Lcascade_compare:
-    add x8, x0, #144
+    add x8, x0, #208
     ldr x9, [x8, x3, lsl #3]
     cmp x7, x9
     b.lo Lcascade_next
@@ -284,6 +308,8 @@ _css_length:
     udiv x0, x0, x8
     b Llength_line_factor
 Llength_raw:
+    cmn x0, #1
+    b.eq Llength_return
     tbz x0, #63, Llength_return
     and x6, x0, #0xffffffff
     lsr x7, x0, #32
@@ -326,6 +352,10 @@ Llength_clamp:
     ret
 Llength_spacing:
     mov x8, #200
+    cmp x1, #CSS_WIDTH
+    b.lo Llength_spacing_clamp
+    mov x8, #4096
+Llength_spacing_clamp:
     cmp x0, x8
     csel x0, x8, x0, hi
     ret
@@ -345,8 +375,12 @@ Llength_return:
 .globl _engine_css_apply
 _engine_css_apply:
     ENTER
-    sub sp, sp, #256                // temporary inline declaration block + locals
+    sub sp, sp, #320                // temporary inline declaration block + locals
     mov x19, x0
+    ldr x0, [x19, #80]
+    mov x1, #0
+    ldr x2, [x19, #40]
+    bl _memset
     mov x0, #CSS_MAX_RULES
     mov x1, #CSS_RULE_SIZE
     bl _calloc
@@ -370,15 +404,19 @@ Lapply_node:
     cmp x22, x9
     b.hs Lapply_done
     ldr x23, [x19, #72]
-    add x23, x23, x22, lsl #8
+    add x23, x23, x22, lsl #9
     ldr x25, [x19, #16]
     mov x9, #40
     madd x25, x22, x9, x25
     ldr x9, [x25, #8]
     ldr x24, [x19, #72]
     tbnz x9, #63, Lapply_default
-    add x24, x24, x9, lsl #8
+    add x24, x24, x9, lsl #9
 Lapply_default:
+    add x0, x23, #208
+    mov x1, #0
+    mov x2, #176
+    bl _memset
     mov x26, #0
     ADDR x27, css_defaults
     mov x28, #3197                  // inherited color/font/text/line properties
@@ -485,7 +523,7 @@ Lapply_inline:
     cbz x26, Lapply_resolve
     mov x0, sp
     mov x1, #0
-    mov x2, #128
+    mov x2, #192
     bl _memset
     mov x0, x26
     bl _strlen
@@ -536,7 +574,11 @@ Lapply_resolve_length:
     cmp x26, #CSS_LEFT
     b.eq Lapply_length
     cmp x26, #CSS_RIGHT
-    b.ne Lapply_resolved_store
+    b.eq Lapply_length
+    cmp x26, #CSS_WIDTH
+    b.lo Lapply_resolved_store
+    cmp x26, #CSS_BORDER
+    b.hi Lapply_resolved_store
 Lapply_length:
     mov x1, x26
     mov x2, x24
@@ -551,7 +593,7 @@ Lapply_resolved_store:
 Lapply_text_node:
     add x0, x23, #32
     add x1, x24, #32
-    mov x2, #112
+    mov x2, #176
     bl _memcpy
 Lapply_inherited_hidden:
     cbz x22, Lapply_canvas
@@ -580,6 +622,17 @@ Lapply_body_canvas:
     ldr x9, [x19, #72]
     str x10, [x9, #40]
 Lapply_mark_hidden:
+    ldr x9, [x25]
+    cmp x9, #NODE_INPUT
+    b.ne Lapply_visibility
+    ldr x0, [x23, #ATTR_TYPE]
+    cbz x0, Lapply_visibility
+    ADDR x1, hidden_input_type
+    bl _strcasecmp
+    cbnz w0, Lapply_visibility
+    mov x9, #1
+    str x9, [x23, #88]
+Lapply_visibility:
     ldr x9, [x23, #88]
     cbz x9, Lapply_node_next
     ldr x0, [x19, #80]
@@ -595,14 +648,34 @@ Lapply_node_next:
 Lapply_done:
     mov x0, x20
     bl _free
-    add sp, sp, #256
+    add sp, sp, #320
     LEAVE
 
 .section __DATA,__const
 .p2align 3
 css_defaults:
-.quad -1, -1, 14, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.quad -1, -1, 14, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, 0, 0, 0, 0, 0
 .section __TEXT,__cstring,cstring_literals
 id_name: .asciz "id"
 class_name: .asciz "class"
 style_name: .asciz "style"
+
+.section __DATA,__const
+.p2align 3
+html_attributes:
+.quad attr_src, attr_action, attr_name, attr_value, attr_type, attr_alt, attr_width, attr_height, attr_method, attr_rel, attr_disabled, attr_media, attr_label, 0
+.section __TEXT,__cstring,cstring_literals
+attr_src: .asciz "src"
+attr_action: .asciz "action"
+attr_name: .asciz "name"
+attr_value: .asciz "value"
+attr_type: .asciz "type"
+attr_alt: .asciz "alt"
+attr_width: .asciz "width"
+attr_height: .asciz "height"
+attr_method: .asciz "method"
+attr_rel: .asciz "rel"
+attr_disabled: .asciz "disabled"
+attr_media: .asciz "media"
+hidden_input_type: .asciz "hidden"
+attr_label: .asciz "label"

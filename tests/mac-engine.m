@@ -9,6 +9,7 @@ extern void mac_engine_toggle(id,SEL,id);
 extern void mac_engine_navigate(void);
 extern void mac_engine_back(void);
 extern void mac_engine_forward(void);
+extern void mac_form_submit(id,SEL,id);
 extern void mac_engine_complete(id,SEL,id,id,NSError *);
 extern int history_open(const char *, sqlite3 **);
 extern __unsafe_unretained id mac_app,mac_delegate;
@@ -25,6 +26,7 @@ extern uint64_t mac_engine_enabled;
 @implementation EngineWebStub
 - (void)stopLoading {}
 @end
+static BOOL slowStarted;
 @interface EngineProtocol : NSURLProtocol
 @end
 @implementation EngineProtocol
@@ -32,9 +34,18 @@ extern uint64_t mac_engine_enabled;
 + (NSURLRequest *)canonicalRequestForRequest:(NSURLRequest *)request { return request; }
 - (void)startLoading {
     NSString *path=self.request.URL.path;
+    if ([path isEqual:@"/assets/slow.css"]) { slowStarted=YES; return; }
     NSDictionary *headers=@{@"Content-Type":@"text/html; charset=utf-8"};
     NSInteger status=200;
     NSString *html=@"<title>First</title><h1>Hello 🌐</h1><p><a href='/second?a=1&amp;b=2'>next café</a> <a href='javascript:alert(1)'>bad link</a></p><script>SHOULD NOT RENDER</script>";
+    if ([path isEqual:@"/features"]) html=@"<title>Features</title><style>.box{color:red}</style><link rel=stylesheet href='assets/first.css'><style>body{line-height:1.4}.box{color:green;font-size:19px}</style><link rel=stylesheet href='assets/huge.css'><link rel=stylesheet href='assets/not-css'><link rel=stylesheet href='assets/last.css'><link rel=stylesheet href='assets/missing.css'><h1>Four features</h1><div class=box><p>Box content with wrapping text to measure inside a fixed width and padding.</p><div style='width:120px;padding:4px;border-width:1px'><p>Nested box</p></div></div><p>Before image <img src='assets/image.png' width=120 alt='Blue rectangle'> after image.</p><p><img src='assets/missing.png' alt='Missing image fallback'></p><form action='/submitted?old=discard' method=get><input name=q value=initial><input type=hidden name=token value='a+b &amp; café'><input name=dup value=one><input name=dup value=two><input style=display:none name=csshidden value=include><input name=skip value=no disabled><input type=submit name=go value=Search><input type=submit name=other value=Other></form><form method=post action=/must-not-submit><input name=post value=secret><button value=Unsupported>Unsupported</button></form>";
+    if ([path isEqual:@"/assets/first.css"]) { html=@".box{color:purple;font-size:18px;width:300px;padding:12px 16px;margin:8px 10px;border-width:2px;border-color:#2460ad;background:#fff4dc}"; headers=@{@"Content-Type":@"text/css; charset=utf-8"}; }
+    if ([path isEqual:@"/slow"]) html=@"<title>Slow</title><link rel=stylesheet href='assets/slow.css'><p>Must never commit after cancellation</p>";
+    if ([path isEqual:@"/assets/huge.css"]) headers=@{@"Content-Type":@"text/css"};
+    if ([path isEqual:@"/assets/last.css"]) { html=@".box{color:#123456}"; headers=@{@"Content-Type":@"text/css; charset=utf-8"}; }
+    if ([path isEqual:@"/assets/missing.css"] || [path isEqual:@"/assets/missing.png"]) status=404;
+    if ([path isEqual:@"/assets/image.png"]) headers=@{@"Content-Type":@"image/png"};
+    if ([path isEqual:@"/submitted"]) html=@"<title>Submitted</title><p>GET submitted</p>";
     if ([path isEqual:@"/css"]) html=@"<html><body><style>body{color:#123456;background:#faf5ed;font-family:Arial,sans-serif;line-height:1.5}h1{font-size:32px;color:#2450aa}.card{background:#fff2cc;color:red}#notice{color:green}.hide{display:none}a{color:inherit;text-decoration:none}</style><title>CSS</title><h1>Styled 🌐 heading</h1><p id=notice class=card style='margin:12px 14px 16px 18px;text-align:center'>Colored <span style='font-weight:700;font-style:italic'>nested</span><span class=hide>INVISIBLE🌐</span><a href='/second'>styled link</a></p></body></html>";
     if ([path isEqual:@"/second"]) html=@"<title>Second</title><p>Second page</p>";
     if ([path isEqual:@"/latin1"] || [path isEqual:@"/expanded"]) headers=@{@"Content-Type":@"text/html; charset=ISO-8859-1"};
@@ -49,8 +60,10 @@ extern uint64_t mac_engine_enabled;
     NSHTTPURLResponse *response=[[NSHTTPURLResponse alloc] initWithURL:self.request.URL statusCode:status HTTPVersion:@"HTTP/1.1" headerFields:headers];
     [self.client URLProtocol:self didReceiveResponse:response cacheStoragePolicy:NSURLCacheStorageNotAllowed];
     NSData *data=[html dataUsingEncoding:NSUTF8StringEncoding];
+    if ([path isEqual:@"/assets/image.png"]) data=[NSData dataWithContentsOfFile:@"tests/engine-image.png"];
     if ([path isEqual:@"/latin1"]) { const char legacy[]="<title>Legacy</title><p>caf\xe9 \x93hello\x94 \x80</p>"; data=[NSData dataWithBytes:legacy length:sizeof(legacy)-1]; }
     if ([path isEqual:@"/expanded"]) { NSMutableData *large=[NSMutableData dataWithLength:600000]; memset(large.mutableBytes,0x80,large.length); data=large; }
+    if ([path isEqual:@"/assets/huge.css"]) data=[NSMutableData dataWithLength:65537];
     if ([path isEqual:@"/stream"]) data=[NSMutableData dataWithLength:1048577];
     if ([path isEqual:@"/encoding"]) { unsigned char bad[]={0xff,0xfe,0xff}; data=[NSData dataWithBytes:bad length:sizeof(bad)]; }
     [self.client URLProtocol:self didLoadData:data];
@@ -151,13 +164,64 @@ int main(void) {
         assert([text.backgroundColor isEqual:NSColor.textBackgroundColor]);
         NSFont *reset=[text.textStorage attribute:NSFontAttributeName atIndex:0 effectiveRange:NULL];
         assert(reset.pointSize==14);
+        // All four features together, using in-process HTTP and no WebKit view.
+        navigate(@"/features"); waitFor(^BOOL { return [window.title hasPrefix:@"Features — Assembly"]; });
+        NSRange boxRange=[text.string rangeOfString:@"Box content"];
+        NSColor *boxColor=[[text.textStorage attribute:NSForegroundColorAttributeName atIndex:boxRange.location effectiveRange:NULL] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+        assert(fabs(boxColor.redComponent-18.0/255)<.001); // last linked sheet wins
+        NSParagraphStyle *boxStyle=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:boxRange.location effectiveRange:NULL];
+        assert(boxStyle.textBlocks.count==1);
+        assert(((NSFont *)[text.textStorage attribute:NSFontAttributeName atIndex:boxRange.location effectiveRange:NULL]).pointSize==19);
+        assert([text.effectiveAppearance.name isEqual:NSAppearanceNameAqua]);
+        NSRange measured=[text.string rangeOfString:@"Box content with wrapping text to measure inside a fixed width and padding."];
+        NSRect measuredRect=[text.layoutManager boundingRectForGlyphRange:[text.layoutManager glyphRangeForCharacterRange:measured actualCharacterRange:NULL] inTextContainer:text.textContainer];
+        assert(measuredRect.size.width<=301 && measuredRect.origin.x>=25 && measuredRect.size.height>20);
+        NSTextBlock *box=boxStyle.textBlocks[0];
+        assert(box.contentWidth==300 && [box widthForLayer:NSTextBlockPadding edge:NSMinXEdge]==16 && [box widthForLayer:NSTextBlockPadding edge:NSMinYEdge]==12);
+        assert([box widthForLayer:NSTextBlockBorder edge:NSMinXEdge]==2 && [box widthForLayer:NSTextBlockMargin edge:NSMinXEdge]==10);
+        NSRange nestedBoxRange=[text.string rangeOfString:@"Nested box"];
+        assert(((NSParagraphStyle *)[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:nestedBoxRange.location effectiveRange:NULL]).textBlocks.count==2);
+        __block NSUInteger imageCount=0; __block BOOL sawAlt=NO;
+        [text.textStorage enumerateAttribute:NSAttachmentAttributeName inRange:NSMakeRange(0,text.string.length) options:0 usingBlock:^(NSTextAttachment *attachment,NSRange range,BOOL *stop) {
+            (void)range;(void)stop;
+            if (attachment.image && fabs(attachment.image.size.width-120)<.01) { assert(fabs(attachment.image.size.height-60)<.01); NSRect rect=[text.layoutManager boundingRectForGlyphRange:[text.layoutManager glyphRangeForCharacterRange:range actualCharacterRange:NULL] inTextContainer:text.textContainer]; assert(rect.size.height>=60); imageCount++; }
+            if ([[(NSTextAttachmentCell *)attachment.attachmentCell stringValue] isEqual:@"Missing image fallback"]) sawAlt=YES;
+        }];
+        assert(imageCount==1 && sawAlt);
+        NSMutableArray<NSTextField *> *fields=[NSMutableArray new]; NSButton *submit=nil,*post=nil;
+        for(NSView *view in text.subviews) {
+            if ([view isKindOfClass:NSTextField.class]) [fields addObject:(NSTextField *)view];
+            if ([view isKindOfClass:NSButton.class] && [[(NSButton *)view title] isEqual:@"Search"]) submit=(NSButton *)view;
+            if ([view isKindOfClass:NSButton.class] && [[(NSButton *)view title] isEqual:@"Unsupported"]) post=(NSButton *)view;
+        }
+        assert(fields.count==5 && submit && post && submit.frame.size.width>=99);
+        fields[0].stringValue=@"café + & 🌐";
+        NSString *oldAddress=address.stringValue;
+        mac_form_submit(nil,NULL,post);
+        assert([status.stringValue containsString:@"unsupported method"] && [address.stringValue isEqual:oldAddress]);
+        [submit performClick:nil];
+        waitFor(^BOOL { return [window.title hasPrefix:@"Submitted — Assembly"]; });
+        assert([address.stringValue isEqual:@"https://engine.test/submitted?q=caf%C3%A9+%2B+%26+%F0%9F%8C%90&token=a%2Bb+%26+caf%C3%A9&dup=one&dup=two&csshidden=include&go=Search"]);
+        assert(text.subviews.count==0); // controls removed on navigation
+        navigate(@"/features"); waitFor(^BOOL { return [window.title hasPrefix:@"Features — Assembly"]; });
+        NSTextField *returnField=nil;
+        for(NSView *view in text.subviews) if ([view isKindOfClass:NSTextField.class] && [[(NSTextField *)view stringValue] isEqual:@"initial"]) returnField=(NSTextField *)view;
+        assert(returnField);
+        returnField.stringValue=@"return works";
+        assert([NSApp sendAction:returnField.action to:returnField.target from:returnField]);
+        waitFor(^BOOL { return [window.title hasPrefix:@"Submitted — Assembly"]; });
+        assert([address.stringValue containsString:@"q=return+works"] && ![address.stringValue containsString:@"&go="]);
+        int beforeSlow=count();
+        navigate(@"/slow"); waitFor(^BOOL { return slowStarted; });
+        navigate(@"/second"); waitFor(^BOOL { return [window.title hasPrefix:@"Second — Assembly"]; });
+        assert(count()==beforeSlow+1 && ![text.string containsString:@"Must never commit"]);
         // Switching engines cancels in-flight work and hides the native renderer.
         address.stringValue=@"";
         mac_engine_toggle(nil,NULL,nil);
         assert(!mac_engine_enabled && !web.hidden && scroll.hidden);
         method_setImplementation(method,original);
         sqlite3_close(mac_db);mac_db=NULL;
-        puts("PASS: assembly renderer transport, native links/Unicode ranges, back/forward, scrolling, history, CSS fonts/colors/spacing/visibility, response limits, stale callbacks, and WebKit switching");
+        puts("PASS: assembly renderer transport, native links/Unicode ranges, back/forward, scrolling, history, CSS cascade/boxes, linked resources, images/alt/aspect ratio, native GET forms/encoding, response limits, stale callbacks, and WebKit switching");
     }
     return 0;
 }

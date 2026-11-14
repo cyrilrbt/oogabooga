@@ -1,0 +1,18 @@
+<!doctype html><meta charset="utf-8"><title>Assembly Engine Features</title>
+<link rel="stylesheet" href="features.css">
+<style>.card { border-color: #315dad; }</style>
+<h1>More of the web, from assembly</h1>
+<p>Linked CSS, nested boxes, images, and GET forms. No WebKit rendering.</p>
+<div class="card">
+<h2>A real content box</h2>
+<p>This card has a 480px content width, padding, a solid border, margins, and a background. Text wraps inside the box.</p>
+<div class="inner"><p>A nested box with its own padding and border.</p></div>
+<p><img src="image.png" width="240" alt="Blue rectangle"> An image in the text flow, scaled with its aspect ratio intact.</p>
+<p><img src="missing.png" alt="Missing image: alt text still works"></p>
+</div>
+<h2>Try a GET form</h2>
+<form action="result" method="get">
+<p>Search: <input name="q" value="café + assembly"> <input type="submit" name="go" value="Search"></p>
+<input type="hidden" name="source" value="assembly">
+</form>
+<p><a href="/engine/css">CSS gallery</a> · <a href="/engine/second">Navigation test</a></p>
