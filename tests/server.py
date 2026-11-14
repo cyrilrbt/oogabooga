@@ -25,6 +25,30 @@ class Handler(BaseHTTPRequestHandler):
             <p><a href="second?one=1&amp;two=2">Open the second page</a> · <a href="/engine/redirect">Follow a redirect</a></p>
             <p><a href="javascript:alert(1)">Script URL (never executable)</a></p>
             <script>document.write('SCRIPT MUST NOT RUN')</script><!-- COMMENT MUST NOT RENDER -->'''
+            if self.path.startswith('/engine/css'):
+                body = '''<!doctype html><meta charset="utf-8"><title>Assembly CSS Gallery</title>
+                <style>
+                body { background: #f6f1e7; color: #293747; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.5; }
+                h1 { color: #2450aa; font-size: 32px; margin: 8px 0 12px; }
+                h2 { color: #7842a8; font-size: 22px; }
+                .notice { background-color: #fff0c2; margin: 12px 16px; }
+                #priority { color: #18623b; font-weight: 700; }
+                body .detail { font-style: italic; }
+                .hidden { display: none; }
+                .center { text-align: center; }
+                a { color: #1958a8; text-decoration: underline; }
+                </style>
+                <h1>CSS, from assembly</h1>
+                <p>The engine parses these rules, matches selectors, resolves the cascade, and computes styles in handwritten ARM64 assembly.</p>
+                <h2>Colors and typography</h2>
+                <p class="notice">Named, hex, and rgb() colors; serif, sans-serif, and monospace font families; relative font sizes and line heights.</p>
+                <p class="detail">This paragraph inherits its color and font family, with an italic descendant rule.</p>
+                <p id="priority" class="detail">ID, class, and type selectors participate in the cascade.</p>
+                <p style="color: #a0334c; font-size: 20px; margin: 10px 0">Inline styles work, too.</p>
+                <p class="center">Centered paragraphs with native glyph shaping.</p>
+                <p class="hidden">HIDDEN CONTENT MUST NOT RENDER 🌐</p>
+                <p><a href="/engine/second">Links still work after hidden Unicode content</a></p>
+                <p>This is a text-flow CSS subset. Linked sheets, flex/grid, positioning, borders, padding, and JavaScript are not implemented yet.</p>'''
             if self.path.startswith('/engine/second'):
                 body = '<!doctype html><meta charset="utf-8"><title>Second Assembly Page</title><h1>Link navigation works</h1><p>This is the second page. Use Back to return.</p><p><a href="/engine/">Return to the fixture</a></p>'
             self.send_response(200)

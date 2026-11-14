@@ -26,6 +26,8 @@ if [ "$mode" = test ]; then
     build/history-test
     xcrun clang $flags -Wall -Wextra -Werror tests/engine.c build/obj/engine_*.o -o build/engine-test
     build/engine-test
+    xcrun clang $flags -Wall -Wextra -Werror tests/css.c build/obj/engine_*.o -o build/css-test
+    build/css-test
     test_objects="build/obj/core.o"
     for source in src/mac/*.s src/engine/*.s; do
         [ "$source" = src/mac/start.s ] || test_objects="$test_objects build/obj/$(basename "$(dirname "$source")")_$(basename "$source" .s).o"

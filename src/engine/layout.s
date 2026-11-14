@@ -46,9 +46,44 @@ _engine_layout:
     str x9, [sp, #144]               // last space output byte offset
     mov x9, #1
     str x9, [sp, #160]               // line count
+    str xzr, [sp, #200]              // hidden run just skipped
 Llayout_next:
     cmp x21, x22
     b.hs Llayout_done
+    ldr x9, [x19, #80]
+    cbz x9, Llayout_visible
+    ldrb w9, [x9, x28]
+    cbz w9, Llayout_visible
+    ldr x10, [sp, #192]
+    str x25, [x10, x28, lsl #3]
+    mov x9, #1
+    str x9, [sp, #200]
+    add x21, x21, #1
+    add x28, x28, #1
+    b Llayout_next
+Llayout_visible:
+    ldr x9, [sp, #200]
+    cbz x9, Llayout_decode
+    ldrb w9, [x21]
+    cmp w9, #10
+    b.eq Llayout_hidden_break
+    cmp w9, #13
+    b.eq Llayout_hidden_break
+    str xzr, [sp, #200]
+    b Llayout_decode
+Llayout_hidden_break:
+    cbz x24, Llayout_skip_break
+    sub x9, x24, #1
+    ldrb w9, [x23, x9]
+    cmp w9, #10
+    b.ne Llayout_decode
+Llayout_skip_break:
+    ldr x10, [sp, #192]
+    str x25, [x10, x28, lsl #3]
+    add x21, x21, #1
+    add x28, x28, #1
+    b Llayout_next
+Llayout_decode:
     mov x0, x21
     mov x1, x22
     bl _engine_utf8

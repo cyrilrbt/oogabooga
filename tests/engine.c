@@ -7,7 +7,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 typedef struct { uint64_t type,parent,start,end; char *href; } Node;
-typedef struct { char *text; uint64_t length; Node *nodes; uint64_t count; char *title; uint64_t capacity,title_length,reserved[3]; } Document;
+typedef struct { char *text; uint64_t length; Node *nodes; uint64_t count; char *title; uint64_t capacity,title_length; char *css; uint64_t css_length; void *css_meta; unsigned char *hidden; uint64_t work; } Document;
 typedef struct { char *text; uint64_t length; uint64_t *map; uint64_t lines; } Layout;
 extern Document *engine_parse(const char *,size_t);
 extern void engine_document_free(Document *);

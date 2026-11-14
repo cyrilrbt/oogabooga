@@ -1,8 +1,9 @@
-// Bounded HTML tokenizer and flow-tree builder. Script/style bodies and comments
-// are skipped, never interpreted. This deliberately implements a static subset,
+// Bounded HTML tokenizer and flow-tree builder. Scripts/comments are skipped;
+// style bodies are collected for the assembly CSS parser. This deliberately implements a static subset,
 // not HTML5 tree construction. Every scan uses an explicit end pointer.
 .include "src/mac/mac.inc"
 .include "src/engine/engine.inc"
+.include "src/engine/css.inc"
 .text
 .p2align 2
 .globl _engine_parse
@@ -17,7 +18,7 @@ _engine_parse:
     add x21, x0, x1
     add x22, x1, #16
     mov x0, #1
-    mov x1, #80
+    mov x1, #96
     bl _calloc
     cbz x0, Lparse_nil
     mov x19, x0
@@ -37,16 +38,59 @@ _engine_parse:
     bl _calloc
     str x0, [x19, #32]
     cbz x0, Lparse_error
+    mov x0, #1
+    mov x1, #CSS_MAX_SOURCE
+    add x1, x1, #1
+    bl _calloc
+    str x0, [x19, #56]
+    cbz x0, Lparse_error
+    mov x0, #ENGINE_MAX_NODES
+    mov x1, #CSS_META_SIZE
+    bl _calloc
+    str x0, [x19, #72]
+    cbz x0, Lparse_error
+    mov x0, #1
+    mov x1, x22
+    bl _calloc
+    str x0, [x19, #80]
+    cbz x0, Lparse_error
     ldr x9, [x19, #16]
     mov x10, #-1
     str x10, [x9, #8]
     mov x10, #1
     str x10, [x19, #24]
-    mov x24, #0                      // current parent index
-    mov x25, #1                      // root is on the open-element stack
-    mov x26, #0                      // flags: pre=1, title=2
+    // Keep implied html/body elements even when their start tags are omitted.
+    // Explicit start tags attach attributes to these same nodes; this is not a full
+    // HTML5 tree builder, but gives ordinary body/type CSS the expected ancestry.
+    mov x0, x19
+    mov x1, #NODE_HTML
+    mov x2, #0
+    mov x3, #0
+    mov x4, #0
+    bl _engine_node
+    ldr x9, [x19, #72]
+    add x9, x9, #CSS_META_SIZE
+    ADDR x10, tag_html
+    str x10, [x9, #24]
+    mov x0, x19
+    mov x1, #NODE_BODY
+    mov x2, #1
+    mov x3, #0
+    mov x4, #0
+    bl _engine_node
+    ldr x9, [x19, #72]
+    add x9, x9, #512
+    ADDR x10, tag_body
+    str x10, [x9, #24]
+    mov x24, #2
+    mov x25, #3
+    mov x26, #0
     add x28, sp, #256
     str xzr, [x28]
+    mov x9, #1
+    str x9, [x28, #8]
+    mov x9, #2
+    str x9, [x28, #16]
 Lparse_next:
     cmp x20, x21
     b.hs Lparse_finish
@@ -162,6 +206,7 @@ Lparse_name_end:
     sub x1, x23, x22
     bl _engine_tag
     str x0, [sp, #168]               // tag type (0=unsupported)
+    str x1, [sp, #184]               // canonical static tag name
     mov w10, #0                      // quote delimiter
 Lparse_tag_end:
     cmp x23, x21
@@ -195,6 +240,10 @@ Lparse_tag_ready:
     cmp x22, #TAG_TITLE
     b.eq Lparse_title
     tbnz x26, #1, Lparse_next        // unsupported markup inside title is not visible
+    cmp x22, #NODE_HTML
+    b.eq Lparse_document_element
+    cmp x22, #NODE_BODY
+    b.eq Lparse_document_element
     cbz x22, Lparse_next
     cmp x22, #TAG_BR
     b.eq Lparse_br
@@ -202,6 +251,12 @@ Lparse_tag_ready:
     b.eq Lparse_br
     cbnz x27, Lparse_close
     cmp x22, #NODE_A
+    b.eq Lparse_open
+    cmp x22, #NODE_SPAN
+    b.eq Lparse_open
+    cmp x22, #NODE_STRONG
+    b.eq Lparse_open
+    cmp x22, #NODE_EM
     b.eq Lparse_open
     mov x0, x19
     mov x1, #2
@@ -230,6 +285,13 @@ Lparse_node_open:
     bl _engine_node
     tbnz x0, #63, Lparse_error
     mov x24, x0
+    mov x1, x0
+    mov x0, x19
+    ldr x2, [sp, #160]
+    ldr x3, [sp, #176]
+    ldr x4, [sp, #184]
+    bl _engine_css_capture
+    mov x0, x24
     str x0, [x28, x25, lsl #3]
     add x25, x25, #1
     cmp x22, #NODE_LI
@@ -283,6 +345,19 @@ Lparse_br:
     mov x1, #1
     bl _engine_break
     b Lparse_next
+Lparse_document_element:
+    cbnz x27, Lparse_next
+    mov x1, #1
+    cmp x22, #NODE_HTML
+    b.eq Lparse_document_attributes
+    mov x1, #2
+Lparse_document_attributes:
+    mov x0, x19
+    ldr x2, [sp, #160]
+    ldr x3, [sp, #176]
+    ldr x4, [sp, #184]
+    bl _engine_css_capture
+    b Lparse_next
 Lparse_title:
     cbnz x27, Lparse_title_end
     orr x26, x26, #2
@@ -303,8 +378,15 @@ Lparse_style:
     ADDR x2, style_close
     mov x3, #7
 Lparse_skip:
+    mov x23, x20
     bl _engine_find_close
     mov x20, x0
+    cmp x22, #TAG_STYLE
+    b.ne Lparse_next
+    mov x0, x19
+    mov x1, x23
+    sub x2, x20, x23
+    bl _engine_css_source
     b Lparse_next
 Lparse_less_than:
     mov x0, x19
@@ -329,6 +411,8 @@ Lparse_finalize_nodes:
 Lparse_success:
     mov x0, x19
     bl _engine_trim_title
+    mov x0, x19
+    bl _engine_css_apply
     mov x0, x19
     add sp, sp, #1024
     LEAVE
@@ -487,6 +571,8 @@ Lfree_buffers:
     ldr x0, [x19, #32]
     bl _free
     mov x0, x19
+    bl _engine_css_free
+    mov x0, x19
     bl _free
     LEAVE
 Lfree_return:
@@ -512,9 +598,11 @@ Ltag_advance:
     add x21, x21, #24
     b Ltag_next
 Ltag_found:
+    ldr x1, [x21]
     ldr x0, [x21, #16]
     LEAVE
 Ltag_unknown:
+    mov x1, #0
     mov x0, #0
     LEAVE
 
@@ -556,6 +644,19 @@ Lfind_found:
 .section __DATA,__const
 .p2align 3
 tag_table:
+.quad tag_span, 4, NODE_SPAN
+.quad tag_body, 4, NODE_BODY
+.quad tag_html, 4, NODE_HTML
+.quad tag_strong, 6, NODE_STRONG
+.quad tag_b, 1, NODE_STRONG
+.quad tag_em, 2, NODE_EM
+.quad tag_i, 1, NODE_EM
+.quad tag_section, 7, NODE_SECTION
+.quad tag_main, 4, NODE_MAIN
+.quad tag_article, 7, NODE_ARTICLE
+.quad tag_header, 6, NODE_HEADER
+.quad tag_footer, 6, NODE_FOOTER
+.quad tag_nav, 3, NODE_NAV
 .quad tag_p, 1, NODE_P
 .quad tag_h1, 2, NODE_H1
 .quad tag_h2, 2, NODE_H2
@@ -595,3 +696,29 @@ comment_open: .asciz "<!--"
 comment_close: .asciz "-->"
 script_close: .asciz "</script"
 style_close: .asciz "</style"
+
+tag_span: .asciz "span"
+
+tag_body: .asciz "body"
+
+tag_html: .asciz "html"
+
+tag_strong: .asciz "strong"
+
+tag_b: .asciz "b"
+
+tag_em: .asciz "em"
+
+tag_i: .asciz "i"
+
+tag_section: .asciz "section"
+
+tag_main: .asciz "main"
+
+tag_article: .asciz "article"
+
+tag_header: .asciz "header"
+
+tag_footer: .asciz "footer"
+
+tag_nav: .asciz "nav"

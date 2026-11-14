@@ -1,6 +1,7 @@
 // Experimental static HTML engine, ARM64 C ABI; no AppKit/WebKit dependencies.
-// Document (80 bytes): text*, length, nodes*, node_count, title*, capacity,
-// title_length, reserved[3]. A node is 40 bytes: type,parent,start,end,href*.
+// Document (96 bytes): text*, length, nodes*, node_count, title*, capacity,
+// title_length, CSS source*, CSS length, CSS metadata*, hidden-byte mask*, work budget.
+// A node is 40 bytes: type,parent,start,end,href*. CSS metadata is defined in css.inc.
 // Byte offsets refer to the decoded visible UTF-8 text. Parent indices form a
 // bounded flow tree (root=0); nodes and href strings are owned by the document.
 // Layout (32 bytes): wrapped UTF-8 text*, byte_length, UTF-16 offset map*, lines.
@@ -26,3 +27,15 @@
 .set TAG_TITLE, 15
 .set TAG_SCRIPT, 16
 .set TAG_STYLE, 17
+
+.set NODE_SPAN, 18
+.set NODE_BODY, 19
+.set NODE_HTML, 20
+.set NODE_STRONG, 21
+.set NODE_EM, 22
+.set NODE_SECTION, 23
+.set NODE_MAIN, 24
+.set NODE_ARTICLE, 25
+.set NODE_HEADER, 26
+.set NODE_FOOTER, 27
+.set NODE_NAV, 28

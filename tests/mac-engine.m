@@ -35,6 +35,7 @@ extern uint64_t mac_engine_enabled;
     NSDictionary *headers=@{@"Content-Type":@"text/html; charset=utf-8"};
     NSInteger status=200;
     NSString *html=@"<title>First</title><h1>Hello 🌐</h1><p><a href='/second?a=1&amp;b=2'>next café</a> <a href='javascript:alert(1)'>bad link</a></p><script>SHOULD NOT RENDER</script>";
+    if ([path isEqual:@"/css"]) html=@"<html><body><style>body{color:#123456;background:#faf5ed;font-family:Arial,sans-serif;line-height:1.5}h1{font-size:32px;color:#2450aa}.card{background:#fff2cc;color:red}#notice{color:green}.hide{display:none}a{color:inherit;text-decoration:none}</style><title>CSS</title><h1>Styled 🌐 heading</h1><p id=notice class=card style='margin:12px 14px 16px 18px;text-align:center'>Colored <span style='font-weight:700;font-style:italic'>nested</span><span class=hide>INVISIBLE🌐</span><a href='/second'>styled link</a></p></body></html>";
     if ([path isEqual:@"/second"]) html=@"<title>Second</title><p>Second page</p>";
     if ([path isEqual:@"/latin1"] || [path isEqual:@"/expanded"]) headers=@{@"Content-Type":@"text/html; charset=ISO-8859-1"};
     if ([path isEqual:@"/plain"]) headers=@{@"Content-Type":@"application/json"};
@@ -128,13 +129,35 @@ int main(void) {
         assert(text.frame.size.height>scroll.contentView.bounds.size.height);
         [text scrollRangeToVisible:NSMakeRange(text.string.length-1,1)];
         assert(scroll.contentView.bounds.origin.y>0);
+        navigate(@"/css"); waitFor(^BOOL { return [window.title hasPrefix:@"CSS — Assembly"]; });
+        assert(![text.string containsString:@"INVISIBLE"]);
+        NSRange heading=[text.string rangeOfString:@"Styled 🌐 heading"];
+        NSFont *headingFont=[text.textStorage attribute:NSFontAttributeName atIndex:heading.location effectiveRange:NULL];
+        assert(headingFont.pointSize==32 && (headingFont.fontDescriptor.symbolicTraits & NSFontBoldTrait));
+        NSColor *canvas=[text.backgroundColor colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+        assert(fabs(canvas.redComponent-250.0/255)<.001 && fabs(canvas.greenComponent-245.0/255)<.001);
+        NSRange nested=[text.string rangeOfString:@"nested"];
+        NSFont *nestedFont=[text.textStorage attribute:NSFontAttributeName atIndex:nested.location effectiveRange:NULL];
+        assert((nestedFont.fontDescriptor.symbolicTraits & NSFontBoldTrait) && (nestedFont.fontDescriptor.symbolicTraits & NSFontItalicTrait));
+        NSRange styled=[text.string rangeOfString:@"styled link"];
+        assert([[text.textStorage attribute:NSLinkAttributeName atIndex:styled.location effectiveRange:NULL] isKindOfClass:NSURL.class]);
+        assert([[text.textStorage attribute:NSUnderlineStyleAttributeName atIndex:styled.location effectiveRange:NULL] integerValue]==0);
+        NSColor *foreground=[[text.textStorage attribute:NSForegroundColorAttributeName atIndex:styled.location effectiveRange:NULL] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+        assert(foreground.redComponent<.001 && fabs(foreground.greenComponent-128.0/255)<.001);
+        NSRange paragraph=[text.string rangeOfString:@"Colored"];
+        NSParagraphStyle *ps=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:paragraph.location effectiveRange:NULL];
+        assert(ps.alignment==NSTextAlignmentCenter && ps.paragraphSpacingBefore==12 && ps.paragraphSpacing==16 && ps.headIndent==18 && ps.tailIndent==-14);
+        navigate(@"/second"); waitFor(^BOOL { return [window.title hasPrefix:@"Second — Assembly"]; });
+        assert([text.backgroundColor isEqual:NSColor.textBackgroundColor]);
+        NSFont *reset=[text.textStorage attribute:NSFontAttributeName atIndex:0 effectiveRange:NULL];
+        assert(reset.pointSize==14);
         // Switching engines cancels in-flight work and hides the native renderer.
         address.stringValue=@"";
         mac_engine_toggle(nil,NULL,nil);
         assert(!mac_engine_enabled && !web.hidden && scroll.hidden);
         method_setImplementation(method,original);
         sqlite3_close(mac_db);mac_db=NULL;
-        puts("PASS: assembly renderer transport, native links/Unicode ranges, back/forward, scrolling, history, response limits, stale callbacks, and WebKit switching");
+        puts("PASS: assembly renderer transport, native links/Unicode ranges, back/forward, scrolling, history, CSS fonts/colors/spacing/visibility, response limits, stale callbacks, and WebKit switching");
     }
     return 0;
 }

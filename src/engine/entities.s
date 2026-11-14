@@ -145,7 +145,12 @@ Lentity_none:
 // href(attribute_start,tag_end) -> owned decoded string or NULL.
 .globl _engine_href
 _engine_href:
+    ADDR x2, href_name
+    b _engine_attribute
+.globl _engine_attribute
+_engine_attribute:
     ENTER
+    mov x28, x2
     mov x19, x0
     mov x20, x1
 Lhref_next:
@@ -220,11 +225,13 @@ Lhref_value_done:
     b.hs Lhref_test
     add x19, x19, #1
 Lhref_test:
-    cmp x22, #4
+    mov x0, x28
+    bl _strlen
+    cmp x22, x0
     b.ne Lhref_next
     mov x0, x21
-    ADDR x1, href_name
-    mov x2, #4
+    mov x1, x28
+    mov x2, x22
     bl _strncasecmp
     cbnz w0, Lhref_next
     sub x22, x25, x24

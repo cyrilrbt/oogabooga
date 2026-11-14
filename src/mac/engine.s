@@ -91,6 +91,14 @@ _mac_engine_create:
     mov x0, x20
     LOAD x2, _mac_delegate
     MSG setDelegate
+    CLASS NSMutableDictionary
+    MSG new
+    mov x21, x0
+    mov x0, x20
+    mov x2, x21
+    MSG setLinkTextAttributes
+    mov x0, x21
+    MSG release
     mov x0, x19
     mov x2, x20
     MSG setDocumentView
@@ -548,53 +556,33 @@ _mac_engine_display:
     mov x23, x0
     mov x0, x22
     MSG release
-    CLASS NSFont
-    NUM d0, 14
-    fmov d1, xzr
-    MSG monospacedFont
-    mov x24, x0
-    CLASS NSFont
-    NUM d0, 14
-    fmov d1, #0.5
-    MSG monospacedFont
-    mov x25, x0
-    ldr x9, [x21, #16]
-    ldr x10, [x19, #8]
-    ldr x28, [x9, x10, lsl #3]       // UTF-16 length of laid-out text
-    adrp x9, _NSFontAttributeName@GOTPAGE
-    ldr x9, [x9, _NSFontAttributeName@GOTPAGEOFF]
-    ldr x2, [x9]
-    mov x0, x23
-    mov x3, x24
-    mov x4, #0
-    mov x5, x28
-    MSG addAttribute
-    CLASS NSColor
-    MSG textColor
-    mov x3, x0
-    adrp x9, _NSForegroundColorAttributeName@GOTPAGE
-    ldr x9, [x9, _NSForegroundColorAttributeName@GOTPAGEOFF]
-    ldr x2, [x9]
-    mov x0, x23
-    mov x4, #0
-    mov x5, x28
-    MSG addAttribute
+    mov x0, x19
+    LOAD x1, engine_text
+    LOAD x2, engine_scroll
+    bl _mac_css_canvas
     ldr x26, [x19, #16]
     ldr x27, [x19, #24]
 Ldisplay_node:
     cbz x27, Ldisplay_install
+    ldr x9, [x21, #16]
+    ldr x10, [x26, #16]
+    ldr x11, [x26, #24]
+    ldr x12, [x19, #8]
+    cmp x11, x12
+    b.hi Ldisplay_node_next
+    ldr x2, [x9, x10, lsl #3]
+    ldr x3, [x9, x11, lsl #3]
+    sub x3, x3, x2
+    ldr x9, [x19, #24]
+    sub x9, x9, x27
+    ldr x1, [x19, #72]
+    add x1, x1, x9, lsl #8
+    ldr x4, [x26]
+    mov x0, x23
+    bl _mac_css_attributes
     ldr x9, [x26]
     cmp x9, #NODE_A
-    b.eq Ldisplay_link
-    cmp x9, #NODE_H1
-    b.lo Ldisplay_node_next
-    cmp x9, #NODE_H3
-    b.hi Ldisplay_node_next
-    adrp x9, _NSFontAttributeName@GOTPAGE
-    ldr x9, [x9, _NSFontAttributeName@GOTPAGEOFF]
-    ldr x22, [x9]
-    mov x24, x25
-    b Ldisplay_attribute
+    b.ne Ldisplay_node_next
 Ldisplay_link:
     ldr x0, [x26, #32]
     cbz x0, Ldisplay_node_next
@@ -638,12 +626,26 @@ Ldisplay_install:
     mov x2, x23
     MSG setAttributedString
     LOAD x0, engine_text
+    MSG textContainer
+    mov x24, x0
+    NUM d0, 860
+    NUM d1, 1048576
+    MSG setContainerSize
+    mov x0, x24
+    mov x2, #0
+    MSG setWidthTracksView
+    LOAD x0, engine_text
+    MSG layoutManager
+    mov x25, x0
+    mov x2, x24
+    MSG ensureTextLayout
+    mov x0, x25
+    mov x2, x24
+    MSG usedTextRect
+    NUM d4, 60
+    fadd d1, d3, d4
     NUM d0, 900
-    ldr x9, [x21, #24]
-    mov x10, #20
-    mul x9, x9, x10
-    add x9, x9, #60
-    scvtf d1, x9
+    LOAD x0, engine_text
     MSG setFrameSize
     LOAD x0, engine_text
     mov x2, #0
@@ -666,7 +668,7 @@ Ldisplay_fail:
 history_error: .asciz "Assembly engine: page loaded, but history could not be saved."
 invalid_text: .asciz "Enter an HTTP(S) address or search terms."
 loading_text: .asciz "Assembly engine (experimental): loading HTML…"
-ready_text: .asciz "Assembly engine — static HTML; JavaScript and CSS are not supported. ⌘E switches back to WebKit."
+ready_text: .asciz "Assembly engine — static HTML and basic CSS; JavaScript and forms are not supported. ⌘E switches back to WebKit."
 stopped_text: .asciz "Assembly engine: loading stopped."
 large_text: .asciz "Assembly engine: this page exceeds the 1 MiB limit. Switch to WebKit with ⌘E."
 http_error: .asciz "Assembly engine: the server did not return a successful page. Try WebKit for login pages."

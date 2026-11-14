@@ -93,19 +93,35 @@ Choose **Navigate → Use Assembly Engine (Experimental)** or press **⌘E** to 
 OOGABOOGA_ENGINE=asm build/Oogabooga.app/Contents/MacOS/oogabooga http://localhost:8765/engine/
 ```
 
-The ARM64 engine tokenizes static HTML into a bounded flow tree, decodes named/numeric entities, collapses whitespace, and wraps text at 90 Unicode scalar columns. It supports paragraphs, headings, lists, preformatted text, titles, and relative HTTP(S) links. Native AppKit text services supply glyph shaping, drawing, text selection, link hit testing, and scrolling; WebKit is not used to parse or render this mode. Back/forward/reload and SQLite history work in both modes, with independent in-window navigation stacks.
+The ARM64 engine tokenizes static HTML into a bounded flow tree, supplies implied `html`/`body` elements, decodes named/numeric entities, collapses whitespace, and inserts soft wraps at 90 Unicode scalar columns. CSS parsing, selector matching, inheritance, and the cascade are handwritten assembly; native paragraph layout accounts for styled font metrics and may wrap sooner. It supports paragraphs, headings, lists, preformatted text, titles, and relative HTTP(S) links. Native AppKit text services supply glyph shaping, drawing, text selection, link hit testing, and scrolling; WebKit is not used to parse or render this mode. Back/forward/reload and SQLite history work in both modes, with independent in-window navigation stacks.
 
-This first engine is macOS-only. Linux continues to use WebKitGTK. It does **not** implement HTML5 tree-construction rules, CSS, JavaScript, images, forms, anchors, or modern login flows. Comments and script/style bodies are excluded. Layout is a simple fixed-column text flow, not pixel-accurate browser layout; combining/wide characters may differ from the column estimate. Unsupported pages can be opened in WebKit with ⌘E.
+This first engine is macOS-only. Linux continues to use WebKitGTK. It does **not** implement full HTML5 tree-construction rules, JavaScript, images, forms, anchors, or modern login flows. Comments and script bodies are excluded; style blocks are parsed as CSS and never displayed. Layout remains a text-flow subset rather than a full CSS box-layout engine; combining/wide characters may differ from the column estimate. Unsupported pages can be opened in WebKit with ⌘E.
 
 Fetching uses `NSURLSession` with normal system TLS validation and an independent ephemeral cookie jar; it does not share WebKit logins or persist experimental-engine cookies across app restarts. Successful HTML responses are decoded using their HTTP charset header and normalized to UTF-8 before parsing. Foundation supplies the codecs; HTML Latin-1/ASCII labels use Windows-1252. Missing charset headers currently default to UTF-8; HTML meta-charset sniffing is not implemented. Unknown encodings or invalid byte sequences are rejected. Limits: 1 MiB for both the response and normalized UTF-8, 4,096 tree nodes, 64 open elements, 1,024 title bytes, and 2,048 bytes per link target. Late callbacks from canceled requests are ignored, and failed/unsupported responses are not recorded as visits.
 
-`python3 tests/server.py` serves `/engine/` for manual rendering checks, `/engine/second` for link navigation, and `/engine/redirect` for redirects. `./build.sh test` includes guarded-buffer/truncated-input parser tests, a malformed-byte corpus, Unicode layout/range assertions, and in-process native-view/HTTP-transport tests. The renderer integration test uses a WebKit stand-in to verify that rendering works without a WebKit instance.
+`python3 tests/server.py` serves `/engine/` for static HTML, `/engine/css` for the CSS gallery, `/engine/second` for link navigation, and `/engine/redirect` for redirects. `./build.sh test` includes guarded-buffer/truncated-input parser tests, malformed-byte corpora, CSS cascade/inheritance tests, Unicode layout/range assertions, and native-view/HTTP-transport tests. The renderer integration test uses a WebKit stand-in and verifies styled fonts, colors, paragraph geometry, hidden content, link ranges, and style reset between pages.
+
+### Supported CSS subset
+
+Embedded `<style>` blocks and decoded `style` attributes are supported. Selectors cover retained flow elements: type, `*`, `.class`, `#id`, compounds such as `p.notice`, comma groups, and descendant chains such as `body .notice a`. Identifiers are ASCII; class/id matching is case-sensitive. The cascade honors specificity, source order, inline styles, `!important`, and `inherit`/`initial`/`unset`, with inherited text properties computed before painting.
+
+Supported properties:
+
+- `color`, solid `background`/`background-color`: basic named colors, `#rgb`, `#rrggbb`, and comma-form `rgb()` values; transparent backgrounds are accepted.
+- `font-family`: serif/sans-serif/monospace and common platform-family aliases, with comma fallbacks; `font-size`, normal/bold/numeric `font-weight`, normal/italic/oblique `font-style`, and none/underline `text-decoration`.
+- `text-align`, `line-height`, `margin`, and the four `margin-*` properties map to native paragraph alignment, line metrics, spacing, and indents. `px`, `em`, and `rem` lengths are supported; font sizes and line heights also accept percentages, and line height accepts unitless multipliers. Font sizes are clamped to 6–72 pixels; spacing/line height to 200 pixels.
+- `display: none` removes content from layout, including descendants and links; normal block/inline display values restore visibility but do not implement a new box-formatting model.
+
+This is **not full CSS**. Linked sheets and `@import` are not fetched; at-rules, pseudo/attribute selectors, child/sibling combinators, custom properties, flex/grid, positioning, dimensions, padding, borders, backgrounds with images, and responsive layout are unsupported. Paragraph margins and background highlights are text-flow approximations, not painted CSS boxes.
+
+Embedded CSS is limited to 64 KiB of complete blocks, 256 rules, 256 bytes per selector group, and eight descendant components. Over-limit blocks/rules and unsupported declarations are ignored. Selector matching has a one-million-step document budget; inline attributes retain the HTML parser's 2 KiB limit. Hidden text is excluded before UTF-16 range mapping, preserving links after hidden Unicode content.
 
 ## Assembly and architecture
 
 Rhun builds native assembly and links system libraries. Both Oogabooga applications use that approach. No compiler-generated Objective-C bridge is linked into the shipped macOS app.
 
-- `src/engine/`: handwritten ARM64 HTML tokenizer, entity/attribute scanner, flow tree, line wrapping, and UTF-16 range mapping.
+- `src/engine/`: handwritten ARM64 HTML tokenizer, entity/attribute scanner, flow tree, CSS parser/selectors/cascade, line wrapping, and UTF-16 range mapping. `css.inc` defines computed-style metadata and limits.
+- `src/mac/css.s`: converts computed styles into native font/color/paragraph attributes and canvas colors.
 - `src/mac/charset.s`: HTTP charset selection and UTF-8 normalization through platform codecs.
 - `src/mac/engine.s`: native text presentation, asynchronous HTTP/TLS integration, experimental-engine navigation, and engine switching.
 - `src/mac/browser.s`: ARM64 AppKit window/controls, native WebKit delegates, navigation, popup ownership, and title observation.

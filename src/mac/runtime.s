@@ -858,6 +858,84 @@ _sel_textEncodingName: .quad charset_method_textEncodingName
 .globl _sel_dataUsingEncoding
 _sel_dataUsingEncoding: .quad charset_method_dataUsingEncoding
 
+.section __TEXT,__cstring,cstring_literals
+css_method_sRGBColor: .asciz "colorWithSRGBRed:green:blue:alpha:"
+css_method_systemFontWeight: .asciz "systemFontOfSize:weight:"
+css_method_fontNameSize: .asciz "fontWithName:size:"
+css_method_sharedFontManager: .asciz "sharedFontManager"
+css_method_convertFontTrait: .asciz "convertFont:toHaveTrait:"
+css_method_setAlignment: .asciz "setAlignment:"
+css_method_setParagraphBefore: .asciz "setParagraphSpacingBefore:"
+css_method_setParagraphAfter: .asciz "setParagraphSpacing:"
+css_method_setHeadIndent: .asciz "setHeadIndent:"
+css_method_setFirstIndent: .asciz "setFirstLineHeadIndent:"
+css_method_setTailIndent: .asciz "setTailIndent:"
+css_method_setMinimumLine: .asciz "setMinimumLineHeight:"
+css_method_setMaximumLine: .asciz "setMaximumLineHeight:"
+css_method_setBackgroundColor: .asciz "setBackgroundColor:"
+css_method_textBackgroundColor: .asciz "textBackgroundColor"
+css_method_setDrawsBackground: .asciz "setDrawsBackground:"
+css_method_setLinkTextAttributes: .asciz "setLinkTextAttributes:"
+css_method_textContainer: .asciz "textContainer"
+css_method_setContainerSize: .asciz "setContainerSize:"
+css_method_setWidthTracksView: .asciz "setWidthTracksTextView:"
+css_method_layoutManager: .asciz "layoutManager"
+css_method_ensureTextLayout: .asciz "ensureLayoutForTextContainer:"
+css_method_usedTextRect: .asciz "usedRectForTextContainer:"
+.globl _class_NSFontManager
+_class_NSFontManager: .asciz "NSFontManager"
+.globl _class_NSMutableParagraphStyle
+_class_NSMutableParagraphStyle: .asciz "NSMutableParagraphStyle"
+
+.section __DATA,__data
+.p2align 3
+.globl _sel_sRGBColor
+_sel_sRGBColor: .quad css_method_sRGBColor
+.globl _sel_systemFontWeight
+_sel_systemFontWeight: .quad css_method_systemFontWeight
+.globl _sel_fontNameSize
+_sel_fontNameSize: .quad css_method_fontNameSize
+.globl _sel_sharedFontManager
+_sel_sharedFontManager: .quad css_method_sharedFontManager
+.globl _sel_convertFontTrait
+_sel_convertFontTrait: .quad css_method_convertFontTrait
+.globl _sel_setAlignment
+_sel_setAlignment: .quad css_method_setAlignment
+.globl _sel_setParagraphBefore
+_sel_setParagraphBefore: .quad css_method_setParagraphBefore
+.globl _sel_setParagraphAfter
+_sel_setParagraphAfter: .quad css_method_setParagraphAfter
+.globl _sel_setHeadIndent
+_sel_setHeadIndent: .quad css_method_setHeadIndent
+.globl _sel_setFirstIndent
+_sel_setFirstIndent: .quad css_method_setFirstIndent
+.globl _sel_setTailIndent
+_sel_setTailIndent: .quad css_method_setTailIndent
+.globl _sel_setMinimumLine
+_sel_setMinimumLine: .quad css_method_setMinimumLine
+.globl _sel_setMaximumLine
+_sel_setMaximumLine: .quad css_method_setMaximumLine
+.globl _sel_setBackgroundColor
+_sel_setBackgroundColor: .quad css_method_setBackgroundColor
+.globl _sel_textBackgroundColor
+_sel_textBackgroundColor: .quad css_method_textBackgroundColor
+.globl _sel_setDrawsBackground
+_sel_setDrawsBackground: .quad css_method_setDrawsBackground
+.globl _sel_setLinkTextAttributes
+_sel_setLinkTextAttributes: .quad css_method_setLinkTextAttributes
+.globl _sel_textContainer
+_sel_textContainer: .quad css_method_textContainer
+.globl _sel_setContainerSize
+_sel_setContainerSize: .quad css_method_setContainerSize
+.globl _sel_setWidthTracksView
+_sel_setWidthTracksView: .quad css_method_setWidthTracksView
+.globl _sel_layoutManager
+_sel_layoutManager: .quad css_method_layoutManager
+.globl _sel_ensureTextLayout
+_sel_ensureTextLayout: .quad css_method_ensureTextLayout
+.globl _sel_usedTextRect
+_sel_usedTextRect: .quad css_method_usedTextRect
+
 selector_end:
 selectors_ready: .quad 0
 .text
