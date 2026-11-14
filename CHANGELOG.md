@@ -4,6 +4,83 @@ Record user-visible changes here whenever `VERSION` changes. Keep the newest
 version first, use the same SemVer as `VERSION`, and distinguish added features,
 behavior changes, and fixes. Historical entries summarize the repository history.
 
+## 0.9.0 — 2026-11-14
+
+### Added
+
+- Measured inline boxes for short, single-line styled links, including padded
+  backgrounds, solid borders, rounded corners, minimum width/height, horizontal
+  text alignment, and baseline/middle vertical alignment.
+- Native link hit areas covering the whole box, pointing-hand cursors, keyboard
+  activation, and accessibility labels. Google’s sign-in link now renders as a
+  padded rounded button instead of a strip behind its text.
+- Assembly layout mapping for inline attachments so following Unicode text,
+  links, and form controls retain their correct positions and actions.
+
+### Fixed
+
+- Preserve outside margins around boxed links and refresh their geometry/colors
+  without recreating controls during resize or stylesheet updates.
+- Hide stale native boxes when responsive CSS changes a boxed link back into
+  ordinary text; retain ordinary flow for links containing images, controls, or
+  explicit line breaks.
+
+## 0.8.2 — 2026-11-14
+
+### Fixed
+
+- Preserve explicit and consecutive HTML line breaks when surrounding elements
+  use inline/inline-block flow, keeping search buttons below search fields.
+- Apply horizontal inline margins/padding as glyph spacing so adjacent footer
+  links no longer run together, including links ending in Unicode characters.
+- Remove attributed-text background paint behind native form controls to avoid
+  stray colored strips around buttons and text fields.
+- Preserve website-defined link colors alongside visited-state and cursor support.
+
+## 0.8.1 — 2026-11-14
+
+### Fixed
+
+- Restore the pointing-hand cursor over clickable assembly-engine links while
+  preserving their authored colors and underline styles.
+- Distinguish unvisited and visited links using resolved HTTP(S) URLs in SQLite
+  history, including CSS `:link` and `:visited` selectors and a visited default
+  color. Visited selectors change foreground color only, never page layout.
+
+## 0.8.0 — 2026-11-14
+
+### Added
+
+- Screen `@media` queries with pixel `min-width`/`max-width`, including nested
+  queries and viewport updates on window resize.
+- Simple punctuation escapes in CSS class/id selectors, including responsive
+  utility names such as `md:block` and fractional widths such as `w-1/2`.
+- Common `font` shorthand, legacy `<center>`, HTML `hidden`, icon-button
+  `aria-label` fallbacks, and common punctuation/copyright entities.
+
+### Changed
+
+- Start macOS in the assembly engine by default. Press ⌘E for WebKit, or launch
+  with `OOGABOOGA_ENGINE=webkit`. Linux continues to use WebKitGTK.
+- Accept up to 1 MiB of combined CSS and per stylesheet, with 4,096 supported
+  rules and a bounded 134,217,728-step selector budget, so larger utility
+  stylesheets such as Yahoo's are no longer rejected outright.
+- Keep simple CSS inline/inline-block containers in text flow. Flex/grid values
+  restore visibility with block-flow fallback; their layout remains unsupported.
+
+### Fixed
+
+- Preserve inline span/emphasis flow without unwanted closing-tag line breaks.
+- Resolve paragraph margins against their containing width; `margin:auto` no
+  longer squeezes centered footer links into a one-character column.
+- Size default buttons to fit their titles and strip nested HTML, SVG, comments,
+  and script/style bodies from native button labels.
+- Render non-submit buttons as disabled buttons instead of unsupported text
+  fields; keep their actions from submitting forms without JavaScript support.
+- Keep the engine menu checkmark synchronized when starting in assembly mode.
+- Reuse computed styles when image resources finish loading instead of rerunning
+  the full stylesheet cascade for every image.
+
 ## 0.7.5 — 2026-11-14
 
 ### Fixed

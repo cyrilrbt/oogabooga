@@ -64,9 +64,13 @@ Lselector_validate:
     sub x9, x9, #1
     str x9, [x19, #88]
     ldrb w9, [x23], #1
+    cmp w9, #92
+    b.eq Lselector_escape
     cmp w9, #32
     b.ls Lselector_validate
     cmp w9, #62
+    b.eq Lselector_validate
+    cmp w9, #58
     b.eq Lselector_validate
     cmp w9, #46
     b.eq Lselector_validate
@@ -86,6 +90,28 @@ Lselector_validate:
     cmp w10, #25
     b.ls Lselector_validate
     b Lmatch_no
+Lselector_escape:
+    cmp x23, x22
+    b.hs Lmatch_no
+    ldrb w9, [x23], #1
+    // Simple punctuation escapes, e.g. md\:block and w-1\/2. Hex escapes
+    // and escaped combinators need a fuller identifier tokenizer.
+    cmp w9, #33
+    b.lo Lmatch_no
+    cmp w9, #126
+    b.hi Lmatch_no
+    cmp w9, #62
+    b.eq Lmatch_no
+    cmp w9, #44
+    b.eq Lmatch_no
+    sub w10, w9, #48
+    cmp w10, #9
+    b.ls Lmatch_no
+    orr w10, w9, #32
+    sub w10, w10, #97
+    cmp w10, #25
+    b.ls Lmatch_no
+    b Lselector_validate
 Lselector_rightmost:
     mov x23, x22
     mov x25, #0                     // accumulated specificity
@@ -177,6 +203,7 @@ _css_compound:
     mov x20, x2
     mov x21, x3
     mov x22, #1
+    str x1, [sp, #144]
     ldr x9, [x19, #88]
     cbz x9, Lcompound_no
     sub x9, x9, #1
@@ -191,6 +218,8 @@ _css_compound:
     cmp w9, #42
     b.eq Lcompound_star
     cmp w9, #46
+    b.eq Lcompound_suffix
+    cmp w9, #58
     b.eq Lcompound_suffix
     cmp w9, #35
     b.eq Lcompound_suffix
@@ -219,10 +248,47 @@ Lcompound_suffix:
     cmp x20, x21
     b.hs Lcompound_yes
     ldrb w24, [x20], #1
+    cmp w24, #58
+    b.eq Lcompound_link_state
     cmp w24, #35
     b.eq Lcompound_identifier
     cmp w24, #46
     b.ne Lcompound_no
+    b Lcompound_identifier
+Lcompound_link_state:
+    ldr x9, [sp, #144]
+    ldr x10, [x19, #16]
+    mov x11, #40
+    madd x10, x9, x11, x10
+    ldr x9, [x10]
+    cmp x9, #6
+    b.ne Lcompound_no
+    ldr x9, [x10, #32]
+    cbz x9, Lcompound_no
+    mov x25, x20
+    mov x0, x20
+    mov x1, x21
+    bl _css_ident_end
+    mov x20, x0
+    mov x1, x0
+    mov x0, x25
+    ADDR x2, pseudo_link
+    bl _css_eq
+    cbnz w0, Lcompound_unvisited
+    mov x0, x25
+    mov x1, x20
+    ADDR x2, pseudo_visited
+    bl _css_eq
+    cbz w0, Lcompound_no
+    ldr x9, [x23, #864]
+    cbz x9, Lcompound_no
+    b Lcompound_state_yes
+Lcompound_unvisited:
+    ldr x9, [x23, #864]
+    cbnz x9, Lcompound_no
+Lcompound_state_yes:
+    add x22, x22, #100
+    b Lcompound_suffix
 Lcompound_identifier:
     mov x25, x20
     mov x0, x20
@@ -261,14 +327,12 @@ Lcompound_class_scan:
     add x28, x28, #1
     b Lcompound_class_scan
 Lcompound_class_check:
-    sub x9, x28, x27
-    cmp x9, x26
-    b.ne Lcompound_class_advance
     mov x0, x27
-    mov x1, x25
-    mov x2, x26
-    bl _memcmp
-    cbz w0, Lcompound_class_yes
+    mov x1, x28
+    mov x2, x25
+    mov x3, x20
+    bl _css_identifier_equal
+    cbnz w0, Lcompound_class_yes
 Lcompound_class_advance:
     mov x27, x28
     b Lcompound_class_next
@@ -285,13 +349,12 @@ Lcompound_id:
     b.lo Lcompound_exhausted
     sub x9, x9, x0
     str x9, [x19, #88]
-    cmp x0, x26
-    b.ne Lcompound_no
+    add x1, x27, x0
     mov x0, x27
-    mov x1, x25
-    mov x2, x26
-    bl _memcmp
-    cbnz w0, Lcompound_no
+    mov x2, x25
+    mov x3, x20
+    bl _css_identifier_equal
+    cbz w0, Lcompound_no
     mov x9, #10000
     add x22, x22, x9
     b Lcompound_suffix
@@ -310,6 +373,8 @@ Lident_next:
     cmp x0, x1
     b.hs Lident_done
     ldrb w2, [x0]
+    cmp w2, #92
+    b.eq Lident_escape
     cmp w2, #45
     b.eq Lident_advance
     cmp w2, #95
@@ -324,5 +389,41 @@ Lident_next:
 Lident_advance:
     add x0, x0, #1
     b Lident_next
+Lident_escape:
+    add x2, x0, #1
+    cmp x2, x1
+    b.hs Lident_done
+    add x0, x0, #2
+    b Lident_next
 Lident_done:
     ret
+
+// Compare an HTML identifier to a CSS identifier with simple punctuation escapes.
+_css_identifier_equal:
+Lidentifier_equal_next:
+    cmp x2, x3
+    b.hs Lidentifier_equal_end
+    cmp x0, x1
+    b.hs Lidentifier_equal_no
+    ldrb w4, [x2], #1
+    cmp w4, #92
+    b.ne Lidentifier_equal_byte
+    cmp x2, x3
+    b.hs Lidentifier_equal_no
+    ldrb w4, [x2], #1
+Lidentifier_equal_byte:
+    ldrb w5, [x0], #1
+    cmp w4, w5
+    b.ne Lidentifier_equal_no
+    b Lidentifier_equal_next
+Lidentifier_equal_end:
+    cmp x0, x1
+    cset w0, eq
+    ret
+Lidentifier_equal_no:
+    mov w0, #0
+    ret
+
+.section __TEXT,__cstring,cstring_literals
+pseudo_link: .asciz "link"
+pseudo_visited: .asciz "visited"

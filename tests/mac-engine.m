@@ -4,6 +4,7 @@
 #import <WebKit/WebKit.h>
 #import <objc/runtime.h>
 #import <sqlite3.h>
+#import <QuartzCore/QuartzCore.h>
 #include <assert.h>
 extern Class mac_register_class(void);
 extern void mac_engine_toggle(id,SEL,id);
@@ -21,6 +22,8 @@ extern void mac_engine_back(void);
 extern void mac_engine_forward(void);
 extern void mac_form_submit(id,SEL,id);
 extern void mac_engine_complete(id,SEL,id,id,NSError *);
+extern int history_add(sqlite3 *,const char *,const char *);
+extern void mac_engine_refresh(void);
 extern int history_open(const char *, sqlite3 **);
 extern __unsafe_unretained id mac_app,mac_delegate;
 extern __unsafe_unretained NSWindow *mac_window;
@@ -59,6 +62,8 @@ static BOOL slowStarted;
     NSDictionary *headers=@{@"Content-Type":@"text/html; charset=utf-8"};
     NSInteger status=200;
     NSString *html=@"<title>First</title><h1>Hello 🌐</h1><p><a href='/second?a=1&amp;b=2'>next café</a> <a href='javascript:alert(1)'>bad link</a></p><script>SHOULD NOT RENDER</script>";
+    if ([path isEqual:@"/inline-box"]) html=@"<title>Inline boxes</title><style>@media(max-width:500px){#signin{background:transparent!important;padding:0!important;min-height:0!important;color:blue!important}}</style><p>Before <a id=signin href=/second style='display:inline-block;background:#0b57d0;color:white;padding:10px 24px;border-radius:100px;min-height:40px;box-sizing:border-box;text-align:center;text-decoration:none'>Sign <span>in 🌐</span></a> <a href=/afterbox>after café</a></p><a id=bordered href=/second style='display:inline-block;padding:4px 8px;border:2px solid red;border-radius:6px;min-width:120px;vertical-align:middle;margin:2px 4px'>Bordered</a>";
+    if ([path isEqual:@"/compat"]) html=@"<title>Compatibility</title><style>.nav{display:inline-block}body{font:14px Arial}#wide{display:none}@media(min-width:800px){#wide{display:block}}</style><div><div class=nav>Mail</div><div class=nav>Images</div></div><center><p>Centered search</p><form><input id=query name=q><input id=search type=submit value='A comfortably long search label'><button id=more type=button><svg><title>icon source</title></svg><span>More &amp; options</span></button></form><div style='margin:19px auto;text-align:center'>Advertising links</div><p id=wide>Desktop-only content</p><div style='display:inline-block'>Search field line</div><br><span style='display:inline-block'>Search button line</span><p><a href=/spaced style='margin:0 12px;color:purple'>Spaced 🌐</a><a href=/next>Next link</a></p><span style='background:#aaccee'><input id=painted type=submit value=Painted></span></center>";
     if ([path isEqual:@"/progress"]) html=@"<title>Progress</title><link rel=stylesheet href=assets/delayed.css><p>HTML visible before CSS</p><input id=live name=q value=initial>";
     if ([path isEqual:@"/advanced"]) html=@"<title>Advanced</title><style>.responsive{width:90%;max-width:600px;box-sizing:border-box;padding:12px;border:2px solid #369;margin:10px auto}.responsive > p{color:green}textarea{width:80%;max-width:250px;height:90px}</style><div class=responsive><p>Responsive text that wraps as the browser window changes size and keeps the controls below it intact.</p></div><form action='/posted?keep=1' method=post><input id=flag name=flag type=checkbox checked><input id=unchecked name=skip type=checkbox value=no><input id=radioA type=radio name=choice value=a checked><input id=radioB type=radio name=choice value=b><select id=flavor name=flavor><option disabled>Unavailable</option><option value=vanilla>Vanilla</option><option value=chocolate selected>Chocolate</option></select><select id=colors name=color multiple><option value=red selected>Red</option><option value=green>Green</option><option value=blue selected>Blue</option></select><textarea id=notes name=notes>line one\nline &amp; café</textarea><input id=edit name=edit value=initial><input name=disabled type=checkbox checked disabled><button id=send name=action value=commit>Send</button></form><form><input id=outside name=choice type=radio value=outside checked></form>";
     if ([path isEqual:@"/posted"]) {
@@ -72,7 +77,7 @@ static BOOL slowStarted;
     if ([path isEqual:@"/assets/first.css"]) { html=@".box{color:purple;font-size:18px;width:300px;padding:12px 16px;margin:8px 10px;border-width:2px;border-color:#2460ad;background:#fff4dc}"; headers=@{@"Content-Type":@"text/css; charset=utf-8"}; }
     if ([path isEqual:@"/slow"]) html=@"<title>Slow</title><link rel=stylesheet href='assets/slow.css'><p>Must never commit after cancellation</p>";
     if ([path isEqual:@"/assets/huge.css"]) headers=@{@"Content-Type":@"text/css"};
-    if ([path isEqual:@"/assets/last.css"]) { html=@".box{color:#123456}"; headers=@{@"Content-Type":@"text/css; charset=utf-8"}; }
+    if ([path isEqual:@"/assets/last.css"]) { html=[[@"/*" stringByPaddingToLength:70000 withString:@" " startingAtIndex:0] stringByAppendingString:@"*/.box{color:#123456}"]; headers=@{@"Content-Type":@"text/css; charset=utf-8"}; }
     if ([path isEqual:@"/assets/missing.css"] || [path isEqual:@"/assets/missing.png"]) status=404;
     if ([path isEqual:@"/assets/image.png"]) headers=@{@"Content-Type":@"image/png"};
     if ([path isEqual:@"/submitted"]) html=@"<title>Submitted</title><p>GET submitted</p>";
@@ -93,7 +98,7 @@ static BOOL slowStarted;
     if ([path isEqual:@"/assets/image.png"]) data=[NSData dataWithContentsOfFile:@"tests/engine-image.png"];
     if ([path isEqual:@"/latin1"]) { const char legacy[]="<title>Legacy</title><p>caf\xe9 \x93hello\x94 \x80</p>"; data=[NSData dataWithBytes:legacy length:sizeof(legacy)-1]; }
     if ([path isEqual:@"/expanded"]) { NSMutableData *large=[NSMutableData dataWithLength:600000]; memset(large.mutableBytes,0x80,large.length); data=large; }
-    if ([path isEqual:@"/assets/huge.css"]) data=[NSMutableData dataWithLength:65537];
+    if ([path isEqual:@"/assets/huge.css"]) data=[NSMutableData dataWithLength:1048577];
     if ([path isEqual:@"/stream"]) data=[NSMutableData dataWithLength:1048577];
     if ([path isEqual:@"/encoding"]) { unsigned char bad[]={0xff,0xfe,0xff}; data=[NSData dataWithBytes:bad length:sizeof(bad)]; }
     [self.client URLProtocol:self didLoadData:data];
@@ -152,6 +157,16 @@ int main(void) {
         NSRange link=[text.string rangeOfString:@"next café"];
         NSURL *target=[text.textStorage attribute:NSLinkAttributeName atIndex:link.location effectiveRange:NULL];
         assert([target.absoluteString isEqual:@"https://engine.test/second?a=1&b=2"]);
+        assert([text.linkTextAttributes[NSCursorAttributeName] isEqual:NSCursor.pointingHandCursor]);
+        assert(!text.linkTextAttributes[NSForegroundColorAttributeName]); // CSS stays authoritative
+        NSColor *unvisited=[[text.textStorage attribute:NSForegroundColorAttributeName atIndex:link.location effectiveRange:NULL] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+        assert(fabs(unvisited.blueComponent-214.0/255)<.001 && fabs(unvisited.redComponent-26.0/255)<.001);
+        assert(history_add(mac_db,target.absoluteString.UTF8String,"Visited target")==SQLITE_OK);
+        mac_engine_refresh();
+        NSColor *visited=[[text.textStorage attribute:NSForegroundColorAttributeName atIndex:link.location effectiveRange:NULL] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+        assert(fabs(visited.redComponent-128.0/255)<.001 && fabs(visited.blueComponent-128.0/255)<.001);
+        assert(sqlite3_exec(mac_db,"DELETE FROM visits WHERE title='Visited target'",NULL,NULL,NULL)==SQLITE_OK);
+        mac_engine_refresh();
         NSRange bad=[text.string rangeOfString:@"bad link"];
         assert(![text.textStorage attribute:NSLinkAttributeName atIndex:bad.location effectiveRange:NULL]);
         navigate(@"/second"); waitFor(^BOOL { return [window.title hasPrefix:@"Second — Assembly"]; });
@@ -301,6 +316,58 @@ int main(void) {
         [send performClick:nil]; waitFor(^BOOL { return [window.title hasPrefix:@"Posted — Assembly"]; });
         assert([postedMethod isEqual:@"POST"] && [postedType isEqual:@"application/x-www-form-urlencoded"] && [postedQuery isEqual:@"keep=1"]);
         assert([postedBody isEqual:@"flag=on&choice=b&flavor=chocolate&color=red&color=green&color=blue&notes=edited%0D%0Atext+%2B+%F0%9F%8C%90&edit=survives+resize&action=commit"]);
+        navigate(@"/compat"); waitFor(^BOOL { return [window.title hasPrefix:@"Compatibility — Assembly"] && [status.stringValue containsString:@"ready."]; });
+        assert([text.string containsString:@"Mail Images"] && ![text.string containsString:@"icon source"]);
+        NSButton *longSearch=control(@"search"),*more=control(@"more");
+        assert([more isKindOfClass:NSButton.class] && [more.title isEqual:@"More & options"] && !more.enabled && more.action==NULL);
+        assert(longSearch.frame.size.width>=longSearch.intrinsicContentSize.width && longSearch.frame.size.width>100);
+        NSRange centered=[text.string rangeOfString:@"Centered search"],footer=[text.string rangeOfString:@"Advertising links"];
+        NSParagraphStyle *centerStyle=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:centered.location effectiveRange:NULL];
+        NSParagraphStyle *footerStyle=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:footer.location effectiveRange:NULL];
+        assert(centerStyle.alignment==NSTextAlignmentCenter && footerStyle.alignment==NSTextAlignmentCenter && footerStyle.tailIndent==0 && footerStyle.headIndent==0);
+        NSRect footerRect=[text.layoutManager boundingRectForGlyphRange:footer inTextContainer:text.textContainer];
+        assert(footerRect.size.width>80 && footerRect.size.height<40);
+        assert([text.string containsString:@"Search field line"] && [text.string containsString:@"\nSearch button line"]);
+        NSRange spaced=[text.string rangeOfString:@"Spaced 🌐"];
+        assert([[text.textStorage attribute:NSKernAttributeName atIndex:NSMaxRange(spaced)-1 effectiveRange:NULL] integerValue]==24);
+        NSColor *authored=[[text.textStorage attribute:NSForegroundColorAttributeName atIndex:spaced.location effectiveRange:NULL] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+        assert(fabs(authored.redComponent-128.0/255)<.001 && authored.greenComponent<.001 && fabs(authored.blueComponent-128.0/255)<.001);
+        NSRange fieldLine=[text.string rangeOfString:@"Search field line"],buttonLine=[text.string rangeOfString:@"Search button line"];
+        NSRect fieldLineRect=[text.layoutManager boundingRectForGlyphRange:fieldLine inTextContainer:text.textContainer];
+        NSRect buttonLineRect=[text.layoutManager boundingRectForGlyphRange:buttonLine inTextContainer:text.textContainer];
+        assert(buttonLineRect.origin.y>fieldLineRect.origin.y);
+        for(NSUInteger i=0;i<text.string.length;i++) if([text.textStorage attribute:NSAttachmentAttributeName atIndex:i effectiveRange:NULL]) assert(![text.textStorage attribute:NSBackgroundColorAttributeName atIndex:i effectiveRange:NULL]);
+        assert([text.string containsString:@"Desktop-only content"]);
+        [window setContentSize:NSMakeSize(450,780)]; mac_engine_resize(nil,NULL,nil);
+        assert(![text.string containsString:@"Desktop-only content"]);
+        [window setContentSize:NSMakeSize(1160,780)]; mac_engine_resize(nil,NULL,nil);
+        assert([text.string containsString:@"Desktop-only content"]);
+        navigate(@"/inline-box"); waitFor(^BOOL { return [window.title hasPrefix:@"Inline boxes — Assembly"] && [status.stringValue containsString:@"ready."]; });
+        NSButton *signin=control(@"signin"),*bordered=control(@"bordered");
+        assert(signin && [signin.title isEqual:@"Sign in 🌐"] && signin.frame.size.height==40);
+        NSRange boxGlyph=[text.string rangeOfString:@"\ufffc"];
+        NSRect boxGlyphRect=[text.layoutManager boundingRectForGlyphRange:boxGlyph inTextContainer:text.textContainer];
+        assert(fabs(signin.frame.origin.x-(boxGlyphRect.origin.x+text.textContainerInset.width))<1);
+        NSSize titleSize=[signin.attributedTitle size]; assert(signin.frame.size.width>=titleSize.width+48 && signin.frame.size.width<titleSize.width+50);
+        assert(signin.wantsLayer && signin.layer.cornerRadius==20 && [signin.accessibilityRole isEqual:NSAccessibilityLinkRole]);
+        NSColor *boxBackground=[NSColor colorWithCGColor:signin.layer.backgroundColor];
+        assert(fabs(boxBackground.blueComponent-208.0/255)<.001);
+        NSColor *boxText=[signin.attributedTitle attribute:NSForegroundColorAttributeName atIndex:0 effectiveRange:NULL]; assert(boxText.redComponent>.99 && boxText.greenComponent>.99 && boxText.blueComponent>.99);
+        assert(bordered.layer.borderWidth==2 && bordered.layer.cornerRadius==6 && bordered.frame.size.width>=140);
+        NSRange borderedRange=[text.string rangeOfString:@"\ufffc" options:NSBackwardsSearch];
+        NSTextAttachment *borderedAttachment=[text.textStorage attribute:NSAttachmentAttributeName atIndex:borderedRange.location effectiveRange:NULL];
+        assert(fabs(borderedAttachment.attachmentCell.cellSize.width-(bordered.frame.size.width+8))<1);
+        NSRect borderedGlyphRect=[text.layoutManager boundingRectForGlyphRange:borderedRange inTextContainer:text.textContainer];
+        assert(fabs(bordered.frame.origin.x-(borderedGlyphRect.origin.x+text.textContainerInset.width+4))<1);
+        NSRange following=[text.string rangeOfString:@"after café"]; assert(following.location!=NSNotFound && [[text.textStorage attribute:NSLinkAttributeName atIndex:following.location effectiveRange:NULL] isEqual:[NSURL URLWithString:@"https://engine.test/afterbox"]]);
+        [window setContentSize:NSMakeSize(650,780)]; mac_engine_resize(nil,NULL,nil);
+        assert(control(@"signin")==signin && signin.frame.size.height==40);
+        [window setContentSize:NSMakeSize(450,780)]; mac_engine_resize(nil,NULL,nil);
+        assert(signin.hidden && [text.string containsString:@"Sign in 🌐"]);
+        [window setContentSize:NSMakeSize(650,780)]; mac_engine_resize(nil,NULL,nil);
+        assert(control(@"signin")==signin && !signin.hidden && signin.frame.size.height==40);
+        [signin performClick:nil]; waitFor(^BOOL { return [window.title hasPrefix:@"Second — Assembly"]; });
+        assert([address.stringValue isEqual:@"https://engine.test/second"]);
         int beforeDenied=count();
         sqlite3_set_authorizer(mac_db,denyInsert,NULL);
         navigate(@"/second"); waitFor(^BOOL { return [window.title hasPrefix:@"Second — Assembly"] && [status.stringValue containsString:@"history could not be saved"]; });

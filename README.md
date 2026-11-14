@@ -104,13 +104,13 @@ Editing commands act on the focused field/page and depend on that widget's editi
 
 ## Experimental assembly renderer (macOS)
 
-Choose **Navigate → Use Assembly Engine (Experimental)** or press **⌘E** to switch the current page between the assembly renderer and WebKit. WebKit remains the default. To start in assembly mode:
+Choose **Navigate → Use Assembly Engine (Experimental)** or press **⌘E** to switch the current page between the assembly renderer and WebKit. The assembly engine is the macOS default. To launch with WebKit instead:
 
 ```sh
-OOGABOOGA_ENGINE=asm build/Oogabooga.app/Contents/MacOS/oogabooga http://localhost:8765/engine/
+OOGABOOGA_ENGINE=webkit build/Oogabooga.app/Contents/MacOS/oogabooga https://example.com
 ```
 
-The ARM64 engine tokenizes static HTML into a bounded flow tree, supplies implied `html`/`body` elements, decodes named/numeric entities, collapses whitespace, and maps UTF-8 byte offsets to native UTF-16 ranges. CSS parsing, selector matching, inheritance, and the cascade are handwritten assembly; native text layout measures styled glyphs and wraps them inside assembly-created, nested content boxes. It supports paragraphs, headings, lists, preformatted text, titles, and relative HTTP(S) links. Native AppKit text services supply glyph shaping, drawing, text selection, link hit testing, and scrolling; WebKit is not used to parse or render this mode. Back/forward/reload and SQLite history work in both modes, with independent in-window navigation stacks.
+The ARM64 engine tokenizes static HTML into a bounded flow tree, supplies implied `html`/`body` elements, decodes named/numeric entities, collapses whitespace, and maps UTF-8 byte offsets to native UTF-16 ranges. CSS parsing, selector matching, inheritance, and the cascade are handwritten assembly; native text layout measures styled glyphs and wraps them inside assembly-created, nested content boxes. It supports paragraphs, headings, lists, preformatted text, titles, legacy `<center>` alignment, and relative HTTP(S) links. Inline span/emphasis tags and simple CSS inline/inline-block containers stay in text flow. Native AppKit text services supply glyph shaping, drawing, text selection, link hit testing, and scrolling; WebKit is not used to parse or render this mode. Back/forward/reload and SQLite history work in both modes, with independent in-window navigation stacks. Clickable links show the pointing-hand cursor; authored link colors remain authoritative, including sites that intentionally use purple for unvisited links.
 
 This first engine is macOS-only. Linux continues to use WebKitGTK. It does **not** implement full HTML5 tree-construction rules, JavaScript, fragment anchors, file uploads, or modern login flows. Comments and script bodies are excluded; style blocks are parsed as CSS and never displayed. Layout supports normal text flow and nested block boxes; flex/grid, floats, and positioning remain unsupported. Unsupported pages can be opened in WebKit with ⌘E.
 
@@ -120,27 +120,46 @@ Fetching uses `NSURLSession` with normal system TLS validation and an independen
 
 ### Supported CSS subset
 
-Embedded `<style>` blocks, linked HTTP(S) stylesheets, and decoded `style` attributes are supported. Selectors cover retained flow elements: type, `*`, `.class`, `#id`, compounds such as `p.notice`, comma groups, child combinators such as `.card > p`, and descendant chains such as `body .notice a`. Identifiers are ASCII; class/id matching is case-sensitive. The cascade honors specificity, source order, inline styles, `!important`, and `inherit`/`initial`/`unset`, with inherited text properties computed before painting.
+Embedded `<style>` blocks, linked HTTP(S) stylesheets, and decoded `style` attributes are supported. Selectors cover retained flow elements: type, `*`, `.class`, `#id`, compounds such as `p.notice`, comma groups, child combinators such as `.card > p`, and descendant chains such as `body .notice a`. Identifiers are ASCII with simple punctuation escapes (for example `.md\:block` and `.w-1\/2`); class/id matching is case-sensitive. Hex escapes remain unsupported. Links support `:link` and `:visited`; visited state uses exact resolved HTTP(S) URLs in SQLite history, and visited rules affect foreground color only. The cascade honors specificity, source order, inline styles, `!important`, and `inherit`/`initial`/`unset`, with inherited text properties computed before painting.
 
 Supported properties:
 
 - `color`, solid `background`/`background-color`: basic named colors, `#rgb`, `#rrggbb`, and comma-form `rgb()` values; transparent backgrounds are accepted.
-- `font-family`: serif/sans-serif/monospace and common platform-family aliases, with comma fallbacks; `font-size`, normal/bold/numeric `font-weight`, normal/italic/oblique `font-style`, and none/underline `text-decoration`.
+- Common `font: [style] [weight] size[/line-height] family-list` shorthand and `font-family`: serif/sans-serif/monospace and common platform-family aliases, with comma fallbacks; `font-size`, normal/bold/numeric `font-weight`, normal/italic/oblique `font-style`, and none/underline `text-decoration`.
 - `text-align`, `line-height`, `margin`, and the four `margin-*` properties map to native paragraph alignment, line metrics, spacing, and indents. `px`, `em`, and `rem` lengths are supported; font sizes and line heights also accept percentages, and line height accepts unitless multipliers. Font sizes are clamped to 6–72 pixels; spacing/line height to 200 pixels.
-- `display: none` removes content from layout, including descendants and links; normal block/inline display values restore visibility but do not implement a new box-formatting model.
+- `display:none` and HTML `hidden` remove content from layout, including descendants and links. Simple inline/inline-block containers flow horizontally with collapsible boundary spaces; explicit `<br>` breaks remain intact. Horizontal margins/padding on inline text are represented as trailing glyph spacing; independent box geometry is currently limited to the styled-link path below. Block, flex, and grid values restore visibility; flex/grid use block-flow fallback.
 - Block `width`, `max-width`, `box-sizing`, and minimum content `height`, `padding` (one to four values), `padding-*`, solid `border-width` and `border-color`, and margins. Widths, padding, and margins also accept percentages of the containing content width; horizontal margins accept `auto`. Other lengths support px/em/rem and zero; `width`/`height` also accept `auto`. Boxes retain nesting and backgrounds across multiple paragraphs. Margins do not collapse; solid/none `border` shorthand is supported, alongside the longhand properties.
 
-This is **not full CSS**. `@import`, at-rules, pseudo/attribute selectors, sibling combinators, custom properties, flex/grid, floats, positioning, background images, and responsive layout are unsupported. The text viewport follows the window width and reflows while preserving form edits and scroll position. Fixed content that exceeds it may require horizontal scrolling.
+Screen `@media` queries support `screen`/`all`, `only`, `and`, and pixel `min-width`/`max-width`, including fractional thresholds and up to eight nested queries. They update on window resize; unsupported conditions and comma query lists remain inactive. Link media still accepts absent/`all`/`screen` only.
 
-Combined embedded and linked CSS is limited to 64 KiB of complete blocks, 256 rules, 256 bytes per selector group, and eight descendant components. Over-limit blocks/rules and unsupported declarations are ignored. Selector matching has a one-million-step document budget; inline attributes retain the HTML parser's 2 KiB limit. Hidden text is excluded before UTF-16 range mapping, preserving links after hidden Unicode content.
+This is **not full CSS**. `@import`, other at-rules, other pseudo/attribute selectors, sibling combinators, custom properties, flex/grid layout, floats, positioning, and background images are unsupported. The text viewport follows the window width and reflows while preserving form edits and scroll position. Fixed content that exceeds it may require horizontal scrolling.
+
+Combined embedded and linked CSS is limited to 1 MiB of complete blocks, 4,096 rules, 256 bytes per selector group, and eight descendant components. Over-limit blocks/rules and unsupported declarations are ignored. Selector matching has a 134,217,728-step document budget; inline attributes retain the HTML parser's 2 KiB limit. Hidden text is excluded before UTF-16 range mapping, preserving links after hidden Unicode content.
+
+### Styled inline links
+
+Short, single-line `<a>` elements with backgrounds, padding, borders, or a minimum
+height use measured native inline boxes. They support all four padding/margin
+edges, solid borders, single-value `border-radius` (pixels or percentages),
+`width`/`height`, `min-width`/`min-height`, `max-width`, `box-sizing`, `text-align`,
+and `vertical-align:baseline`/`middle`. The full box activates the link and shows
+a pointing-hand cursor; its text remains available through an accessibility link
+label. Website text/background colors are preserved.
+
+This path handles text-only link contents up to 2 KiB, including simple nested
+text markup. Links with hidden content, line breaks, images, or form controls
+retain ordinary text flow. Nested text is drawn using the anchor’s computed text
+style; independent nested inline boxes and multiline box fragmentation remain
+unsupported. Resize and progressive stylesheet updates preserve native link
+controls and update their geometry or return them to ordinary text as needed.
 
 ### Images and forms
 
 `<img>` loads relative HTTP(S) raster resources through the engine's cookie session. CSS or HTML dimensions scale images, preserving aspect ratio when one dimension is omitted; natural images fit the current containing width. Failed/unsupported images display `alt` text. SVG, CSS background images, and animation controls are unsupported.
 
-Forms support GET and URL-encoded POST, native text/search/email/url/tel inputs, checkboxes, form-scoped radio groups, single/multiple selects, multiline textareas, hidden values, submit inputs, and simple text buttons. Multiple selects use a menu with independent checkmarks. Click Submit or press Return in a text field; Return inserts a line in a textarea. Submissions preserve document order and repeated names, exclude disabled/unchecked controls and unclicked submitters, and encode UTF-8 with CRLF-normalized line breaks. GET replaces the action's query; POST retains that query and sends `application/x-www-form-urlencoded` in the request body. Other methods/encodings, password inputs, and uploads are unsupported. Each field is limited to 2048 UTF-8 bytes. History traversal and Reload use saved URLs with GET; POST bodies are not automatically replayed.
+Forms support GET and URL-encoded POST, native text/search/email/url/tel inputs, checkboxes, form-scoped radio groups, single/multiple selects, multiline textareas, hidden values, submit inputs, and buttons with nested text markup or `aria-label` icon fallbacks. Non-submit button/reset controls are displayed disabled because their JavaScript/reset behavior is not implemented. Default button widths fit their titles; explicit CSS widths remain authoritative. Multiple selects use a menu with independent checkmarks. Click Submit or press Return in a text field; Return inserts a line in a textarea. Submissions preserve document order and repeated names, exclude disabled/unchecked controls and unclicked submitters, and encode UTF-8 with CRLF-normalized line breaks. GET replaces the action's query; POST retains that query and sends `application/x-www-form-urlencoded` in the request body. Other methods/encodings, password inputs, and uploads are unsupported. Each field is limited to 2048 UTF-8 bytes. History traversal and Reload use saved URLs with GET; POST bodies are not automatically replayed.
 
-HTML displays and records its visit immediately after parsing. Subresources then load sequentially; each result updates the displayed page without duplicating history or resetting controls. Available stylesheets are always combined in document order. The session uses a 16 MiB memory-only HTTP cache with normal HTTP freshness rules; Reload bypasses it. Limits: 32 HTTP(S) requests, ten seconds per request, 64 KiB per stylesheet, 2 MiB per image, and 8 MiB of accepted resource data per page. Raster metadata is checked before decoding (8192 pixels per dimension and 16 megapixels). Resource errors leave the HTML usable; navigation and engine switching cancel pending work. Stylesheets accept `text/css` and absent/`all`/`screen` link media; nested `@import` is not followed.
+HTML displays and records its visit immediately after parsing. Subresources then load sequentially; each result updates the displayed page without duplicating history or resetting controls. Available stylesheets are always combined in document order. The session uses a 16 MiB memory-only HTTP cache with normal HTTP freshness rules; Reload bypasses it. Limits: 32 HTTP(S) requests, ten seconds per request, 1 MiB per stylesheet, 2 MiB per image, and 8 MiB of accepted resource data per page. Raster metadata is checked before decoding (8192 pixels per dimension and 16 megapixels). Resource errors leave the HTML usable; navigation and engine switching cancel pending work. Stylesheets accept `text/css` and absent/`all`/`screen` link media; nested `@import` is not followed.
 
 ## Assembly and architecture
 
@@ -150,6 +169,7 @@ Rhun builds native assembly and links system libraries. Both Oogabooga applicati
 - `src/mac/reflow.s`, `css.s`, and `blocks.s`: computed font/color/paragraph attributes and nested native text boxes.
 - `src/mac/resources.s`, `attachments.s`, and `forms.s`: ordered HTTP subresources, raster images and fallbacks, native controls, and GET/POST submission; `select.s` and `forms-extra.s` handle option menus, radio groups, multiline fields, and serialization.
 - `src/mac/charset.s`: HTTP charset selection and UTF-8 normalization through platform codecs.
+- `src/engine/flow.s`, `font.s`, `media.s`, and `labels.s`: inline flow, font shorthand, width queries, and plain-text button labels in ARM64 assembly.
 - `src/mac/engine.s`: native text presentation, asynchronous HTTP/TLS integration, experimental-engine navigation, and engine switching.
 - `src/mac/browser.s`: ARM64 AppKit window/controls, native WebKit delegates, navigation, popup ownership, and title observation.
 - `src/mac/url.s`: ARM64 address/search handling, using Foundation for Unicode and URL construction.
@@ -163,7 +183,7 @@ Rhun builds native assembly and links system libraries. Both Oogabooga applicati
 
 C and Objective-C sources under `tests/` are assertion harnesses only. They are not linked into either shipped application. On macOS, `OOGABOOGA_PROFILE=/path/to/profile` selects an alternate SQLite history directory for isolated testing; WebKit website data still follows the app's bundle identity.
 
-The default rendering engine is the OS WebKit installation, or the maintained GNOME runtime WebKitGTK in Flatpak. The experimental macOS static renderer is described above. Assembly does not make HTML, JavaScript, TLS, or web compatibility inexpensive to reimplement; reusing the maintained system engine keeps the application small. WebKit helper processes still consume memory separately from the executable.
+macOS defaults to the assembly renderer described above, with the OS WebKit installation available through ⌘E. Linux defaults to WebKitGTK, including the maintained GNOME runtime version in Flatpak. Assembly does not make HTML, JavaScript, TLS, or web compatibility inexpensive to reimplement; reusing the maintained system engine keeps the application small. WebKit helper processes still consume memory separately from the executable.
 
 ## Storage
 

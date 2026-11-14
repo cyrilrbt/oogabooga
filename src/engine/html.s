@@ -246,9 +246,9 @@ Lparse_tag_ready:
     b.eq Lparse_document_element
     cbz x22, Lparse_next
     cmp x22, #TAG_BR
-    b.eq Lparse_br
+    b.eq Lparse_explicit_br
     cmp x22, #TAG_HR
-    b.eq Lparse_br
+    b.eq Lparse_explicit_br
     cbnz x27, Lparse_close
     cmp x22, #NODE_OPTION
     b.ne Lparse_dispatch_open
@@ -392,15 +392,25 @@ Lparse_object:
     mov x20, x0
     ldr x9, [x19, #72]
     add x9, x9, x23, lsl #10
-    ldr x0, [x9, #ATTR_LABEL]
-    bl _free
     ldr x0, [sp, #192]
     mov x1, x20
     bl _css_trim
-    bl _engine_decode_attribute
+    bl _engine_button_label
     ldr x9, [x19, #72]
     add x9, x9, x23, lsl #10
-    str x0, [x9, #ATTR_LABEL]
+    mov x27, x0
+    cbz x0, Lbutton_keep_label
+    ldrb w10, [x0]
+    cbz w10, Lbutton_empty_label
+    ldr x0, [x9, #ATTR_LABEL]
+    bl _free
+    ldr x9, [x19, #72]
+    add x9, x9, x23, lsl #10
+    str x27, [x9, #ATTR_LABEL]
+    b Lbutton_keep_label
+Lbutton_empty_label:
+    bl _free
+Lbutton_keep_label:
     b Lparse_next
 Lparse_textarea:
     mov x0, x20
@@ -467,7 +477,34 @@ Lparse_unwind_next:
     b.eq Lparse_next
     cmp x22, #NODE_A
     b.eq Lparse_next
+    cmp x22, #NODE_SPAN
+    b.eq Lparse_next
+    cmp x22, #NODE_STRONG
+    b.eq Lparse_next
+    cmp x22, #NODE_EM
+    b.eq Lparse_next
     b Lparse_br
+Lparse_explicit_br:
+    // Explicit breaks retain their own range, distinct from inferred block gaps.
+    mov x0, x19
+    mov x1, #NODE_BR
+    mov x2, x24
+    ldr x3, [x19, #8]
+    mov x4, #0
+    bl _engine_node
+    tbnz x0, #63, Lparse_error
+    mov x23, x0
+    mov x0, x19
+    ADDR x1, explicit_newline
+    mov x2, #1
+    mov x3, #1
+    bl _engine_append
+    ldr x9, [x19, #16]
+    mov x10, #40
+    madd x9, x23, x10, x9
+    ldr x10, [x19, #8]
+    str x10, [x9, #24]
+    b Lparse_next
 Lparse_br:
     mov x0, x19
     mov x1, #1
@@ -749,6 +786,7 @@ Ltag_unknown:
     mov x0, #0
     LEAVE
 
+.globl _engine_find_close
 _engine_find_close:
     ENTER
     mov x19, x0
@@ -787,6 +825,7 @@ Lfind_found:
 .section __DATA,__const
 .p2align 3
 tag_table:
+.quad tag_center, 6, NODE_CENTER
 .quad tag_select, 6, NODE_SELECT
 .quad tag_option, 6, NODE_OPTION
 .quad tag_textarea, 8, NODE_TEXTAREA
@@ -827,6 +866,7 @@ tag_table:
 .quad 0, 0, 0
 .section __TEXT,__cstring,cstring_literals
 list_marker: .asciz "• "
+tag_center: .asciz "center"
 tag_p: .asciz "p"
 tag_h1: .asciz "h1"
 tag_h2: .asciz "h2"
@@ -885,3 +925,6 @@ tag_select: .asciz "select"
 tag_option: .asciz "option"
 tag_textarea: .asciz "textarea"
 textarea_close: .asciz "</textarea"
+
+.section __TEXT,__cstring,cstring_literals
+explicit_newline: .asciz "\n"

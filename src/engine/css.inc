@@ -1,11 +1,11 @@
 // CSS metadata: one 1024-byte record per node. id*, classes*, inline*, tag*;
-// 24 computed values at +32; priorities at +224; owned attributes at +512.
-// Rule: selector*, length, declaration mask, important mask, 24 values (224 bytes).
+// 28 computed values at +32; priorities at +256; owned attributes at +512.
+// Rule: selector*, length, declaration mask, important mask, 28 values (256 bytes).
 .set CSS_META_SIZE, 1024
-.set CSS_RULE_SIZE, 224
-.set CSS_PROPERTIES, 24
-.set CSS_MAX_SOURCE, 65536
-.set CSS_MAX_RULES, 256
+.set CSS_RULE_SIZE, 256
+.set CSS_PROPERTIES, 28
+.set CSS_MAX_SOURCE, 1048576
+.set CSS_MAX_RULES, 4096
 .set CSS_COLOR, 0
 .set CSS_BACKGROUND, 1
 .set CSS_SIZE, 2
@@ -13,7 +13,7 @@
 .set CSS_ITALIC, 4
 .set CSS_UNDERLINE, 5
 .set CSS_ALIGN, 6
-.set CSS_DISPLAY, 7
+.set CSS_DISPLAY, 7               // 0 normal/block fallback, 1 none, 2 inline flow
 .set CSS_TOP, 8
 .set CSS_BOTTOM, 9
 .set CSS_LINE, 10
@@ -61,3 +61,10 @@
 .set ATTR_ENCTYPE, 672
 // Scratch box metrics +768: content width,L/R/T/B margins,L/R/T/B padding,border.
 .set ATTR_CSS_DATA, 680
+
+// Metadata scratch: +696 HTML hidden flag, +856 root viewport, +864 visited link.
+
+.set CSS_RADIUS, 24
+.set CSS_MIN_HEIGHT, 25
+.set CSS_VERTICAL_ALIGN, 26
+.set CSS_MIN_WIDTH, 27

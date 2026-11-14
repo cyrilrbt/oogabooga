@@ -198,7 +198,7 @@ Lresource_reject:
 .globl _mac_resource_limit
 _mac_resource_limit:
     LOAD x9, _engine_phase
-    mov x1, #65536
+    mov x1, #1048576
     cmp x9, #1
     b.eq Lresource_limit_return
     mov x1, #2097152
@@ -258,7 +258,11 @@ Lresource_decode_image:
     mov x0, x19
     MSG release
 Lresource_consumed:
+    LOAD x9, _engine_phase
+    cmp x9, #1
+    b.ne Lresource_refresh
     bl _mac_resources_styles
+Lresource_refresh:
     bl _mac_engine_refresh
     bl _mac_engine_cancel
     bl _mac_resources_next

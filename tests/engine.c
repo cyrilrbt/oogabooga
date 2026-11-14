@@ -55,11 +55,20 @@ int main(void) {
     assert(!engine_parse(NULL,0)); assert(!engine_parse("",1048577));
     char deep[1024]=""; for(int i=0;i<70;i++) strcat(deep,"<div>"); assert(!engine_parse(deep,strlen(deep)));
     d=parse("bad\xff"); assert(!engine_layout(d,20)); assert(!engine_layout(d,0)); engine_document_free(d);
+    d=parse("&copy; &reg; &trade; &ndash; &mdash; &hellip;"); assert(!strcmp(d->text,"© ® ™ – — …")); engine_document_free(d);
+    d=parse("<p><span>one</span><strong>two</strong><em>three</em>four</p><button><svg><title>icon markup</title></svg><span> More &amp; café </span><!--hidden--></button><button aria-label='Open menu'><svg><path d='a > b'></path></svg></button>");
+    assert(strstr(d->text,"onetwothreefour"));
+    int buttons=0;
+    for(uint64_t i=0;i<d->count;i++) if(d->nodes[i].type==34) {
+        char *label=*(char **)((char *)d->css_meta+i*1024+608);
+        assert(label && !strcmp(label,buttons ? "Open menu" : "More & café")); buttons++;
+    }
+    assert(buttons==2); engine_document_free(d);
     // Every prefix ends at a protected page: catches assembly reads past truncated input.
     size_t page=(size_t)sysconf(_SC_PAGESIZE);
     char *guard=mmap(NULL,page*2,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0); assert(guard!=MAP_FAILED);
     assert(mprotect(guard+page,page,PROT_NONE)==0);
-    const char *sample="<!--unfinished--><a q='>' href='x&amp;y'><title>&#x1f310;</title><script>x<y</script><p>text &amp; 🌐</p>";
+    const char *sample="<button aria-label=menu><svg><title>hidden</title></svg><span title='a > b'>café &amp; 🌐</span></button><!--unfinished--><a q='>' href='x&amp;y'><title>&#x1f310;</title><script>x<y</script><p>text &amp; 🌐</p>";
     for(size_t n=0;n<=strlen(sample);n++) {
         char *start=guard+page-n; memcpy(start,sample,n);
         d=engine_parse(start,n);

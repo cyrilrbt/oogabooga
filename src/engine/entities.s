@@ -282,6 +282,16 @@ Lhref_none:
 .section __DATA,__const
 .p2align 3
 entity_table:
+.quad entity_copy, 5, 169
+.quad entity_reg, 4, 174
+.quad entity_trade, 6, 8482
+.quad entity_ndash, 6, 8211
+.quad entity_mdash, 6, 8212
+.quad entity_hellip, 7, 8230
+.quad entity_lsquo, 6, 8216
+.quad entity_rsquo, 6, 8217
+.quad entity_ldquo, 6, 8220
+.quad entity_rdquo, 6, 8221
 .quad entity_amp, 4, 38
 .quad entity_lt, 3, 60
 .quad entity_gt, 3, 62
@@ -306,3 +316,15 @@ _engine_decode_attribute:
     mov x24, x0
     mov x25, x1
     b Lhref_allocate
+
+.section __TEXT,__cstring,cstring_literals
+entity_copy: .asciz "copy;"
+entity_reg: .asciz "reg;"
+entity_trade: .asciz "trade;"
+entity_ndash: .asciz "ndash;"
+entity_mdash: .asciz "mdash;"
+entity_hellip: .asciz "hellip;"
+entity_lsquo: .asciz "lsquo;"
+entity_rsquo: .asciz "rsquo;"
+entity_ldquo: .asciz "ldquo;"
+entity_rdquo: .asciz "rdquo;"

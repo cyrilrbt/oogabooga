@@ -44,6 +44,8 @@ _mac_control_kind:
     ENTER
     mov x19, x0
     mov x20, x1
+    cmp x20, #NODE_A
+    b.eq Lkind_inline_link
     cmp x20, #NODE_SELECT
     b.eq Lkind_select
     cmp x20, #NODE_TEXTAREA
@@ -61,7 +63,17 @@ _mac_control_kind:
     MSG equal
     cbnz w0, Lkind_submit
     cmp x20, #NODE_BUTTON
-    b.eq Lkind_unsupported
+    b.eq Lkind_inert_button
+    STR button_type
+    mov x2, x0
+    mov x0, x21
+    MSG equal
+    cbnz w0, Lkind_inert_button
+    STR reset_type
+    mov x2, x0
+    mov x0, x21
+    MSG equal
+    cbnz w0, Lkind_inert_button
     STR checkbox_type
     mov x2, x0
     mov x0, x21
@@ -99,6 +111,9 @@ Lkind_submit:
 Lkind_hidden:
     mov x0, #2
     LEAVE
+Lkind_inline_link:
+    mov x0, #9
+    LEAVE
 Lkind_select:
     mov x0, #6
     LEAVE
@@ -110,6 +125,9 @@ Lkind_checkbox:
     LEAVE
 Lkind_radio:
     mov x0, #5
+    LEAVE
+Lkind_inert_button:
+    mov x0, #8
     LEAVE
 Lkind_unsupported:
     mov x0, #3
@@ -136,6 +154,8 @@ Lcontrol_new:
     mov x1, x20
     bl _mac_control_kind
     mov x22, x0
+    cmp x0, #9
+    b.eq Lcontrol_inline_link
     cmp x0, #2
     b.eq Lcontrol_none
     cmp x0, #4
@@ -146,6 +166,8 @@ Lcontrol_new:
     b.eq Lcontrol_select
     cmp x0, #7
     b.eq Lcontrol_textarea
+    cmp x0, #8
+    b.eq Lcontrol_button
     cmp x0, #1
     b.eq Lcontrol_button
     CLASS NSTextField
@@ -168,6 +190,16 @@ Lcontrol_text_value:
     mov x2, #0
     MSG setEditable
     b Lcontrol_common
+Lcontrol_inline_link:
+    bl _mac_inline_button_class
+    MSG alloc
+    RECT 0, 0, 1, 1
+    MSG initFrame
+    mov x23, x0
+    mov x1, x19
+    mov x2, x21
+    bl _mac_inline_configure
+    b Lcontrol_dictionary
 Lcontrol_select:
     LOAD x0, _engine_render_document
     mov x1, x21
@@ -233,11 +265,15 @@ Lcontrol_common:
     b.lo Lcontrol_action
     SELECT x2, formToggle
 Lcontrol_action:
+    cmp x22, #8
+    csel x2, xzr, x2, eq
     MSG setAction
     ldr x9, [x19, #ATTR_DISABLED]
     cmp x9, #0
     cset w2, eq
     cmp x22, #3
+    csel x2, xzr, x2, eq
+    cmp x22, #8
     csel x2, xzr, x2, eq
     mov x0, x23
     MSG setEnabled
@@ -262,6 +298,12 @@ Lcontrol_release:
     mov x0, x23
     LEAVE
 Lcontrol_reused:
+    cmp x20, #NODE_A
+    b.ne Lcontrol_reused_done
+    mov x1, x19
+    mov x2, x21
+    bl _mac_inline_configure
+Lcontrol_reused_done:
     LEAVE
 Lcontrol_none:
     mov x0, #0
@@ -289,6 +331,18 @@ Lposition_next:
     ldr x9, [x19, #16]
     mov x10, #40
     madd x9, x21, x10, x9
+    ldr x10, [x9]
+    cmp x10, #NODE_A
+    b.ne Lposition_visible_range
+    ldr x10, [x19, #72]
+    add x10, x10, x21, lsl #10
+    ldr x10, [x10, #872]
+    cbnz x10, Lposition_visible_range
+    mov x0, x22
+    mov x2, #1
+    MSG setHidden
+    b Lposition_advance
+Lposition_visible_range:
     ldr x10, [x9, #16]
     ldr x9, [x20, #16]
     ldr x23, [x9, x10, lsl #3]
@@ -305,7 +359,8 @@ Lposition_next:
     ldr x9, [x19, #72]
     add x9, x9, x21, lsl #10
     ldr x9, [x9, #88]
-    cbnz x9, Lposition_advance
+    cmp x9, #1
+    b.eq Lposition_advance
     LOAD x0, _engine_text
     MSG layoutManager
     mov x24, x0
@@ -350,6 +405,11 @@ Lposition_next:
     ldr d1, [sp, #184]
     fsub d1, d1, d0
     str d1, [sp, #152]
+    mov x0, x22
+    bl _mac_inline_margins
+    ldr d4, [sp, #144]
+    fadd d0, d0, d4
+    str d0, [sp, #144]
     ldp d0, d1, [sp, #144]
     ldp d2, d3, [sp, #160]
     mov x0, x22
@@ -740,3 +800,7 @@ radio_type: .asciz "radio"
 on_value: .asciz "on"
 post_method_name: .asciz "post"
 form_content_type: .asciz "application/x-www-form-urlencoded"
+
+.section __TEXT,__cstring,cstring_literals
+button_type: .asciz "button"
+reset_type: .asciz "reset"

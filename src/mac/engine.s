@@ -9,6 +9,9 @@
 _mac_engine_toggle:
     ENTER
     mov x19, x2                      // optional menu item
+    cbnz x19, Lengine_have_menu
+    LOAD x19, _mac_engine_menu_item
+Lengine_have_menu:
     LOAD x0, _mac_engine_enabled
     eor x0, x0, #1
     STORE x0, _mac_engine_enabled
@@ -99,6 +102,14 @@ _mac_engine_create:
     CLASS NSMutableDictionary
     MSG new
     mov x21, x0
+    CLASS NSCursor
+    MSG pointingHandCursor
+    mov x2, x0
+    adrp x9, _NSCursorAttributeName@GOTPAGE
+    ldr x9, [x9, _NSCursorAttributeName@GOTPAGEOFF]
+    ldr x3, [x9]
+    mov x0, x21
+    MSG setObjectKey
     mov x0, x20
     mov x2, x21
     MSG setLinkTextAttributes
@@ -618,10 +629,28 @@ _mac_engine_display:
     mov x19, x0
     STORE x19, _engine_render_document
     mov x20, x1
+    STORE x20, _engine_render_base
     bl _mac_engine_measure
+    mov x0, x19
+    mov x1, x20
+    bl _mac_link_states
+    mov x12, x0
+    ldr x9, [x19, #72]
+    ldr x10, [x9, #856]
+    LOAD x11, _engine_viewport
+    cmp x10, x11
+    b.ne Ldisplay_update_styles
+    cbz x12, Ldisplay_viewport_ready
+Ldisplay_update_styles:
+    str x11, [x9, #856]
+    mov x0, x19
+    bl _engine_css_apply
+Ldisplay_viewport_ready:
     mov x0, x19
     LOAD x1, _engine_viewport
     bl _engine_box_tree
+    mov x0, x19
+    bl _engine_inline_boxes
     mov x0, x19
     mov x1, #0
     bl _engine_layout
@@ -707,6 +736,10 @@ Ldisplay_node_next:
     sub x27, x27, #1
     b Ldisplay_node
 Ldisplay_install:
+    mov x0, x19
+    mov x1, x21
+    mov x2, x23
+    bl _mac_inline_spacing
     mov x0, x19
     mov x1, x21
     mov x2, x23
@@ -813,3 +846,8 @@ engine_traversal: .space 8
 
 .globl _engine_cache_policy
 _engine_cache_policy: .space 8
+
+.section __DATA,__data
+.p2align 3
+.globl _engine_render_base
+_engine_render_base: .quad 0

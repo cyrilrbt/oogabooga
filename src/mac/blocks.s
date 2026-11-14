@@ -52,6 +52,9 @@ Lblock_create:
     b.eq Lblock_create_next
     cmp x9, #NODE_NAV
     b.hi Lblock_create_next
+    ldr x9, [x24, #88]
+    cmp x9, #2
+    b.eq Lblock_create_next
     ldr x9, [x24, #208]
     cmn x9, #1
     b.ne Lblock_make
@@ -188,6 +191,11 @@ Lblocks_apply:
     mov x0, x27
     MSG count
     cbz x0, Lblocks_release_array
+    ldr x9, [x19, #72]
+    add x9, x9, x23, lsl #10
+    ldr x9, [x9, #88]
+    cmp x9, #2
+    b.eq Lblocks_copy_style
     ldr x9, [x24]
     cmp x9, #NODE_TEXT
     b.eq Lblocks_copy_style

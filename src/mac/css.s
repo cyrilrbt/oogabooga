@@ -98,6 +98,8 @@ Lfont_return:
 // attributes(attributed_string, metadata, location, length, node_type).
 .globl _mac_css_attributes
 _mac_css_attributes:
+    cmp x4, #NODE_BR
+    b.eq Lattributes_return
     cbz x3, Lattributes_return
     ENTER
     mov x19, x0
@@ -152,6 +154,9 @@ Lattributes_underline:
     cmp x23, #NODE_LINK
     b.eq Lattributes_done
     cmp x23, #NODE_SHEET
+    b.eq Lattributes_done
+    ldr x9, [x20, #88]
+    cmp x9, #2
     b.eq Lattributes_done
     mov x0, x20
     bl _mac_css_paragraph
@@ -241,23 +246,29 @@ _mac_css_paragraph:
 Lparagraph_alignment:
     MSG setAlignment
     mov x0, x24
-    ldr x9, [x20, #96]
+    ldr x9, [x20, #792]
     scvtf d0, x9
     MSG setParagraphBefore
     mov x0, x24
-    ldr x9, [x20, #104]
+    ldr x9, [x20, #800]
     scvtf d0, x9
     MSG setParagraphAfter
     mov x0, x24
-    ldr x9, [x20, #128]
+    ldr x9, [x20, #776]
+    cmp x9, #0
+    csel x9, xzr, x9, lt
     scvtf d0, x9
     MSG setHeadIndent
     mov x0, x24
-    ldr x9, [x20, #128]
+    ldr x9, [x20, #776]
+    cmp x9, #0
+    csel x9, xzr, x9, lt
     scvtf d0, x9
     MSG setFirstIndent
     mov x0, x24
-    ldr x9, [x20, #136]
+    ldr x9, [x20, #784]
+    cmp x9, #0
+    csel x9, xzr, x9, lt
     neg x9, x9
     scvtf d0, x9
     MSG setTailIndent

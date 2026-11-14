@@ -74,6 +74,12 @@ Lmenu_next:
     mov x0, x20
     MSG addMenuItem
     mov x22, x0
+    ldr x9, [x19, #8]
+    ADDR x10, _sel_engineToggle
+    cmp x9, x10
+    b.ne Lmenu_modifiers
+    STORE x22, _mac_engine_menu_item
+Lmenu_modifiers:
     ldr x2, [x19, #32]
     MSG setKeyMask
     ldr x9, [x19, #24]
@@ -136,3 +142,8 @@ r_key: .asciz "r"
 left_key: .asciz "["
 right_key: .asciz "]"
 y_key: .asciz "y"
+
+.section __DATA,__data
+.p2align 3
+.globl _mac_engine_menu_item
+_mac_engine_menu_item: .quad 0

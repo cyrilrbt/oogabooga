@@ -7,7 +7,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 typedef struct { uint64_t type,parent,start,end; char *href; } Node;
-typedef struct { char *id,*classes,*inline_style,*tag; int64_t value[24]; uint64_t priority[24]; char reserved[96]; char *attrs[22]; char tail[336]; } Meta;
+typedef struct { char *id,*classes,*inline_style,*tag; int64_t value[28]; uint64_t priority[28]; char reserved[32]; char *attrs[22]; char tail[336]; } Meta;
 typedef struct { char *text; uint64_t length; Node *nodes; uint64_t count; char *title; uint64_t capacity,title_length; char *css; uint64_t css_length; Meta *meta; unsigned char *hidden; uint64_t work; } Doc;
 typedef struct { char *text; uint64_t length,*map,lines; } Layout;
 extern Doc *engine_parse(const char *,size_t);
@@ -15,8 +15,11 @@ extern void engine_document_free(Doc *);
 extern Layout *engine_layout(Doc *,size_t);
 extern void engine_layout_free(Layout *);
 extern void css_declarations(const char *,const char *,void *);
+extern void engine_css_apply(Doc *);
+extern void engine_inline_boxes(Doc *);
 extern uint64_t engine_box_metrics(Meta *,uint64_t);
 extern char *engine_form_encode(const char *);
+extern int css_media_match(const char *,const char *,uint64_t);
 extern uint64_t css_match(Doc *,uint64_t,const char *,const char *);
 static Doc *parse(const char *s) { Doc *d=engine_parse(s,strlen(s)); assert(d); return d; }
 static size_t id(Doc *d,const char *name) { for(size_t i=0;i<d->count;i++) if(d->meta[i].id && strcmp(d->meta[i].id,name)==0) return i; abort(); }
@@ -81,12 +84,58 @@ int main(void) {
     engine_document_free(d);
     d=parse("<p id=p style='width:50%;padding:5%;margin:10% 0;border:none'>percent</p>"); s=&d->meta[id(d,"p")];
     assert(engine_box_metrics(s,400)==200 && ((uint64_t *)s)[99]==40 && ((uint64_t *)s)[101]==20 && s->value[20]==0); engine_document_free(d);
+    d=parse("<center id=center><p id=inside>centered</p></center><p id=after>after</p><p hidden id=hidden>SECRET</p><p id=font style='font:italic 700 18px/1.5 Arial,sans-serif'>font</p><p id=reset style='font-weight:bold;font-style:italic;font:14px Arial'>reset</p>");
+    assert(d->meta[id(d,"center")].value[6]==2 && d->meta[id(d,"inside")].value[6]==2 && d->meta[id(d,"after")].value[6]==0);
+    s=&d->meta[id(d,"font")]; assert(s->value[2]==18 && s->value[3]==700 && s->value[4]==1 && (uint32_t)s->value[10]==27 && s->value[11]==1);
+    s=&d->meta[id(d,"reset")]; assert(s->value[3]==400 && s->value[4]==0);
+    l=engine_layout(d,0); assert(l && !strstr(l->text,"SECRET")); engine_layout_free(l); engine_document_free(d);
+    // A utility sheet larger than 64 KiB and 256 supported rules must reach its final rule.
+    char *large=calloc(1,200000); assert(large); strcpy(large,"<style>");
+    for(int i=0;i<800;i++) { char rule[180]; snprintf(rule,sizeof(rule),".utility%d{color:red}/* padding to exercise realistic stylesheet size ........................................................ */",i); strcat(large,rule); }
+    strcat(large,"#last{color:blue}</style><p id=last>styled</p>");
+    d=parse(large); assert(d->css_length>65536 && d->meta[id(d,"last")].value[0]==255); engine_document_free(d); free(large);
+    d=parse("<style>.item{display:inline-block}</style><div><div class=item>Gmail</div><div class=item>Images</div></div><p>Footer</p><div class=item style='display:none'>HIDDEN</div>");
+    l=engine_layout(d,0); assert(l && strstr(l->text,"Gmail Images") && !strstr(l->text,"HIDDEN") && strstr(l->text,"\nFooter"));
+    for(size_t i=0;i<d->length;i++) assert(l->map[i]<=l->map[i+1]);
+    engine_layout_free(l); engine_document_free(d);
+    d=parse("<style>#desktop{display:none}@media screen and (min-width:768px) and (max-width:1200px){#desktop{display:flex;color:red}@media(min-width:1000px){#desktop{color:blue}}}#after{color:green}@media print{#after{color:red}}.md\\:block{display:block}.w-1\\/2{width:50%}</style><p id=desktop>desktop</p><p id=after>after</p><p id=escaped class='md:block w-1/2'>escaped</p>");
+    assert(d->meta[id(d,"desktop")].value[7]==0 && d->meta[id(d,"desktop")].value[0]==255 && d->meta[id(d,"after")].value[0]==0x008000);
+    assert(d->meta[id(d,"escaped")].value[14]==(int64_t)(UINT64_C(1)<<32|50000));
+    ((uint64_t *)d->meta)[107]=600; engine_css_apply(d);
+    assert(d->meta[id(d,"desktop")].value[7]==1 && d->meta[id(d,"after")].value[0]==0x008000);
+    ((uint64_t *)d->meta)[107]=900; engine_css_apply(d);
+    assert(d->meta[id(d,"desktop")].value[7]==0 && d->meta[id(d,"desktop")].value[0]==0xff0000);
+    engine_document_free(d);
+    d=parse("<style>a:link{color:blue}a:visited{color:purple;width:1px;display:none}</style><a id=link href=/target>target</a><a id=plain>not a link</a>");
+    size_t link=id(d,"link"),plain=id(d,"plain");
+    assert(match(d,link,"a:link") && !match(d,link,"a:visited") && !match(d,plain,"a:link") && !match(d,plain,"a:visited"));
+    assert(d->meta[link].value[0]==255);
+    ((uint64_t *)&d->meta[link])[108]=1; engine_css_apply(d);
+    assert(!match(d,link,"a:link") && match(d,link,"a:visited"));
+    assert(d->meta[link].value[0]==0x800080 && d->meta[link].value[7]==0 && d->meta[link].value[14]==-1);
+    engine_document_free(d);
+    d=parse("<style>.inline{display:inline-block}</style><center><div class=inline>Search field</div><br><span class=inline>Search buttons</span><br><br>Footer</center>");
+    l=engine_layout(d,0); assert(l && strstr(l->text,"Search field") && strstr(l->text,"\nSearch buttons\n\nFooter"));
+    for(size_t i=0;i<d->length;i++) assert(l->map[i]<=l->map[i+1]);
+    engine_layout_free(l); engine_document_free(d);
+    d=parse("<a id=button href=/signin style='display:inline-block;padding:10px 24px;background:blue;border-radius:100px;min-height:40px;min-width:80px;vertical-align:middle'>Sign <span>in 🌐</span></a><a id=afterbox href=/after>after café</a><a id=complex href=/complex style='background:red'><input></a>");
+    s=&d->meta[id(d,"button")]; assert(s->value[24]==100 && s->value[25]==40 && s->value[26]==1 && s->value[27]==80);
+    engine_inline_boxes(d); l=engine_layout(d,0); assert(l && strstr(l->text,"after café"));
+    Node *button=&d->nodes[id(d,"button")],*afterbox=&d->nodes[id(d,"afterbox")];
+    assert(l->map[button->end]-l->map[button->start]==1 && l->map[afterbox->end]-l->map[afterbox->start]==10);
+    assert(((uint64_t *)&d->meta[id(d,"complex")])[109]==0);
+    for(size_t i=0;i<d->length;i++) assert(l->map[i]<=l->map[i+1]);
+    engine_layout_free(l); engine_document_free(d);
     char *newline=engine_form_encode("a\nb\rc\r\nd"); assert(newline && !strcmp(newline,"a%0D%0Ab%0D%0Ac%0D%0Ad")); free(newline);
     // Every declaration prefix ends at a protected boundary.
     size_t page=(size_t)sysconf(_SC_PAGESIZE);
     char *guard=mmap(NULL,page*2,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0); assert(guard!=MAP_FAILED); assert(!mprotect(guard+page,page,PROT_NONE));
     const char *css="/*c*/color:#abc!important; font-family:'Times New Roman',serif; margin:1.5em 0 2px 3px; broken:url('x;z}');font-size:120%";
-    for(size_t k=0;k<=strlen(css);k++) { char *p=guard+page-k; memcpy(p,css,k); uint64_t decl[26]={0}; css_declarations(p,p+k,decl); }
+    for(size_t k=0;k<=strlen(css);k++) { char *p=guard+page-k; memcpy(p,css,k); uint64_t decl[30]={0}; css_declarations(p,p+k,decl); }
+    const char *media="only screen and (min-width:767.95px) and (max-width:1200px)";
+    for(size_t k=0;k<=strlen(media);k++) { char *p=guard+page-k; memcpy(p,media,k); (void)css_media_match(p,p+k,900); }
+    const char *font="font:italic 700 18px/1.5 'Arial',sans-serif";
+    for(size_t k=0;k<=strlen(font);k++) { char *p=guard+page-k; memcpy(p,font,k); uint64_t decl[30]={0}; css_declarations(p,p+k,decl); }
     munmap(guard,page*2);
     char *encoded=engine_form_encode("café +&=🌐"); assert(encoded && !strcmp(encoded,"caf%C3%A9+%2B%26%3D%F0%9F%8C%90")); free(encoded);
     // Malformed sheets, unsupported at-rules and declaration data must remain bounded.

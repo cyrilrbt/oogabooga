@@ -230,10 +230,11 @@ Llaunch_initial:
     MSG setStringValue
     ADDR x0, engine_environment
     bl _getenv
-    cbz x0, Llaunch_webkit
+    cbz x0, Llaunch_assembly
     ADDR x1, engine_name
     bl _strcmp
-    cbnz w0, Llaunch_webkit
+    cbz w0, Llaunch_webkit
+Llaunch_assembly:
     mov x2, #0
     bl _mac_engine_toggle
     LEAVE
@@ -792,7 +793,7 @@ _mac_terminate:
 .section __TEXT,__cstring,cstring_literals
 app_title: .asciz "Oogabooga"
 engine_environment: .asciz "OOGABOOGA_ENGINE"
-engine_name: .asciz "asm"
+engine_name: .asciz "webkit"
 profile_environment: .asciz "OOGABOOGA_PROFILE"
 profile_path: .asciz "Library/Application Support/Oogabooga"
 history_file: .asciz "history.sqlite3"

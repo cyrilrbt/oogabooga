@@ -93,6 +93,7 @@ method_table:
 .quad _sel_observeValue, _mac_title_changed, encoding_27
 .quad _sel_engineToggle, _mac_engine_toggle, engine_encoding_0
 .quad _sel_engineLink, _mac_engine_link, engine_encoding_1
+.quad _sel_inlineLink, _mac_inline_link_click, encoding_0
 .quad _sel_engineSubmit, _mac_form_submit, encoding_0
 .quad _sel_windowUndo, _mac_window_undo, shortcut_undo_encoding
 .quad _sel_textUndo, _mac_text_undo, shortcut_undo_encoding
@@ -1347,6 +1348,61 @@ _sel_setWraps: .quad address_wraps
 _sel_setLineBreak: .quad address_lineBreak
 _sel_setMaximumLines: .quad address_maxLines
 
+.globl _sel_pointingHandCursor
+_sel_pointingHandCursor: .quad link_pointingHand
+.globl _sel_composedRange, _sel_removeAttribute
+_sel_composedRange: .quad inline_composed_range
+_sel_removeAttribute: .quad inline_remove_attribute
+.globl _sel_setWantsLayer
+_sel_setWantsLayer: .quad inline_box_setWantsLayer
+.globl _sel_layer
+_sel_layer: .quad inline_box_layer
+.globl _sel_CGColor
+_sel_CGColor: .quad inline_box_CGColor
+.globl _sel_setBackgroundCG
+_sel_setBackgroundCG: .quad inline_box_setBackgroundCG
+.globl _sel_setCornerRadius
+_sel_setCornerRadius: .quad inline_box_setCornerRadius
+.globl _sel_setBorderWidth
+_sel_setBorderWidth: .quad inline_box_setBorderWidth
+.globl _sel_setBorderCG
+_sel_setBorderCG: .quad inline_box_setBorderCG
+.globl _sel_setAttributedTitle
+_sel_setAttributedTitle: .quad inline_box_setAttributedTitle
+.globl _sel_attributedTitle
+_sel_attributedTitle: .quad inline_box_attributedTitle
+.globl _sel_sizeAttributes
+_sel_sizeAttributes: .quad inline_box_sizeAttributes
+.globl _sel_ascender
+_sel_ascender: .quad inline_box_ascender
+.globl _sel_descender
+_sel_descender: .quad inline_box_descender
+.globl _sel_addCursorRect
+_sel_addCursorRect: .quad inline_box_addCursorRect
+.globl _sel_resetCursorRects
+_sel_resetCursorRects: .quad inline_box_resetCursorRects
+.globl _sel_setAccessibilityRole
+_sel_setAccessibilityRole: .quad inline_box_setAccessibilityRole
+.globl _sel_setAccessibilityLabel
+_sel_setAccessibilityLabel: .quad inline_box_setAccessibilityLabel
+.globl _sel_doubleValue
+_sel_doubleValue: .quad inline_box_doubleValue
+.globl _sel_inlineLink
+_sel_inlineLink: .quad inline_box_inlineLink
+.globl _sel_drawRect
+_sel_drawRect: .quad inline_box_drawRect
+.globl _sel_drawAttributedPoint
+_sel_drawAttributedPoint: .quad inline_box_drawAttributedPoint
+.globl _sel_rectValue
+_sel_rectValue: .quad inline_box_rectValue
+.globl _sel_valueRect
+_sel_valueRect: .quad inline_box_valueRect
+.globl _sel_numberDouble
+_sel_numberDouble: .quad box_method_numberDouble
+.globl _sel_initStringAttributes
+_sel_initStringAttributes: .quad box_method_initStringAttributes
+.globl _sel_setNeedsDisplay
+_sel_setNeedsDisplay: .quad box_method_setNeedsDisplay
 selector_end:
 selectors_ready: .quad 0
 .text
@@ -1370,3 +1426,48 @@ Lselector_finished:
     STORE x0, selectors_ready
 Lselectors_done:
     LEAVE
+
+.section __TEXT,__cstring,cstring_literals
+.globl _class_NSCursor
+_class_NSCursor: .asciz "NSCursor"
+link_pointingHand: .asciz "pointingHandCursor"
+
+.section __TEXT,__cstring,cstring_literals
+inline_composed_range: .asciz "rangeOfComposedCharacterSequenceAtIndex:"
+inline_remove_attribute: .asciz "removeAttribute:range:"
+
+.section __TEXT,__cstring,cstring_literals
+inline_box_setWantsLayer: .asciz "setWantsLayer:"
+inline_box_layer: .asciz "layer"
+inline_box_CGColor: .asciz "CGColor"
+inline_box_setBackgroundCG: .asciz "setBackgroundColor:"
+inline_box_setCornerRadius: .asciz "setCornerRadius:"
+inline_box_setBorderWidth: .asciz "setBorderWidth:"
+inline_box_setBorderCG: .asciz "setBorderColor:"
+inline_box_setAttributedTitle: .asciz "setAttributedTitle:"
+inline_box_attributedTitle: .asciz "attributedTitle"
+inline_box_sizeAttributes: .asciz "sizeWithAttributes:"
+inline_box_ascender: .asciz "ascender"
+inline_box_descender: .asciz "descender"
+inline_box_addCursorRect: .asciz "addCursorRect:cursor:"
+inline_box_resetCursorRects: .asciz "resetCursorRects"
+inline_box_setAccessibilityRole: .asciz "setAccessibilityRole:"
+inline_box_setAccessibilityLabel: .asciz "setAccessibilityLabel:"
+inline_box_doubleValue: .asciz "doubleValue"
+inline_box_inlineLink: .asciz "inlineLink:"
+inline_box_drawRect: .asciz "drawRect:"
+inline_box_drawAttributedPoint: .asciz "drawAtPoint:"
+inline_box_rectValue: .asciz "rectValue"
+inline_box_valueRect: .asciz "valueWithRect:"
+.globl _class_OogaboogaInlineLink
+_class_OogaboogaInlineLink: .asciz "OogaboogaInlineLink"
+.globl _class_NSValue
+_class_NSValue: .asciz "NSValue"
+
+.section __TEXT,__cstring,cstring_literals
+box_method_numberDouble: .asciz "numberWithDouble:"
+box_method_initStringAttributes: .asciz "initWithString:attributes:"
+box_method_setNeedsDisplay: .asciz "setNeedsDisplay:"
+
+.globl _class_NSAttributedString
+_class_NSAttributedString: .asciz "NSAttributedString"

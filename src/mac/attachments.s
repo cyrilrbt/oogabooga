@@ -68,6 +68,8 @@ Lattachment_next:
     mov x9, #40
     madd x23, x22, x9, x23
     ldr x24, [x23]
+    cmp x24, #NODE_A
+    b.eq Lattachment_inline_candidate
     cmp x24, #NODE_IMG
     b.eq Lattachment_element
     cmp x24, #NODE_SELECT
@@ -78,6 +80,12 @@ Lattachment_next:
     b.eq Lattachment_element
     cmp x24, #NODE_BUTTON
     b.ne Lattachment_advance
+    b Lattachment_element
+Lattachment_inline_candidate:
+    ldr x9, [x19, #72]
+    add x9, x9, x22, lsl #10
+    ldr x9, [x9, #872]
+    cbz x9, Lattachment_advance
 Lattachment_element:
     ldr x9, [x20, #16]
     ldr x10, [x23, #16]
@@ -147,9 +155,35 @@ Lattachment_size_control:
     str x9, [sp, #184]
 Lattachment_natural_height:
     ldr x0, [sp, #176]
+    cmp x0, #9
+    b.ne Lattachment_default_width
+    ldr x0, [sp, #192]
+    MSG frame
+    fcvtps x9, d2
+    fcvtps x10, d3
+    ldr x11, [x26, #776]
+    add x9, x9, x11
+    ldr x11, [x26, #784]
+    add x9, x9, x11
+    ldr x11, [x26, #792]
+    add x10, x10, x11
+    ldr x11, [x26, #800]
+    add x10, x10, x11
+    stp x9, x10, [sp, #144]
+    str x10, [sp, #184]
+    mov x28, x9
+    b Lattachment_control_max
+Lattachment_default_width:
+    ldr x0, [sp, #176]
     cmp x0, #1
     mov x9, #220
-    mov x10, #100
+    ldr x10, [sp, #208]
+    mov x11, #100
+    cmp x10, x11
+    csel x10, x11, x10, lt
+    cmp x0, #1
+    csel x9, x10, x9, eq
+    cmp x0, #8
     csel x9, x10, x9, eq
     ldr x11, [sp, #176]
     cmp x11, #4
@@ -176,11 +210,15 @@ Lattachment_control_max:
     cmp x9, #0
     csel x9, x10, x9, lt
     str x9, [sp, #152]
+    ldr x9, [sp, #176]
+    cmp x9, #9
+    b.eq Lattachment_reserve_image
     ldr x0, [sp, #192]
     ldp x9, x10, [sp, #144]
     scvtf d0, x9
     scvtf d1, x10
     MSG setFrameSize
+Lattachment_reserve_image:
     CLASS NSImage
     MSG alloc
     ldp x9, x10, [sp, #144]
@@ -321,6 +359,16 @@ Lattachment_attribute:
     mov x4, x25
     mov x5, #1
     MSG addAttribute
+    cmp x24, #NODE_IMG
+    b.eq Lattachment_release
+    mov x0, x21
+    adrp x9, _NSBackgroundColorAttributeName@GOTPAGE
+    ldr x9, [x9, _NSBackgroundColorAttributeName@GOTPAGEOFF]
+    ldr x2, [x9]
+    mov x3, x25
+    mov x4, #1
+    MSG removeAttribute
+Lattachment_release:
     mov x0, x27
     MSG release
 Lattachment_advance:

@@ -50,6 +50,22 @@ Lcapture_extra:
     add x22, x22, #1
     b Lcapture_extra
 Lcapture_done:
+    ldr x9, [x19, #ATTR_LABEL]
+    cbnz x9, Lcapture_visibility
+    mov x0, x20
+    mov x1, x21
+    ADDR x2, aria_label_name
+    bl _engine_attribute
+    str x0, [x19, #ATTR_LABEL]
+Lcapture_visibility:
+    mov x0, x20
+    mov x1, x21
+    ADDR x2, hidden_name
+    bl _engine_attribute
+    cmp x0, #0
+    cset x9, ne
+    str x9, [x19, #696]
+    bl _free
     LEAVE
 
 // Append a complete embedded block if it fits; oversized blocks are ignored whole.
@@ -175,12 +191,30 @@ Lblock_done:
 // parse_rules(doc,rules) -> count. Sources remain owned by the document.
 _css_rules:
     ENTER
+    sub sp, sp, #128                // bounded stack of eight nested media ranges
+    ldr x9, [x0, #72]
+    ldr x9, [x9, #856]
+    mov x10, #1024
+    cmp x9, #0
+    csel x9, x10, x9, eq
+    str x9, [sp, #64]
+    str xzr, [sp, #72]
     mov x19, x1
     ldr x20, [x0, #56]
     ldr x21, [x0, #64]
     add x21, x20, x21
     mov x22, #0
 Lrules_next:
+    cmp x20, x21
+    b.lo Lrules_scan
+    ldr x9, [sp, #72]
+    cbz x9, Lrules_done
+    sub x9, x9, #1
+    str x9, [sp, #72]
+    add x20, x21, #1
+    ldr x21, [sp, x9, lsl #3]
+    b Lrules_next
+Lrules_scan:
     cmp x22, #CSS_MAX_RULES
     b.hs Lrules_done
     mov x0, x20
@@ -188,7 +222,7 @@ Lrules_next:
     bl _css_skip
     mov x20, x0
     cmp x20, x21
-    b.hs Lrules_done
+    b.hs Lrules_next
     mov x23, x20
     ldrb w9, [x20]
     cmp w9, #64
@@ -220,6 +254,17 @@ Lrules_selector:
     mov x1, x25
     add x2, x26, #16
     bl _css_declarations
+    // Visited-state selectors affect foreground color only, never layout.
+    mov x0, x23
+    mov x1, x24
+    ADDR x2, visited_selector
+    mov x3, #8
+    bl _memmem
+    cbz x0, Lrules_visible_properties
+    ldr x9, [x26, #16]
+    and x9, x9, #1
+    str x9, [x26, #16]
+Lrules_visible_properties:
     ldr x9, [x26, #16]
     cbz x9, Lrules_advance
     add x22, x22, #1
@@ -251,15 +296,43 @@ Lrules_at_unquoted:
     mov x0, x20
     mov x1, x21
     bl _css_block_end
-    cmp x0, x21
-    b.hs Lrules_done
-    add x20, x0, #1
+    mov x25, x0
+    sub x9, x20, x23
+    cmp x9, #7
+    b.lo Lrules_skip_at
+    mov x0, x23
+    ADDR x1, media_at_name
+    mov x2, #6
+    bl _strncasecmp
+    cbnz w0, Lrules_skip_at
+    ldrb w9, [x23, #6]
+    cmp w9, #40
+    b.eq Lrules_media
+    cmp w9, #32
+    b.hi Lrules_skip_at
+Lrules_media:
+    add x0, x23, #6
+    sub x1, x20, #1
+    ldr x2, [sp, #64]
+    bl _css_media_match
+    cbz x0, Lrules_skip_at
+    ldr x9, [sp, #72]
+    cmp x9, #8
+    b.hs Lrules_skip_at
+    str x21, [sp, x9, lsl #3]
+    add x9, x9, #1
+    str x9, [sp, #72]
+    mov x21, x25
+    b Lrules_next
+Lrules_skip_at:
+    add x20, x25, #1
     b Lrules_next
 Lrules_at_quote:
     mov x24, x9
     b Lrules_at_scan
 Lrules_done:
     mov x0, x22
+    add sp, sp, #128
     LEAVE
 
 // Cascade one declaration block onto a metadata record, property by property.
@@ -280,7 +353,7 @@ Lcascade_property:
     b.eq Lcascade_compare
     orr x7, x7, #0x1000000000000
 Lcascade_compare:
-    add x8, x0, #224
+    add x8, x0, #256
     ldr x9, [x8, x3, lsl #3]
     cmp x7, x9
     b.lo Lcascade_next
@@ -413,8 +486,7 @@ Lapply_no_rules:
     mov x20, #0
     mov x21, #0
 Lapply_begin:
-    mov x9, #0x4240
-    movk x9, #0xf, lsl #16          // one million compound attempts per document
+    mov x9, #134217728              // bounded work for large utility stylesheets
     str x9, [x19, #88]
     mov x22, #0
 Lapply_node:
@@ -431,9 +503,9 @@ Lapply_node:
     tbnz x9, #63, Lapply_default
     add x24, x24, x9, lsl #10
 Lapply_default:
-    add x0, x23, #224
+    add x0, x23, #256
     mov x1, #0
-    mov x2, #192
+    mov x2, #224
     bl _memset
     mov x26, #0
     ADDR x27, css_defaults
@@ -456,6 +528,8 @@ Lapply_default_store:
     b Lapply_default_property
 Lapply_ua:
     ldr x9, [x25]
+    cmp x9, #NODE_CENTER
+    b.eq Lapply_center_ua
     cmp x9, #NODE_TEXT
     b.eq Lapply_text_node
     cmp x9, #NODE_A
@@ -499,6 +573,10 @@ Lapply_bold_ua:
     mov x10, #700
     str x10, [x23, #56]
     b Lapply_rules
+Lapply_center_ua:
+    mov x10, #2
+    str x10, [x23, #80]
+    b Lapply_rules
 Lapply_pre_ua:
     str xzr, [x23, #120]             // UA preformatted text uses monospace
     b Lapply_rules
@@ -511,6 +589,11 @@ Lapply_link_ua:
     str x10, [x23, #72]
     mov x10, #0x66d6
     movk x10, #0x1a, lsl #16
+    ldr x11, [x23, #864]
+    cbz x11, Lapply_link_color
+    mov x10, #0x0080
+    movk x10, #0x80, lsl #16         // visited UA purple #800080
+Lapply_link_color:
     str x10, [x23, #32]
 Lapply_rules:
     mov x26, #0
@@ -541,7 +624,7 @@ Lapply_inline:
     cbz x26, Lapply_resolve
     mov x0, sp
     mov x1, #0
-    mov x2, #208
+    mov x2, #240
     bl _memset
     mov x0, x26
     bl _strlen
@@ -597,6 +680,12 @@ Lapply_resolve_length:
     b.lo Lapply_resolved_store
     cmp x26, #CSS_MAX_WIDTH
     b.eq Lapply_length
+    cmp x26, #CSS_RADIUS
+    b.eq Lapply_length
+    cmp x26, #CSS_MIN_HEIGHT
+    b.eq Lapply_length
+    cmp x26, #CSS_MIN_WIDTH
+    b.eq Lapply_length
     cmp x26, #CSS_BORDER
     b.hi Lapply_resolved_store
 Lapply_length:
@@ -613,12 +702,13 @@ Lapply_resolved_store:
 Lapply_text_node:
     add x0, x23, #32
     add x1, x24, #32
-    mov x2, #192
+    mov x2, #224
     bl _memcpy
 Lapply_inherited_hidden:
     cbz x22, Lapply_canvas
     ldr x9, [x24, #88]
-    cbz x9, Lapply_canvas
+    cmp x9, #1
+    b.ne Lapply_canvas
     mov x9, #1
     str x9, [x23, #88]
 Lapply_canvas:
@@ -642,6 +732,10 @@ Lapply_body_canvas:
     ldr x9, [x19, #72]
     str x10, [x9, #40]
 Lapply_mark_hidden:
+    ldr x9, [x23, #696]
+    cbz x9, Lapply_special_hidden
+    str x9, [x23, #88]
+Lapply_special_hidden:
     ldr x9, [x25]
     cmp x9, #NODE_OPTION
     b.ne Lapply_input_visibility
@@ -661,7 +755,8 @@ Lapply_input_visibility:
     str x9, [x23, #88]
 Lapply_visibility:
     ldr x9, [x23, #88]
-    cbz x9, Lapply_node_next
+    cmp x9, #1
+    b.ne Lapply_node_next
     ldr x0, [x19, #80]
     ldr x10, [x25, #16]
     ldr x11, [x25, #24]
@@ -673,6 +768,8 @@ Lapply_node_next:
     add x22, x22, #1
     b Lapply_node
 Lapply_done:
+    mov x0, x19
+    bl _engine_inline_flow
     mov x0, x20
     bl _free
     add sp, sp, #320
@@ -681,7 +778,7 @@ Lapply_done:
 .section __DATA,__const
 .p2align 3
 css_defaults:
-.quad -1, -1, 14, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, 0, 0, 0, 0, 0, -1, 0
+.quad -1, -1, 14, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0
 .section __TEXT,__cstring,cstring_literals
 id_name: .asciz "id"
 class_name: .asciz "class"
@@ -714,3 +811,13 @@ attr_cols: .asciz "cols"
 attr_readonly: .asciz "readonly"
 attr_placeholder: .asciz "placeholder"
 attr_enctype: .asciz "enctype"
+
+.section __TEXT,__cstring,cstring_literals
+aria_label_name: .asciz "aria-label"
+hidden_name: .asciz "hidden"
+
+.section __TEXT,__cstring,cstring_literals
+media_at_name: .asciz "@media"
+
+.section __TEXT,__cstring,cstring_literals
+visited_selector: .asciz ":visited"

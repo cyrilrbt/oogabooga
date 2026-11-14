@@ -59,10 +59,55 @@ Llayout_next:
     cbz x9, Llayout_visible
     ldrb w9, [x9, x28]
     cbz w9, Llayout_visible
+    cmp w9, #4
+    b.eq Llayout_inline_box
+    cmp w9, #5
+    b.eq Llayout_box_source
+    cmp w9, #3
+    b.eq Llayout_visible
+    cmp w9, #2
+    b.eq Llayout_soft_break
     ldr x10, [sp, #192]
     str x25, [x10, x28, lsl #3]
     mov x9, #1
     str x9, [sp, #200]
+    add x21, x21, #1
+    add x28, x28, #1
+    b Llayout_next
+Llayout_inline_box:
+    ldr x10, [sp, #192]
+    str x25, [x10, x28, lsl #3]
+    mov w9, #0xef
+    strb w9, [x23, x24]
+    add x24, x24, #1
+    mov w9, #0xbf
+    strb w9, [x23, x24]
+    add x24, x24, #1
+    mov w9, #0xbc
+    strb w9, [x23, x24]
+    add x24, x24, #1
+    add x25, x25, #1
+    add x27, x27, #1
+    b Llayout_soft_advance
+Llayout_box_source:
+    ldr x10, [sp, #192]
+    str x25, [x10, x28, lsl #3]
+    b Llayout_soft_advance
+Llayout_soft_break:
+    // Inline block boundaries become one collapsible space, keeping source maps.
+    ldr x10, [sp, #192]
+    str x25, [x10, x28, lsl #3]
+    cbz x24, Llayout_soft_advance
+    sub x9, x24, #1
+    ldrb w9, [x23, x9]
+    cmp w9, #32
+    b.ls Llayout_soft_advance
+    mov w9, #32
+    strb w9, [x23, x24]
+    add x24, x24, #1
+    add x25, x25, #1
+    add x27, x27, #1
+Llayout_soft_advance:
     add x21, x21, #1
     add x28, x28, #1
     b Llayout_next

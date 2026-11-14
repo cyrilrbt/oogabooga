@@ -50,3 +50,7 @@
 .set NODE_SELECT, 35
 .set NODE_OPTION, 36
 .set NODE_TEXTAREA, 37
+
+.set NODE_CENTER, 38
+
+.set NODE_BR, 39

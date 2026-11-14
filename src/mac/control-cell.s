@@ -34,6 +34,11 @@ control_cell_baseline:
     bl _mac_control_baseline_top
     ldr d1, [sp, #144]
     fsub d1, d0, d1
+    str d1, [sp, #144]
+    mov x0, x19
+    bl _mac_inline_margins
+    ldr d1, [sp, #144]
+    fsub d1, d1, d3
     fmov d0, xzr
     LEAVE
 .section __TEXT,__cstring,cstring_literals

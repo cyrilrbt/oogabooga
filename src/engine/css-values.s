@@ -342,6 +342,12 @@ _css_value:
     b.ls Lvalue_color
     cmp x19, #CSS_MAX_WIDTH
     b.eq Lvalue_length
+    cmp x19, #CSS_RADIUS
+    b.eq Lvalue_length
+    cmp x19, #CSS_MIN_HEIGHT
+    b.eq Lvalue_length
+    cmp x19, #CSS_MIN_WIDTH
+    b.eq Lvalue_length
     cmp x19, #CSS_BORDER_COLOR
     b.eq Lvalue_color
     cmp x19, #CSS_WIDTH
@@ -648,6 +654,8 @@ Ldecl_property_next:
     b Ldecl_property_next
 Ldecl_property_found:
     ldr x28, [x27, #8]
+    cmp x28, #103
+    b.eq Ldecl_font
     cmp x28, #102
     b.eq Ldecl_border
     cmp x28, #100                    // margin shorthand
@@ -664,6 +672,13 @@ Ldecl_property_found:
     mov x3, x0
     mov x0, x21
     bl _css_store_decl
+    b Ldecl_advance
+Ldecl_font:
+    mov x0, x24
+    mov x1, x25
+    mov x2, x21
+    mov x3, x26
+    bl _css_font_declarations
     b Ldecl_advance
 Ldecl_border:
     mov x0, x24
@@ -796,6 +811,11 @@ Lstore_return:
 .section __DATA,__const
 .p2align 3
 property_table:
+.quad p_radius, CSS_RADIUS
+.quad p_min_height, CSS_MIN_HEIGHT
+.quad p_min_width, CSS_MIN_WIDTH
+.quad p_valign, CSS_VERTICAL_ALIGN
+.quad p_font, 103
 .quad p_color, CSS_COLOR
 .quad p_background, CSS_BACKGROUND
 .quad p_background_color, CSS_BACKGROUND
@@ -860,6 +880,8 @@ family_table:
 .quad f_georgia, 2
 .quad 0, 0
 keyword_table:
+.quad CSS_VERTICAL_ALIGN, baseline_text, 0
+.quad CSS_VERTICAL_ALIGN, middle_text, 1
 .quad CSS_BOX_SIZING, content_box, 0
 .quad CSS_BOX_SIZING, border_box, 1
 .quad CSS_WEIGHT, normal_text, 400
@@ -878,9 +900,11 @@ keyword_table:
 .quad CSS_ALIGN, center_text, 2
 .quad CSS_ALIGN, justify_text, 3
 .quad CSS_DISPLAY, none_text, 1
+.quad CSS_DISPLAY, flex_text, 0
+.quad CSS_DISPLAY, grid_text, 0
 .quad CSS_DISPLAY, block_text, 0
-.quad CSS_DISPLAY, inline_text, 0
-.quad CSS_DISPLAY, inline_block_text, 0
+.quad CSS_DISPLAY, inline_text, 2
+.quad CSS_DISPLAY, inline_block_text, 2
 .quad -1, 0, 0
 .section __TEXT,__cstring,cstring_literals
 rgb_text: .asciz "rgb("
@@ -970,3 +994,18 @@ p_box_sizing: .asciz "box-sizing"
 p_border: .asciz "border"
 content_box: .asciz "content-box"
 border_box: .asciz "border-box"
+
+.section __TEXT,__cstring,cstring_literals
+p_font: .asciz "font"
+
+.section __TEXT,__cstring,cstring_literals
+flex_text: .asciz "flex"
+grid_text: .asciz "grid"
+
+.section __TEXT,__cstring,cstring_literals
+p_radius: .asciz "border-radius"
+p_min_height: .asciz "min-height"
+p_min_width: .asciz "min-width"
+p_valign: .asciz "vertical-align"
+baseline_text: .asciz "baseline"
+middle_text: .asciz "middle"
