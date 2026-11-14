@@ -79,7 +79,7 @@ _engine_parse:
     mov x4, #0
     bl _engine_node
     ldr x9, [x19, #72]
-    add x9, x9, #1024
+    add x9, x9, #2048
     ADDR x10, tag_body
     str x10, [x9, #24]
     mov x24, #2
@@ -250,14 +250,34 @@ Lparse_tag_ready:
     cmp x22, #TAG_HR
     b.eq Lparse_br
     cbnz x27, Lparse_close
+    cmp x22, #NODE_OPTION
+    b.ne Lparse_dispatch_open
+    ldr x9, [x19, #16]
+    mov x10, #40
+    madd x9, x24, x10, x9
+    ldr x10, [x9]
+    cmp x10, #NODE_OPTION
+    b.ne Lparse_dispatch_open
+    ldr x10, [x19, #8]
+    str x10, [x9, #24]
+    sub x25, x25, #1
+    sub x10, x25, #1
+    ldr x24, [x28, x10, lsl #3]
+Lparse_dispatch_open:
     cmp x22, #NODE_LINK
     b.eq Lparse_leaf
     cmp x22, #NODE_INPUT
     b.eq Lparse_leaf
     cmp x22, #NODE_IMG
     b.eq Lparse_leaf
+    cmp x22, #NODE_TEXTAREA
+    b.eq Lparse_leaf
     cmp x22, #NODE_BUTTON
     b.eq Lparse_leaf
+    cmp x22, #NODE_SELECT
+    b.eq Lparse_open
+    cmp x22, #NODE_OPTION
+    b.eq Lparse_open
     cmp x22, #NODE_A
     b.eq Lparse_open
     cmp x22, #NODE_SPAN
@@ -310,6 +330,14 @@ Lparse_node_open:
     mov x3, #0
     bl _engine_append
 Lparse_check_pre:
+    cmp x22, #NODE_SELECT
+    b.ne Lparse_pre_flag
+    mov x0, x19
+    ADDR x1, object_character
+    mov x2, #3
+    mov x3, #0
+    bl _engine_append
+Lparse_pre_flag:
     cmp x22, #NODE_PRE
     b.ne Lparse_next
     orr x26, x26, #1
@@ -351,6 +379,8 @@ Lparse_object:
     madd x9, x23, x10, x9
     ldr x10, [x19, #8]
     str x10, [x9, #24]
+    cmp x22, #NODE_TEXTAREA
+    b.eq Lparse_textarea
     cmp x22, #NODE_BUTTON
     b.ne Lparse_next
     mov x0, x20
@@ -361,7 +391,7 @@ Lparse_object:
     bl _engine_find_close
     mov x20, x0
     ldr x9, [x19, #72]
-    add x9, x9, x23, lsl #9
+    add x9, x9, x23, lsl #10
     ldr x0, [x9, #ATTR_LABEL]
     bl _free
     ldr x0, [sp, #192]
@@ -369,8 +399,36 @@ Lparse_object:
     bl _css_trim
     bl _engine_decode_attribute
     ldr x9, [x19, #72]
-    add x9, x9, x23, lsl #9
+    add x9, x9, x23, lsl #10
     str x0, [x9, #ATTR_LABEL]
+    b Lparse_next
+Lparse_textarea:
+    mov x0, x20
+    mov x1, x21
+    str x20, [sp, #192]
+    ADDR x2, textarea_close
+    mov x3, #10
+    bl _engine_find_close
+    mov x20, x0
+    ldr x0, [sp, #192]
+    // HTML removes the first newline after a textarea start tag.
+    cmp x0, x20
+    b.hs Ltextarea_decode
+    ldrb w9, [x0]
+    cmp w9, #10
+    b.ne Ltextarea_decode
+    add x0, x0, #1
+Ltextarea_decode:
+    mov x1, x20
+    bl _engine_decode_attribute
+    mov x27, x0
+    ldr x9, [x19, #72]
+    add x9, x9, x23, lsl #10
+    ldr x0, [x9, #ATTR_VALUE]
+    bl _free
+    ldr x9, [x19, #72]
+    add x9, x9, x23, lsl #10
+    str x27, [x9, #ATTR_VALUE]
     b Lparse_next
 Lparse_close:
     // Unwind to a matching supported element, ignoring unmatched closing tags.
@@ -403,6 +461,10 @@ Lparse_unwind_next:
     b.hi Lparse_close_unwind
     sub x9, x25, #1
     ldr x24, [x28, x9, lsl #3]
+    cmp x22, #NODE_OPTION
+    b.eq Lparse_next
+    cmp x22, #NODE_SELECT
+    b.eq Lparse_next
     cmp x22, #NODE_A
     b.eq Lparse_next
     b Lparse_br
@@ -725,6 +787,9 @@ Lfind_found:
 .section __DATA,__const
 .p2align 3
 tag_table:
+.quad tag_select, 6, NODE_SELECT
+.quad tag_option, 6, NODE_OPTION
+.quad tag_textarea, 8, NODE_TEXTAREA
 .quad tag_link, 4, NODE_LINK
 .quad tag_input, 5, NODE_INPUT
 .quad tag_img, 3, NODE_IMG
@@ -816,3 +881,7 @@ tag_form: .asciz "form"
 tag_button: .asciz "button"
 object_character: .asciz "￼"
 button_close: .asciz "</button"
+tag_select: .asciz "select"
+tag_option: .asciz "option"
+tag_textarea: .asciz "textarea"
+textarea_close: .asciz "</textarea"

@@ -17,13 +17,25 @@ _mac_blocks:
     bl _calloc
     cbz x0, Lblocks_done
     mov x22, x0
-    mov x23, #3
+    ldr x9, [x19, #72]
+    LOAD x10, _engine_viewport
+    str x10, [x9, #768]
+    mov x23, #1
 Lblock_create:
     ldr x9, [x19, #24]
     cmp x23, x9
     b.hs Lblocks_ranges
     ldr x24, [x19, #72]
-    add x24, x24, x23, lsl #9
+    add x24, x24, x23, lsl #10
+    ldr x9, [x19, #16]
+    mov x10, #40
+    madd x9, x23, x10, x9
+    ldr x10, [x9, #8]
+    ldr x11, [x19, #72]
+    add x11, x11, x10, lsl #10
+    ldr x1, [x11, #768]
+    mov x0, x24
+    bl _engine_box_metrics
     ldr x9, [x19, #16]
     mov x10, #40
     madd x9, x23, x10, x9
@@ -40,6 +52,9 @@ Lblock_create:
     b.eq Lblock_create_next
     cmp x9, #NODE_NAV
     b.hi Lblock_create_next
+    ldr x9, [x24, #208]
+    cmn x9, #1
+    b.ne Lblock_make
     ldr x9, [x24, #144]             // width/height or nonzero padding/border
     cmn x9, #1
     b.ne Lblock_make
@@ -73,8 +88,7 @@ Lblock_make:
     MSG release
     mov x0, x25
     str x0, [x22, x23, lsl #3]
-    ldr x9, [x24, #144]
-    tbnz x9, #63, Lblock_height
+    ldr x9, [x24, #768]
     scvtf d0, x9
     mov x2, #0
     MSG blockWidth
@@ -92,7 +106,7 @@ Lblock_edge:
     // NSRectEdge = left, top, right, bottom in flipped text coordinates.
     ADDR x9, edge_properties
     ldr x10, [x9, x26, lsl #3]
-    add x9, x24, #32
+    mov x9, x24
     ldr x9, [x9, x10, lsl #3]
     scvtf d0, x9
     mov x0, x25
@@ -109,7 +123,7 @@ Lblock_edge:
     MSG blockEdge
     ADDR x9, margin_properties
     ldr x10, [x9, x26, lsl #3]
-    add x9, x24, #32
+    mov x9, x24
     ldr x9, [x9, x10, lsl #3]
     scvtf d0, x9
     mov x0, x25
@@ -157,7 +171,7 @@ Lblocks_leaf:
     mov x27, x0
     mov x28, x23
 Lblocks_ancestors:
-    cmp x28, #3
+    cmp x28, #1
     b.lo Lblocks_apply
     ldr x2, [x22, x28, lsl #3]
     cbz x2, Lblocks_parent
@@ -185,6 +199,10 @@ Lblocks_apply:
     b.eq Lblocks_copy_style
     cmp x9, #NODE_EM
     b.eq Lblocks_copy_style
+    cmp x9, #NODE_SELECT
+    b.eq Lblocks_copy_style
+    cmp x9, #NODE_TEXTAREA
+    b.eq Lblocks_copy_style
     cmp x9, #NODE_INPUT
     b.eq Lblocks_copy_style
     cmp x9, #NODE_IMG
@@ -192,7 +210,7 @@ Lblocks_apply:
     cmp x9, #NODE_BUTTON
     b.eq Lblocks_copy_style
     ldr x0, [x19, #72]
-    add x0, x0, x23, lsl #9
+    add x0, x0, x23, lsl #10
     bl _mac_css_paragraph
     b Lblocks_style
 Lblocks_copy_style:
@@ -264,5 +282,5 @@ Lblocks_done:
     LEAVE
 .section __DATA,__const
 .p2align 3
-edge_properties: .quad CSS_PAD_LEFT, CSS_PAD_TOP, CSS_PAD_RIGHT, CSS_PAD_BOTTOM
-margin_properties: .quad CSS_LEFT, CSS_TOP, CSS_RIGHT, CSS_BOTTOM
+edge_properties: .quad 101, 103, 102, 104
+margin_properties: .quad 97, 99, 98, 100

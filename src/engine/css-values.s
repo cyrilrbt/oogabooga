@@ -340,6 +340,8 @@ _css_value:
     cbnz w0, Lvalue_unset
     cmp x19, #CSS_BACKGROUND
     b.ls Lvalue_color
+    cmp x19, #CSS_MAX_WIDTH
+    b.eq Lvalue_length
     cmp x19, #CSS_BORDER_COLOR
     b.eq Lvalue_color
     cmp x19, #CSS_WIDTH
@@ -413,7 +415,20 @@ Lvalue_length:
     cmp x19, #CSS_WIDTH
     b.eq Lvalue_auto
     cmp x19, #CSS_HEIGHT
+    b.eq Lvalue_auto
+    cmp x19, #CSS_MAX_WIDTH
+    b.eq Lvalue_auto
+    cmp x19, #CSS_TOP
+    b.eq Lvalue_margin_auto
+    cmp x19, #CSS_BOTTOM
+    b.eq Lvalue_margin_auto
+    cmp x19, #CSS_LEFT
+    b.eq Lvalue_margin_auto
+    cmp x19, #CSS_RIGHT
     b.ne Lvalue_bad
+Lvalue_margin_auto:
+    mov x0, #-5
+    b Lvalue_good
 Lvalue_auto:
     mov x0, #-1
     b Lvalue_good
@@ -440,7 +455,11 @@ Lvalue_length_units:
     cmp x19, #CSS_SIZE
     b.eq Lvalue_encode
     cmp x1, #3
-    b.eq Lvalue_bad                 // percentage margins need a box layout engine
+    b.ne Lvalue_encode
+    cmp x19, #CSS_BORDER
+    b.eq Lvalue_bad
+    cmp x19, #CSS_HEIGHT
+    b.eq Lvalue_bad
 Lvalue_encode:
     lsl x1, x1, #32
     orr x0, x0, x1
@@ -514,7 +533,7 @@ Lvalue_bad:
     mov x1, #0
     LEAVE
 
-// declarations(start,end,decl): mask, important-mask, 22 value slots. Caller zeroes it.
+// declarations(start,end,decl): mask, important-mask, 24 value slots. Caller zeroes it.
 .globl _css_declarations
 _css_declarations:
     ENTER
@@ -629,6 +648,8 @@ Ldecl_property_next:
     b Ldecl_property_next
 Ldecl_property_found:
     ldr x28, [x27, #8]
+    cmp x28, #102
+    b.eq Ldecl_border
     cmp x28, #100                    // margin shorthand
     b.eq Ldecl_margin
     cmp x28, #101
@@ -643,6 +664,13 @@ Ldecl_property_found:
     mov x3, x0
     mov x0, x21
     bl _css_store_decl
+    b Ldecl_advance
+Ldecl_border:
+    mov x0, x24
+    mov x1, x25
+    mov x2, x21
+    mov x3, x26
+    bl _css_border_declarations
     b Ldecl_advance
 Ldecl_margin:
     str x28, [sp, #176]
@@ -668,7 +696,7 @@ Lmargin_token_end:
     add x24, x24, #1
     b Lmargin_token_end
 Lmargin_value:
-    mov x0, #CSS_TOP
+    mov x0, #CSS_LEFT
     ldr x9, [sp, #176]
     cmp x9, #101
     mov x9, #CSS_PAD_TOP
@@ -744,6 +772,7 @@ Ldecl_done:
     LEAVE
 
 // Store one declaration, preserving an earlier !important against later normal values.
+.globl _css_store_decl
 _css_store_decl:
     mov x4, #1
     lsl x4, x4, x1
@@ -782,6 +811,9 @@ property_table:
 .quad p_family, CSS_FAMILY
 .quad p_left, CSS_LEFT
 .quad p_right, CSS_RIGHT
+.quad p_max_width, CSS_MAX_WIDTH
+.quad p_box_sizing, CSS_BOX_SIZING
+.quad p_border, 102
 .quad p_margin, 100
 .quad p_width, CSS_WIDTH
 .quad p_height, CSS_HEIGHT
@@ -828,6 +860,8 @@ family_table:
 .quad f_georgia, 2
 .quad 0, 0
 keyword_table:
+.quad CSS_BOX_SIZING, content_box, 0
+.quad CSS_BOX_SIZING, border_box, 1
 .quad CSS_WEIGHT, normal_text, 400
 .quad CSS_WEIGHT, bold_text, 700
 .quad CSS_WEIGHT, bolder_text, 700
@@ -931,3 +965,8 @@ p_padding_left: .asciz "padding-left"
 p_border_width: .asciz "border-width"
 p_border_color: .asciz "border-color"
 p_padding: .asciz "padding"
+p_max_width: .asciz "max-width"
+p_box_sizing: .asciz "box-sizing"
+p_border: .asciz "border"
+content_box: .asciz "content-box"
+border_box: .asciz "border-box"

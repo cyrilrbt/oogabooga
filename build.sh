@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 [ "$(uname -s)" = Darwin ] && [ "$(uname -m)" = arm64 ] || { echo 'Requires Apple silicon macOS and Xcode command-line tools.' >&2; exit 1; }
 mode=${1:-debug}
 case "$mode" in debug|release|test) ;; *) echo 'Usage: ./build.sh [debug|release|test]' >&2; exit 1 ;; esac
-mkdir -p build/obj build/Oogabooga.app/Contents/MacOS
+mkdir -p build/obj build/Oogabooga.app/Contents/MacOS build/Oogabooga.app/Contents/Resources
 flags='-arch arm64 -mmacosx-version-min=12.0'
 objects="build/obj/core.o"
 xcrun clang $flags -g -c src/core.s -o build/obj/core.o
@@ -20,6 +20,7 @@ cp build/oogabooga build/Oogabooga.app/Contents/MacOS/oogabooga.new
 mv -f build/Oogabooga.app/Contents/MacOS/oogabooga.new build/Oogabooga.app/Contents/MacOS/oogabooga
 ./tools/generate-metadata.sh
 cp build/metadata/Info.plist build/Oogabooga.app/Contents/Info.plist
+cp LICENSE CHANGELOG.md build/Oogabooga.app/Contents/Resources/
 codesign --force --sign - build/Oogabooga.app
 if [ "$mode" = test ]; then
     xcrun clang $flags -Wall -Wextra -Werror tests/history.c build/obj/core.o -lsqlite3 -o build/history-test

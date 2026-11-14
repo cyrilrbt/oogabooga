@@ -40,6 +40,7 @@ Lrgb_none:
     mov x0, #0
     LEAVE
 
+.globl _mac_css_font
 _mac_css_font:
     ENTER
     mov x19, x0
@@ -137,6 +138,10 @@ Lattributes_underline:
     cmp x23, #NODE_STRONG
     b.eq Lattributes_done
     cmp x23, #NODE_EM
+    b.eq Lattributes_done
+    cmp x23, #NODE_SELECT
+    b.eq Lattributes_done
+    cmp x23, #NODE_TEXTAREA
     b.eq Lattributes_done
     cmp x23, #NODE_INPUT
     b.eq Lattributes_done

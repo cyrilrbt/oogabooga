@@ -1,6 +1,9 @@
 body { background: #f6f1e7; color: #293747; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.4; }
 h1 { color: #2450aa; font-size: 30px; }
 h2 { font-size: 22px; color: #2450aa; }
-.card { width: 480px; padding: 14px 18px; margin: 8px 12px; border-width: 2px; border-color: red; background: #fff9ec; }
-.inner { width: 360px; padding: 8px; border-width: 1px; border-color: #a07943; background: #ffedcc; }
+.card { width: 90%; max-width: 720px; box-sizing: border-box; padding: 14px 18px; margin: 8px auto; border: 2px solid red; background: #fff9ec; }
+.inner { width: 80%; max-width: 400px; box-sizing: border-box; padding: 8px; border: 1px solid #a07943; background: #ffedcc; }
 a { color: #2450aa; }
+
+.card > p { color: #293747; }
+textarea { width: 80%; max-width: 480px; height: 90px; }

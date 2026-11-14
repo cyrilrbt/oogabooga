@@ -1,5 +1,5 @@
-// Sequential, cancellable HTTP(S) subresources. The document is committed only
-// after bounded resources finish; stylesheet ordering follows the HTML tree.
+// Sequential, cancellable HTTP(S) subresources progressively update committed
+// HTML. Available stylesheets always follow document order.
 .include "src/mac/mac.inc"
 .include "src/engine/engine.inc"
 .include "src/engine/css.inc"
@@ -8,8 +8,6 @@
 .globl _mac_resources_reset
 _mac_resources_reset:
     ENTER
-    LOAD x0, _engine_resource_doc
-    bl _engine_document_free
     STORE xzr, _engine_resource_doc
     STORE xzr, _engine_phase
     STORE xzr, resource_index
@@ -25,12 +23,16 @@ _mac_resources_reset:
 .globl _mac_resources_begin
 _mac_resources_begin:
     ENTER
-    STORE x0, _engine_resource_doc
-    str xzr, [x0, #64]              // rebuild embedded + linked CSS in source order
-    ldr x9, [x0, #56]
-    strb wzr, [x9]
+    mov x19, x0
     bl _mac_engine_cancel
+    mov x0, x19
+    bl _mac_engine_commit            // display HTML and record exactly one visit
+    cbz w0, Lresource_begin_done
+    STORE x19, _engine_resource_doc  // borrowed: displayed document owns the tree
+    STR resources_loading
+    bl _mac_status_text
     bl _mac_resources_next
+Lresource_begin_done:
     LEAVE
 
 .globl _mac_resources_next
@@ -49,7 +51,7 @@ Lresource_next:
     mov x9, #40
     madd x21, x20, x9, x21
     ldr x22, [x19, #72]
-    add x22, x22, x20, lsl #9
+    add x22, x22, x20, lsl #10
     ldr x9, [x21]
     cmp x9, #NODE_SHEET
     b.eq Lresource_embedded
@@ -117,7 +119,7 @@ Lresource_url:
     STORE x0, _engine_data
     CLASS NSURLRequest
     mov x2, x24
-    mov x3, #1                     // reloadIgnoringLocalCacheData
+    LOAD x3, _engine_cache_policy   // normal HTTP caching; reload bypasses cache
     NUM d0, 10
     MSG resourceRequest
     mov x2, x0
@@ -128,21 +130,20 @@ Lresource_url:
     MSG resume
     b Lresources_done
 Lresource_embedded:
-    ldr x23, [x21, #32]
-    mov x0, x23
-    bl _strlen
-    mov x2, x0
-    mov x0, x19
-    mov x1, x23
-    bl _engine_css_source
     b Lresource_next
 Lresources_finish:
-    mov x0, x19
-    bl _engine_css_apply
+    bl _mac_resources_styles
+    bl _mac_engine_refresh
     STORE xzr, _engine_resource_doc
     STORE xzr, _engine_phase
-    mov x0, x19
-    bl _mac_engine_commit
+    LOAD x9, _engine_history_failed
+    cbnz x9, Lresources_history_error
+    STR resources_ready
+    b Lresources_status
+Lresources_history_error:
+    STR resources_history_error
+Lresources_status:
+    bl _mac_status_text
 Lresources_done:
     LEAVE
 
@@ -229,10 +230,16 @@ _mac_resource_complete:
     mov x20, x0
     mov x0, x19
     MSG bytes
-    mov x1, x0
-    mov x2, x20
-    LOAD x0, _engine_resource_doc
-    bl _engine_css_source
+    mov x1, x20
+    bl _strndup
+    mov x21, x0
+    LOAD x9, _engine_resource_doc
+    ldr x22, [x9, #72]
+    LOAD x9, _engine_resource_node
+    add x22, x22, x9, lsl #10
+    ldr x0, [x22, #ATTR_CSS_DATA]
+    bl _free
+    str x21, [x22, #ATTR_CSS_DATA]
     mov x0, x19
     MSG release
     b Lresource_consumed
@@ -251,6 +258,8 @@ Lresource_decode_image:
     mov x0, x19
     MSG release
 Lresource_consumed:
+    bl _mac_resources_styles
+    bl _mac_engine_refresh
     bl _mac_engine_cancel
     bl _mac_resources_next
     LEAVE
@@ -337,3 +346,59 @@ Lraster_source:
 Lraster_none:
     mov x0, #0
     LEAVE
+
+.text
+.p2align 2
+// Rebuild from every available sheet in document order, including inline sheets
+// that occur after a pending fetch. Repeated refreshes never reorder the cascade.
+_mac_resources_styles:
+    ENTER
+    LOAD x19, _engine_resource_doc
+    cbz x19, Lstyles_done
+    str xzr, [x19, #64]
+    ldr x9, [x19, #56]
+    strb wzr, [x9]
+    mov x20, #0
+Lstyles_next:
+    ldr x9, [x19, #24]
+    cmp x20, x9
+    b.hs Lstyles_apply
+    ldr x9, [x19, #16]
+    mov x10, #40
+    madd x9, x20, x10, x9
+    ldr x10, [x9]
+    cmp x10, #NODE_SHEET
+    b.eq Lstyles_inline
+    cmp x10, #NODE_LINK
+    b.ne Lstyles_advance
+    ldr x9, [x19, #72]
+    add x9, x9, x20, lsl #10
+    ldr x21, [x9, #ATTR_CSS_DATA]
+    b Lstyles_source
+Lstyles_inline:
+    ldr x21, [x9, #32]
+Lstyles_source:
+    cbz x21, Lstyles_advance
+    mov x0, x21
+    bl _strlen
+    mov x2, x0
+    mov x1, x21
+    mov x0, x19
+    bl _engine_css_source
+Lstyles_advance:
+    add x20, x20, #1
+    b Lstyles_next
+Lstyles_apply:
+    mov x0, x19
+    bl _engine_css_apply
+Lstyles_done:
+    LEAVE
+.section __TEXT,__cstring,cstring_literals
+resources_loading: .asciz "Assembly engine: HTML ready; loading styles and images…"
+resources_ready: .asciz "Assembly engine: ready. JavaScript is not supported. ⌘E switches to WebKit."
+
+resources_history_error: .asciz "Assembly engine: page ready, but history could not be saved."
+.section __DATA,__bss
+.p2align 3
+.globl _engine_history_failed
+_engine_history_failed: .space 8

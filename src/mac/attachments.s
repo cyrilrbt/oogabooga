@@ -15,6 +15,10 @@ Ldimension_next:
     add x9, x19, #144
     ldr x21, [x9, x20, lsl #3]
     tbnz x21, #63, Ldimension_html
+    ldr x1, [x19, #848]
+    mov x0, x21
+    bl _engine_box_length
+    mov x21, x0
     b Ldimension_save
 Ldimension_html:
     add x9, x19, #ATTR_WIDTH
@@ -35,7 +39,17 @@ Ldimension_save:
     add x20, x20, #1
     cmp x20, #2
     b.lo Ldimension_next
-    ldp x0, x1, [sp, #144]
+    ldp x20, x21, [sp, #144]
+    ldr x0, [x19, #208]
+    tbnz x0, #63, Ldimension_result
+    ldr x1, [x19, #848]
+    bl _engine_box_length
+    tbnz x20, #63, Ldimension_result
+    cmp x20, x0
+    csel x20, x0, x20, hi
+Ldimension_result:
+    mov x0, x20
+    mov x1, x21
     LEAVE
 
 .globl _mac_attachments
@@ -56,6 +70,10 @@ Lattachment_next:
     ldr x24, [x23]
     cmp x24, #NODE_IMG
     b.eq Lattachment_element
+    cmp x24, #NODE_SELECT
+    b.eq Lattachment_element
+    cmp x24, #NODE_TEXTAREA
+    b.eq Lattachment_element
     cmp x24, #NODE_INPUT
     b.eq Lattachment_element
     cmp x24, #NODE_BUTTON
@@ -69,7 +87,7 @@ Lattachment_element:
     cmp x25, x10
     b.eq Lattachment_advance
     ldr x26, [x19, #72]
-    add x26, x26, x22, lsl #9
+    add x26, x26, x22, lsl #10
     CLASS NSTextAttachment
     MSG new
     mov x27, x0
@@ -84,22 +102,85 @@ Lattachment_element:
     bl _mac_control_create
     cbz x0, Lattachment_hidden
     mov x28, x0
+    str x0, [sp, #192]
     mov x0, x26
     mov x1, x24
     bl _mac_control_kind
+    str x0, [sp, #176]
+    mov x0, x26
+    bl _mac_css_font
+    mov x2, x0
+    ldr x0, [sp, #192]
+    cmp x24, #NODE_TEXTAREA
+    b.ne Lattachment_control_font
+    str x2, [sp, #184]
+    MSG documentView
+    ldr x2, [sp, #184]
+Lattachment_control_font:
+    MSG setFont
+    ldr x9, [sp, #176]
+    cmp x9, #0
+    b.eq Lattachment_single_line
+    cmp x9, #3
+    b.ne Lattachment_size_control
+Lattachment_single_line:
+    ldr x0, [sp, #192]
+    MSG cell
+    mov x2, #1
+    MSG singleLine
+Lattachment_size_control:
+    mov x9, #100
+    str x9, [sp, #184]
+    cmp x24, #NODE_TEXTAREA
+    b.eq Lattachment_natural_height
+    ldr x0, [sp, #192]
+    MSG intrinsicSize
+    fcvtps x9, d0
+    cmp x9, #0
+    mov x10, #16
+    csel x9, x10, x9, le
+    str x9, [sp, #208]
+    fcvtps x9, d1
+    cmp x9, #0
+    mov x10, #28
+    csel x9, x10, x9, le
+    str x9, [sp, #184]
+Lattachment_natural_height:
+    ldr x0, [sp, #176]
     cmp x0, #1
     mov x9, #220
     mov x10, #100
     csel x9, x10, x9, eq
+    ldr x11, [sp, #176]
+    cmp x11, #4
+    b.eq Lattachment_check_width
+    cmp x11, #5
+    b.ne Lattachment_control_width
+Lattachment_check_width:
+    ldr x9, [sp, #208]
+Lattachment_control_width:
     ldr x10, [sp, #144]
     cmp x10, #0
     csel x9, x9, x10, lt
-    str x9, [sp, #144]
+    mov x28, x9
+    ldr x0, [x26, #208]
+    tbnz x0, #63, Lattachment_control_max
+    ldr x1, [x26, #848]
+    bl _engine_box_length
+    cmp x28, x0
+    csel x28, x0, x28, hi
+Lattachment_control_max:
+    str x28, [sp, #144]
     ldr x9, [sp, #152]
-    mov x10, #28
+    ldr x10, [sp, #184]
     cmp x9, #0
     csel x9, x10, x9, lt
     str x9, [sp, #152]
+    ldr x0, [sp, #192]
+    ldp x9, x10, [sp, #144]
+    scvtf d0, x9
+    scvtf d1, x10
+    MSG setFrameSize
     CLASS NSImage
     MSG alloc
     ldp x9, x10, [sp, #144]
@@ -107,7 +188,22 @@ Lattachment_element:
     scvtf d1, x10
     MSG initSize
     mov x28, x0
-    b Lattachment_set_image
+    str x0, [sp, #184]
+    bl _mac_control_cell_class
+    MSG alloc
+    mov x2, x28
+    MSG initImageCell
+    mov x28, x0
+    ldr x2, [sp, #192]
+    MSG setRepresentedObject
+    mov x0, x27
+    mov x2, x28
+    MSG setAttachmentCell
+    mov x0, x28
+    MSG release
+    ldr x0, [sp, #184]
+    MSG release
+    b Lattachment_attribute
 Lattachment_hidden:
     CLASS NSImage
     MSG alloc
@@ -124,7 +220,7 @@ Lattachment_image:
     LOAD x0, _engine_images
     MSG objectKey
     cbz x0, Lattachment_alt
-    MSG retain
+    MSG copyObject
     mov x28, x0
     MSG size
     // Validate dimensions before arithmetic and retain natural aspect ratio when
@@ -157,7 +253,15 @@ Limage_width_auto:
 Limage_height_explicit:
     scvtf d1, x10
 Limage_fit:
-    NUM d2, 800
+    ldr x9, [x26, #848]
+    scvtf d2, x9
+    ldr x0, [x26, #208]
+    tbnz x0, #63, Limage_max_resolved
+    ldr x1, [x26, #848]
+    bl _engine_box_length
+    scvtf d3, x0
+    fmin d2, d2, d3
+Limage_max_resolved:
     fcmp d0, d2
     b.le Limage_height_fit
     fdiv d3, d2, d0

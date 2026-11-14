@@ -37,4 +37,4 @@ Existing commits repeat `ooga booga browser`; no formal convention is establishe
 
 ## Versioning & Metadata
 
-Change stable SemVer only in `VERSION`. Build scripts generate package metadata from templates; do not edit generated versions. Keep cookies and credentials out of commits and test with isolated profiles.
+Change stable SemVer only in `VERSION`. Whenever the version changes, update `CHANGELOG.md` in the same change: add the matching version and date, summarize user-visible additions/changes/fixes, and keep newest entries first. Build scripts generate package metadata from templates; do not edit generated versions. Keep cookies and credentials out of commits and test with isolated profiles.

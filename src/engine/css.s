@@ -8,7 +8,7 @@
 _engine_css_capture:
     ENTER
     ldr x19, [x0, #72]
-    add x19, x19, x1, lsl #9
+    add x19, x19, x1, lsl #10
     str x4, [x19, #24]              // borrowed canonical tag name
     mov x20, x2
     mov x21, x3
@@ -39,7 +39,7 @@ _engine_css_capture:
 Lcapture_extra:
     ldr x2, [x23, x22, lsl #3]
     cbz x2, Lcapture_done
-    add x24, x19, #400
+    add x24, x19, #512
     ldr x0, [x24, x22, lsl #3]
     bl _free
     mov x0, x20
@@ -97,11 +97,11 @@ Lcss_free_meta:
     bl _free
     mov x22, #0
 Lfree_extra:
-    add x9, x20, #400
+    add x9, x20, #512
     ldr x0, [x9, x22, lsl #3]
     bl _free
     add x22, x22, #1
-    cmp x22, #13
+    cmp x22, #22
     b.lo Lfree_extra
     add x20, x20, #CSS_META_SIZE
     sub x21, x21, #1
@@ -280,7 +280,7 @@ Lcascade_property:
     b.eq Lcascade_compare
     orr x7, x7, #0x1000000000000
 Lcascade_compare:
-    add x8, x0, #208
+    add x8, x0, #224
     ldr x9, [x8, x3, lsl #3]
     cmp x7, x9
     b.lo Lcascade_next
@@ -310,6 +310,15 @@ _css_length:
 Llength_raw:
     cmn x0, #1
     b.eq Llength_return
+    cmn x0, #5
+    b.ne Llength_numeric
+    cmp x1, #CSS_LEFT
+    b.eq Llength_return
+    cmp x1, #CSS_RIGHT
+    b.eq Llength_return
+    mov x0, #0
+    ret
+Llength_numeric:
     tbz x0, #63, Llength_return
     and x6, x0, #0xffffffff
     lsr x7, x0, #32
@@ -318,6 +327,15 @@ Llength_raw:
     b.ne Llength_reference
     cbz x7, Llength_line_unitless
 Llength_reference:
+    cmp x7, #3
+    b.ne Llength_font_reference
+    cmp x1, #CSS_SIZE
+    b.eq Llength_font_reference
+    cmp x1, #CSS_LINE
+    b.eq Llength_font_reference
+    orr x0, x6, #0x100000000
+    ret
+Llength_font_reference:
     ldr x8, [x3, #48]
     cmp x1, #CSS_SIZE
     b.ne Llength_rem
@@ -404,18 +422,18 @@ Lapply_node:
     cmp x22, x9
     b.hs Lapply_done
     ldr x23, [x19, #72]
-    add x23, x23, x22, lsl #9
+    add x23, x23, x22, lsl #10
     ldr x25, [x19, #16]
     mov x9, #40
     madd x25, x22, x9, x25
     ldr x9, [x25, #8]
     ldr x24, [x19, #72]
     tbnz x9, #63, Lapply_default
-    add x24, x24, x9, lsl #9
+    add x24, x24, x9, lsl #10
 Lapply_default:
-    add x0, x23, #208
+    add x0, x23, #224
     mov x1, #0
-    mov x2, #176
+    mov x2, #192
     bl _memset
     mov x26, #0
     ADDR x27, css_defaults
@@ -523,7 +541,7 @@ Lapply_inline:
     cbz x26, Lapply_resolve
     mov x0, sp
     mov x1, #0
-    mov x2, #192
+    mov x2, #208
     bl _memset
     mov x0, x26
     bl _strlen
@@ -577,6 +595,8 @@ Lapply_resolve_length:
     b.eq Lapply_length
     cmp x26, #CSS_WIDTH
     b.lo Lapply_resolved_store
+    cmp x26, #CSS_MAX_WIDTH
+    b.eq Lapply_length
     cmp x26, #CSS_BORDER
     b.hi Lapply_resolved_store
 Lapply_length:
@@ -593,7 +613,7 @@ Lapply_resolved_store:
 Lapply_text_node:
     add x0, x23, #32
     add x1, x24, #32
-    mov x2, #176
+    mov x2, #192
     bl _memcpy
 Lapply_inherited_hidden:
     cbz x22, Lapply_canvas
@@ -622,6 +642,13 @@ Lapply_body_canvas:
     ldr x9, [x19, #72]
     str x10, [x9, #40]
 Lapply_mark_hidden:
+    ldr x9, [x25]
+    cmp x9, #NODE_OPTION
+    b.ne Lapply_input_visibility
+    mov x9, #1
+    str x9, [x23, #88]
+    b Lapply_visibility
+Lapply_input_visibility:
     ldr x9, [x25]
     cmp x9, #NODE_INPUT
     b.ne Lapply_visibility
@@ -654,7 +681,7 @@ Lapply_done:
 .section __DATA,__const
 .p2align 3
 css_defaults:
-.quad -1, -1, 14, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, 0, 0, 0, 0, 0
+.quad -1, -1, 14, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, 0, 0, 0, 0, 0, -1, 0
 .section __TEXT,__cstring,cstring_literals
 id_name: .asciz "id"
 class_name: .asciz "class"
@@ -663,7 +690,7 @@ style_name: .asciz "style"
 .section __DATA,__const
 .p2align 3
 html_attributes:
-.quad attr_src, attr_action, attr_name, attr_value, attr_type, attr_alt, attr_width, attr_height, attr_method, attr_rel, attr_disabled, attr_media, attr_label, 0
+.quad attr_src, attr_action, attr_name, attr_value, attr_type, attr_alt, attr_width, attr_height, attr_method, attr_rel, attr_disabled, attr_media, attr_label, attr_checked, attr_selected, attr_multiple, attr_rows, attr_cols, attr_readonly, attr_placeholder, attr_enctype, 0
 .section __TEXT,__cstring,cstring_literals
 attr_src: .asciz "src"
 attr_action: .asciz "action"
@@ -679,3 +706,11 @@ attr_disabled: .asciz "disabled"
 attr_media: .asciz "media"
 hidden_input_type: .asciz "hidden"
 attr_label: .asciz "label"
+attr_checked: .asciz "checked"
+attr_selected: .asciz "selected"
+attr_multiple: .asciz "multiple"
+attr_rows: .asciz "rows"
+attr_cols: .asciz "cols"
+attr_readonly: .asciz "readonly"
+attr_placeholder: .asciz "placeholder"
+attr_enctype: .asciz "enctype"

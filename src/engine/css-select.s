@@ -66,6 +66,8 @@ Lselector_validate:
     ldrb w9, [x23], #1
     cmp w9, #32
     b.ls Lselector_validate
+    cmp w9, #62
+    b.eq Lselector_validate
     cmp w9, #46
     b.eq Lselector_validate
     cmp w9, #35
@@ -87,6 +89,7 @@ Lselector_validate:
 Lselector_rightmost:
     mov x23, x22
     mov x25, #0                     // accumulated specificity
+    mov x27, #1                     // rightmost / child must match directly
     mov x26, #0                     // number of compounds, bounded to 8
 Lselector_component:
     cmp x23, x21
@@ -104,11 +107,15 @@ Lselector_component_start:
     b.ls Lselector_component_match
     sub x9, x23, #1
     ldrb w10, [x9]
+    cmp w10, #62
+    b.eq Lselector_component_match
     cmp w10, #32
     b.ls Lselector_component_match
     mov x23, x9
     b Lselector_component_start
 Lselector_component_match:
+    cmp x23, x24
+    b.eq Lmatch_no
     add x26, x26, #1
     cmp x26, #8
     b.hi Lmatch_no
@@ -119,6 +126,7 @@ Lselector_ancestor:
     mov x3, x24
     bl _css_compound
     cbnz x0, Lselector_component_found
+    cbnz x27, Lmatch_no
     cmp x26, #1
     b.eq Lmatch_no                  // rightmost must match the element itself
     cbz x20, Lmatch_no
@@ -131,8 +139,24 @@ Lselector_ancestor:
 Lselector_component_found:
     sub x0, x0, #1
     add x25, x25, x0
+    mov x27, #0
+Lselector_separator:
     cmp x23, x21
     b.ls Lmatch_yes
+    sub x9, x23, #1
+    ldrb w10, [x9]
+    cmp w10, #32
+    b.hi Lselector_separator_end
+    mov x23, x9
+    b Lselector_separator
+Lselector_separator_end:
+    cmp w10, #62
+    b.ne Lselector_parent_step
+    mov x27, #1
+    mov x23, x9
+    cmp x23, x21
+    b.ls Lmatch_no
+Lselector_parent_step:
     cbz x20, Lmatch_no
     ldr x9, [x19, #16]
     mov x10, #40
@@ -158,7 +182,7 @@ _css_compound:
     sub x9, x9, #1
     str x9, [x19, #88]
     ldr x23, [x19, #72]
-    add x23, x23, x1, lsl #9
+    add x23, x23, x1, lsl #10
     ldr x24, [x23, #24]
     cbz x24, Lcompound_no
     cmp x20, x21

@@ -94,6 +94,9 @@ method_table:
 .quad _sel_engineToggle, _mac_engine_toggle, engine_encoding_0
 .quad _sel_engineLink, _mac_engine_link, engine_encoding_1
 .quad _sel_engineSubmit, _mac_form_submit, encoding_0
+.quad _sel_formToggle, _mac_form_toggle, encoding_0
+.quad _sel_selectToggle, _mac_select_toggle, encoding_0
+.quad _sel_windowResize, _mac_engine_resize, encoding_0
 .quad _sel_engineResponse, _mac_engine_response, engine_encoding_2
 .quad _sel_engineData, _mac_engine_data, engine_encoding_3
 .quad _sel_engineComplete, _mac_engine_complete, engine_encoding_4
@@ -1116,6 +1119,191 @@ _sel_accessibilityChildren: .quad feature_method_accessibilityChildren
 _sel_setAccessibilityChildren: .quad feature_method_setAccessibilityChildren
 .globl _sel_setImageDescription
 _sel_setImageDescription: .quad feature_method_setImageDescription
+
+
+.section __TEXT,__cstring,cstring_literals
+next_method_windowResize: .asciz "windowDidResize:"
+next_method_bounds: .asciz "bounds"
+next_method_contentSize: .asciz "contentSize"
+next_method_copyObject: .asciz "copy"
+
+.section __DATA,__data
+.p2align 3
+.globl _sel_windowResize
+_sel_windowResize: .quad next_method_windowResize
+.globl _sel_bounds
+_sel_bounds: .quad next_method_bounds
+.globl _sel_contentSize
+_sel_contentSize: .quad next_method_contentSize
+.globl _sel_copyObject
+_sel_copyObject: .quad next_method_copyObject
+
+
+.section __TEXT,__cstring,cstring_literals
+next_method_initCache: .asciz "initWithMemoryCapacity:diskCapacity:diskPath:"
+next_method_setURLCache: .asciz "setURLCache:"
+.globl _class_NSURLCache
+_class_NSURLCache: .asciz "NSURLCache"
+
+.section __DATA,__data
+.p2align 3
+.globl _sel_initCache
+_sel_initCache: .quad next_method_initCache
+.globl _sel_setURLCache
+_sel_setURLCache: .quad next_method_setURLCache
+
+
+.section __TEXT,__cstring,cstring_literals
+next_method_setButtonType: .asciz "setButtonType:"
+next_method_state: .asciz "state"
+next_method_formToggle: .asciz "engineFormToggle:"
+next_method_selectToggle: .asciz "engineSelectToggle:"
+next_method_initPopup: .asciz "initWithFrame:pullsDown:"
+next_method_menu: .asciz "menu"
+next_method_setAutoenables: .asciz "setAutoenablesItems:"
+next_method_setRepresentedObject: .asciz "setRepresentedObject:"
+next_method_representedObject: .asciz "representedObject"
+next_method_selectItem: .asciz "selectItem:"
+next_method_selectedItem: .asciz "selectedItem"
+next_method_itemArray: .asciz "itemArray"
+next_method_setString: .asciz "setString:"
+next_method_string: .asciz "string"
+next_method_documentView: .asciz "documentView"
+next_method_setHTTPMethod: .asciz "setHTTPMethod:"
+next_method_setHTTPBody: .asciz "setHTTPBody:"
+next_method_setHTTPHeader: .asciz "setValue:forHTTPHeaderField:"
+.globl _class_NSPopUpButton
+_class_NSPopUpButton: .asciz "NSPopUpButton"
+.globl _class_NSMutableURLRequest
+_class_NSMutableURLRequest: .asciz "NSMutableURLRequest"
+
+.section __DATA,__data
+.p2align 3
+.globl _sel_setButtonType
+_sel_setButtonType: .quad next_method_setButtonType
+.globl _sel_state
+_sel_state: .quad next_method_state
+.globl _sel_formToggle
+_sel_formToggle: .quad next_method_formToggle
+.globl _sel_selectToggle
+_sel_selectToggle: .quad next_method_selectToggle
+.globl _sel_initPopup
+_sel_initPopup: .quad next_method_initPopup
+.globl _sel_menu
+_sel_menu: .quad next_method_menu
+.globl _sel_setAutoenables
+_sel_setAutoenables: .quad next_method_setAutoenables
+.globl _sel_setRepresentedObject
+_sel_setRepresentedObject: .quad next_method_setRepresentedObject
+.globl _sel_representedObject
+_sel_representedObject: .quad next_method_representedObject
+.globl _sel_selectItem
+_sel_selectItem: .quad next_method_selectItem
+.globl _sel_selectedItem
+_sel_selectedItem: .quad next_method_selectedItem
+.globl _sel_itemArray
+_sel_itemArray: .quad next_method_itemArray
+.globl _sel_setString
+_sel_setString: .quad next_method_setString
+.globl _sel_string
+_sel_string: .quad next_method_string
+.globl _sel_documentView
+_sel_documentView: .quad next_method_documentView
+.globl _sel_setHTTPMethod
+_sel_setHTTPMethod: .quad next_method_setHTTPMethod
+.globl _sel_setHTTPBody
+_sel_setHTTPBody: .quad next_method_setHTTPBody
+.globl _sel_setHTTPHeader
+_sel_setHTTPHeader: .quad next_method_setHTTPHeader
+
+
+.section __TEXT,__cstring,cstring_literals
+next_method_isEnabled: .asciz "isEnabled"
+
+.section __DATA,__data
+.p2align 3
+.globl _sel_isEnabled
+_sel_isEnabled: .quad next_method_isEnabled
+
+
+.section __TEXT,__cstring,cstring_literals
+next_method_superview: .asciz "superview"
+
+.section __DATA,__data
+.p2align 3
+.globl _sel_superview
+_sel_superview: .quad next_method_superview
+
+
+.section __TEXT,__cstring,cstring_literals
+next_method_cell: .asciz "cell"
+next_method_setAltersState: .asciz "setAltersStateOfSelectedItem:"
+
+.section __DATA,__data
+.p2align 3
+.globl _sel_cell
+_sel_cell: .quad next_method_cell
+.globl _sel_setAltersState
+_sel_setAltersState: .quad next_method_setAltersState
+
+
+.section __TEXT,__cstring,cstring_literals
+next_method_verticalScroller: .asciz "verticalScroller"
+next_method_horizontalScroller: .asciz "horizontalScroller"
+
+.section __DATA,__data
+.p2align 3
+.globl _sel_verticalScroller
+_sel_verticalScroller: .quad next_method_verticalScroller
+.globl _sel_horizontalScroller
+_sel_horizontalScroller: .quad next_method_horizontalScroller
+
+
+.section __TEXT,__cstring,cstring_literals
+next_method_frame: .asciz "frame"
+next_method_glyphLocation: .asciz "locationForGlyphAtIndex:"
+next_method_lineFragment: .asciz "lineFragmentRectForGlyphAtIndex:effectiveRange:"
+next_method_lastBaseline: .asciz "lastBaselineOffsetFromBottom"
+next_method_singleLine: .asciz "setUsesSingleLineMode:"
+next_method_initImageCell: .asciz "initImageCell:"
+next_method_cellBaselineOffset: .asciz "cellBaselineOffset"
+.globl _class_OogaboogaControlAttachment
+_class_OogaboogaControlAttachment: .asciz "OogaboogaControlAttachment"
+
+.section __DATA,__data
+.p2align 3
+.globl _sel_frame
+_sel_frame: .quad next_method_frame
+.globl _sel_glyphLocation
+_sel_glyphLocation: .quad next_method_glyphLocation
+.globl _sel_lineFragment
+_sel_lineFragment: .quad next_method_lineFragment
+.globl _sel_lastBaseline
+_sel_lastBaseline: .quad next_method_lastBaseline
+.globl _sel_singleLine
+_sel_singleLine: .quad next_method_singleLine
+.globl _sel_initImageCell
+_sel_initImageCell: .quad next_method_initImageCell
+.globl _sel_cellBaselineOffset
+_sel_cellBaselineOffset: .quad next_method_cellBaselineOffset
+
+
+.section __TEXT,__cstring,cstring_literals
+next_method_intrinsicSize: .asciz "intrinsicContentSize"
+next_method_firstBaseline: .asciz "firstBaselineOffsetFromTop"
+next_method_typesetter: .asciz "typesetter"
+next_method_typesetterBaseline: .asciz "baselineOffsetInLayoutManager:glyphIndex:"
+
+.section __DATA,__data
+.p2align 3
+.globl _sel_intrinsicSize
+_sel_intrinsicSize: .quad next_method_intrinsicSize
+.globl _sel_firstBaseline
+_sel_firstBaseline: .quad next_method_firstBaseline
+.globl _sel_typesetter
+_sel_typesetter: .quad next_method_typesetter
+.globl _sel_typesetterBaseline
+_sel_typesetterBaseline: .quad next_method_typesetterBaseline
 
 selector_end:
 selectors_ready: .quad 0

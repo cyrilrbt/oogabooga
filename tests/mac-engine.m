@@ -1,5 +1,6 @@
 // Test-only in-process transport and native-view integration for the assembly engine.
 #import <Cocoa/Cocoa.h>
+#import <AppKit/NSTypesetter.h>
 #import <WebKit/WebKit.h>
 #import <objc/runtime.h>
 #import <sqlite3.h>
@@ -7,6 +8,15 @@
 extern Class mac_register_class(void);
 extern void mac_engine_toggle(id,SEL,id);
 extern void mac_engine_navigate(void);
+extern void mac_engine_resize(id,SEL,id);
+extern void mac_engine_reload(void);
+extern __unsafe_unretained NSDictionary *engine_controls;
+extern __unsafe_unretained NSURLSession *engine_session;
+extern void *engine_document;
+typedef struct {char *text; uint64_t length,*map,lines;} TestLayout;
+extern TestLayout *engine_layout(void *,size_t);
+extern void engine_layout_free(TestLayout *);
+static NSString *postedBody,*postedMethod,*postedType,*postedQuery;
 extern void mac_engine_back(void);
 extern void mac_engine_forward(void);
 extern void mac_form_submit(id,SEL,id);
@@ -28,17 +38,37 @@ extern uint64_t mac_engine_enabled;
 @end
 static BOOL slowStarted;
 @interface EngineProtocol : NSURLProtocol
+@property BOOL stopped;
 @end
 @implementation EngineProtocol
 + (BOOL)canInitWithRequest:(NSURLRequest *)request { return [request.URL.host isEqual:@"engine.test"]; }
 + (NSURLRequest *)canonicalRequestForRequest:(NSURLRequest *)request { return request; }
 - (void)startLoading {
     NSString *path=self.request.URL.path;
+    if ([path isEqual:@"/assets/delayed.css"]) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,200*NSEC_PER_MSEC),dispatch_get_main_queue(),^{
+            if(self.stopped) return;
+            NSHTTPURLResponse *r=[[NSHTTPURLResponse alloc] initWithURL:self.request.URL statusCode:200 HTTPVersion:@"HTTP/1.1" headerFields:@{@"Content-Type":@"text/css"}];
+            [self.client URLProtocol:self didReceiveResponse:r cacheStoragePolicy:NSURLCacheStorageNotAllowed];
+            [self.client URLProtocol:self didLoadData:[@"p{color:green}" dataUsingEncoding:NSUTF8StringEncoding]];
+            [self.client URLProtocolDidFinishLoading:self];
+        });
+        return;
+    }
     if ([path isEqual:@"/assets/slow.css"]) { slowStarted=YES; return; }
     NSDictionary *headers=@{@"Content-Type":@"text/html; charset=utf-8"};
     NSInteger status=200;
     NSString *html=@"<title>First</title><h1>Hello 🌐</h1><p><a href='/second?a=1&amp;b=2'>next café</a> <a href='javascript:alert(1)'>bad link</a></p><script>SHOULD NOT RENDER</script>";
-    if ([path isEqual:@"/features"]) html=@"<title>Features</title><style>.box{color:red}</style><link rel=stylesheet href='assets/first.css'><style>body{line-height:1.4}.box{color:green;font-size:19px}</style><link rel=stylesheet href='assets/huge.css'><link rel=stylesheet href='assets/not-css'><link rel=stylesheet href='assets/last.css'><link rel=stylesheet href='assets/missing.css'><h1>Four features</h1><div class=box><p>Box content with wrapping text to measure inside a fixed width and padding.</p><div style='width:120px;padding:4px;border-width:1px'><p>Nested box</p></div></div><p>Before image <img src='assets/image.png' width=120 alt='Blue rectangle'> after image.</p><p><img src='assets/missing.png' alt='Missing image fallback'></p><form action='/submitted?old=discard' method=get><input name=q value=initial><input type=hidden name=token value='a+b &amp; café'><input name=dup value=one><input name=dup value=two><input style=display:none name=csshidden value=include><input name=skip value=no disabled><input type=submit name=go value=Search><input type=submit name=other value=Other></form><form method=post action=/must-not-submit><input name=post value=secret><button value=Unsupported>Unsupported</button></form>";
+    if ([path isEqual:@"/progress"]) html=@"<title>Progress</title><link rel=stylesheet href=assets/delayed.css><p>HTML visible before CSS</p><input id=live name=q value=initial>";
+    if ([path isEqual:@"/advanced"]) html=@"<title>Advanced</title><style>.responsive{width:90%;max-width:600px;box-sizing:border-box;padding:12px;border:2px solid #369;margin:10px auto}.responsive > p{color:green}textarea{width:80%;max-width:250px;height:90px}</style><div class=responsive><p>Responsive text that wraps as the browser window changes size and keeps the controls below it intact.</p></div><form action='/posted?keep=1' method=post><input id=flag name=flag type=checkbox checked><input id=unchecked name=skip type=checkbox value=no><input id=radioA type=radio name=choice value=a checked><input id=radioB type=radio name=choice value=b><select id=flavor name=flavor><option disabled>Unavailable</option><option value=vanilla>Vanilla</option><option value=chocolate selected>Chocolate</option></select><select id=colors name=color multiple><option value=red selected>Red</option><option value=green>Green</option><option value=blue selected>Blue</option></select><textarea id=notes name=notes>line one\nline &amp; café</textarea><input id=edit name=edit value=initial><input name=disabled type=checkbox checked disabled><button id=send name=action value=commit>Send</button></form><form><input id=outside name=choice type=radio value=outside checked></form>";
+    if ([path isEqual:@"/posted"]) {
+        postedMethod=self.request.HTTPMethod; postedType=[self.request valueForHTTPHeaderField:@"Content-Type"]; postedQuery=self.request.URL.query;
+        NSData *body=self.request.HTTPBody;
+        if(!body && self.request.HTTPBodyStream) { NSInputStream *stream=self.request.HTTPBodyStream; [stream open]; NSMutableData *d=[NSMutableData new]; uint8_t bytes[4096]; NSInteger n; while((n=[stream read:bytes maxLength:sizeof(bytes)])>0) [d appendBytes:bytes length:(NSUInteger)n]; [stream close]; body=d; }
+        postedBody=[[NSString alloc] initWithData:body encoding:NSUTF8StringEncoding];
+        html=@"<title>Posted</title><p>POST accepted</p>";
+    }
+    if ([path isEqual:@"/features"]) html=@"<title>Features</title><style>.box{color:red}</style><link rel=stylesheet href='assets/first.css'><style>body{line-height:1.4}.box{color:green;font-size:19px}</style><link rel=stylesheet href='assets/huge.css'><link rel=stylesheet href='assets/not-css'><link rel=stylesheet href='assets/last.css'><link rel=stylesheet href='assets/missing.css'><h1>Four features</h1><div class=box><p>Box content with wrapping text to measure inside a fixed width and padding.</p><div style='width:120px;padding:4px;border-width:1px'><p>Nested box</p></div></div><p>Before image <img src='assets/image.png' width=120 alt='Blue rectangle'> after image.</p><p><img src='assets/missing.png' alt='Missing image fallback'></p><form action='/submitted?old=discard' method=get><input name=q value=initial><input type=hidden name=token value='a+b &amp; café'><input name=dup value=one><input name=dup value=two><input style=display:none name=csshidden value=include><input name=skip value=no disabled><input type=submit name=go value=Search><input type=submit name=other value=Other></form><form method=patch action=/must-not-submit><input name=post value=secret><button value=Unsupported>Unsupported</button></form>";
     if ([path isEqual:@"/assets/first.css"]) { html=@".box{color:purple;font-size:18px;width:300px;padding:12px 16px;margin:8px 10px;border-width:2px;border-color:#2460ad;background:#fff4dc}"; headers=@{@"Content-Type":@"text/css; charset=utf-8"}; }
     if ([path isEqual:@"/slow"]) html=@"<title>Slow</title><link rel=stylesheet href='assets/slow.css'><p>Must never commit after cancellation</p>";
     if ([path isEqual:@"/assets/huge.css"]) headers=@{@"Content-Type":@"text/css"};
@@ -69,7 +99,7 @@ static BOOL slowStarted;
     [self.client URLProtocol:self didLoadData:data];
     [self.client URLProtocolDidFinishLoading:self];
 }
-- (void)stopLoading {}
+- (void)stopLoading { self.stopped=YES; }
 @end
 static id (*originalConfiguration)(id,SEL);
 static id config(id cls,SEL cmd) {
@@ -92,6 +122,12 @@ static int count(void) {
     sqlite3_stmt *s=NULL; assert(sqlite3_prepare_v2(mac_db,"SELECT count(*) FROM visits",-1,&s,NULL)==SQLITE_OK);
     assert(sqlite3_step(s)==SQLITE_ROW); int result=sqlite3_column_int(s,0); sqlite3_finalize(s); return result;
 }
+static id control(NSString *identifier) {
+    uint64_t *doc=engine_document; unsigned char *meta=(void *)(uintptr_t)doc[9];
+    for(uint64_t i=0;i<doc[3];i++) { char *name=*(char **)(meta+i*1024); if(name && [identifier isEqualToString:[NSString stringWithUTF8String:name]]) return engine_controls[@(i)]; }
+    return nil;
+}
+static int denyInsert(void *ctx,int action,const char *a,const char *b,const char *c,const char *d) { (void)ctx;(void)a;(void)b;(void)c;(void)d;return action==SQLITE_INSERT ? SQLITE_DENY : SQLITE_OK; }
 int main(void) {
     @autoreleasepool {
         NSApplication *app=NSApplication.sharedApplication;
@@ -142,7 +178,7 @@ int main(void) {
         assert(text.frame.size.height>scroll.contentView.bounds.size.height);
         [text scrollRangeToVisible:NSMakeRange(text.string.length-1,1)];
         assert(scroll.contentView.bounds.origin.y>0);
-        navigate(@"/css"); waitFor(^BOOL { return [window.title hasPrefix:@"CSS — Assembly"]; });
+        navigate(@"/css"); waitFor(^BOOL { return [window.title hasPrefix:@"CSS — Assembly"] && [status.stringValue containsString:@"ready."]; });
         assert(![text.string containsString:@"INVISIBLE"]);
         NSRange heading=[text.string rangeOfString:@"Styled 🌐 heading"];
         NSFont *headingFont=[text.textStorage attribute:NSFontAttributeName atIndex:heading.location effectiveRange:NULL];
@@ -165,7 +201,7 @@ int main(void) {
         NSFont *reset=[text.textStorage attribute:NSFontAttributeName atIndex:0 effectiveRange:NULL];
         assert(reset.pointSize==14);
         // All four features together, using in-process HTTP and no WebKit view.
-        navigate(@"/features"); waitFor(^BOOL { return [window.title hasPrefix:@"Features — Assembly"]; });
+        navigate(@"/features"); waitFor(^BOOL { return [window.title hasPrefix:@"Features — Assembly"] && [status.stringValue containsString:@"ready."]; });
         NSRange boxRange=[text.string rangeOfString:@"Box content"];
         NSColor *boxColor=[[text.textStorage attribute:NSForegroundColorAttributeName atIndex:boxRange.location effectiveRange:NULL] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
         assert(fabs(boxColor.redComponent-18.0/255)<.001); // last linked sheet wins
@@ -203,7 +239,7 @@ int main(void) {
         waitFor(^BOOL { return [window.title hasPrefix:@"Submitted — Assembly"]; });
         assert([address.stringValue isEqual:@"https://engine.test/submitted?q=caf%C3%A9+%2B+%26+%F0%9F%8C%90&token=a%2Bb+%26+caf%C3%A9&dup=one&dup=two&csshidden=include&go=Search"]);
         assert(text.subviews.count==0); // controls removed on navigation
-        navigate(@"/features"); waitFor(^BOOL { return [window.title hasPrefix:@"Features — Assembly"]; });
+        navigate(@"/features"); waitFor(^BOOL { return [window.title hasPrefix:@"Features — Assembly"] && [status.stringValue containsString:@"ready."]; });
         NSTextField *returnField=nil;
         for(NSView *view in text.subviews) if ([view isKindOfClass:NSTextField.class] && [[(NSTextField *)view stringValue] isEqual:@"initial"]) returnField=(NSTextField *)view;
         assert(returnField);
@@ -211,17 +247,67 @@ int main(void) {
         assert([NSApp sendAction:returnField.action to:returnField.target from:returnField]);
         waitFor(^BOOL { return [window.title hasPrefix:@"Submitted — Assembly"]; });
         assert([address.stringValue containsString:@"q=return+works"] && ![address.stringValue containsString:@"&go="]);
+        int progressiveCount=count();
+        navigate(@"/progress"); waitFor(^BOOL { return [window.title hasPrefix:@"Progress — Assembly"]; });
+        assert([text.string containsString:@"HTML visible before CSS"] && [status.stringValue containsString:@"loading styles"]);
+        NSTextField *live=control(@"live"); assert(live); live.stringValue=@"keep my edit";
+        waitFor(^BOOL { return [status.stringValue containsString:@"ready."]; });
+        assert(control(@"live")==live && [live.stringValue isEqual:@"keep my edit"] && count()==progressiveCount+1);
+        assert(engine_session.configuration.URLCache.memoryCapacity==16777216 && engine_session.configuration.URLCache.diskCapacity==0);
+        navigate(@"/advanced"); waitFor(^BOOL { return [window.title hasPrefix:@"Advanced — Assembly"] && [status.stringValue containsString:@"ready."]; });
+        NSButton *flag=control(@"flag"),*radioA=control(@"radioA"),*radioB=control(@"radioB"),*outside=control(@"outside"),*send=control(@"send");
+        NSPopUpButton *flavor=control(@"flavor"),*colors=control(@"colors"); NSScrollView *notes=control(@"notes"); NSTextField *edit=control(@"edit");
+        assert([scroll.accessibilityChildren containsObject:text]);
+        // Native controls share the actual line baseline, including those whose
+        // attachment glyph location already incorporates a descent offset.
+        TestLayout *mapped=engine_layout(engine_document,0); assert(mapped);
+        for(NSControl *v in @[edit,flag,radioA,radioB,flavor,send]) {
+            uint64_t *doc=engine_document,*nodes=(void *)(uintptr_t)doc[2];
+            NSUInteger start=(NSUInteger)nodes[(NSUInteger)v.tag*5+2];
+            NSUInteger glyph=[text.layoutManager glyphIndexForCharacterAtIndex:mapped->map[start]];
+            NSRect line=[text.layoutManager lineFragmentRectForGlyphAtIndex:glyph effectiveRange:NULL];
+            CGFloat baseline=NSMaxY(line)-[text.layoutManager.typesetter baselineOffsetInLayoutManager:text.layoutManager glyphIndex:glyph]+text.textContainerInset.height;
+            NSRect frame=[text convertRect:v.bounds fromView:v];
+            CGFloat offset=v.firstBaselineOffsetFromTop+(frame.size.height-v.intrinsicContentSize.height)/2;
+            assert(fabs(NSMinY(frame)+offset-baseline)<.01);
+            assert(v.font.pointSize==14);
+        }
+        engine_layout_free(mapped);
+        assert([edit.cell usesSingleLineMode]);
+        assert(flag.frame.size.width==ceil(flag.intrinsicContentSize.width) && flag.frame.size.width<24);
+        assert(radioB.frame.size.width==ceil(radioB.intrinsicContentSize.width) && radioB.frame.size.width<24);
+        assert(flag && radioA && radioB && outside && send && flavor && colors && notes && edit);
+        assert(flag.state==NSControlStateValueOn && radioA.state==NSControlStateValueOn && outside.state==NSControlStateValueOn);
+        assert(notes.frame.size.width<=251);
+        assert([flavor.selectedItem.representedObject isEqual:@"chocolate"] && !flavor.itemArray[0].enabled);
+        [radioB performClick:nil]; assert(radioB.state==NSControlStateValueOn && radioA.state==NSControlStateValueOff && outside.state==NSControlStateValueOn);
+        NSMenuItem *green=colors.itemArray[1]; assert([NSApp sendAction:green.action to:green.target from:green]);
+        [(NSTextView *)notes.documentView setString:@"edited\ntext + 🌐"];
+        edit.stringValue=@"survives resize";
+        [window setContentSize:NSMakeSize(450,780)]; mac_engine_resize(nil,NULL,nil);
+        assert(control(@"edit")==edit && [edit.stringValue isEqual:@"survives resize"] && radioB.state==NSControlStateValueOn);
+        NSRange responsive=[text.string rangeOfString:@"Responsive text"];
+        NSParagraphStyle *responsiveStyle=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:responsive.location effectiveRange:NULL];
+        assert(text.textContainer.size.width<450 && responsiveStyle.textBlocks.count && responsiveStyle.textBlocks.lastObject.contentWidth<400);
+        [window setContentSize:NSMakeSize(1160,780)]; mac_engine_resize(nil,NULL,nil);
+        [send performClick:nil]; waitFor(^BOOL { return [window.title hasPrefix:@"Posted — Assembly"]; });
+        assert([postedMethod isEqual:@"POST"] && [postedType isEqual:@"application/x-www-form-urlencoded"] && [postedQuery isEqual:@"keep=1"]);
+        assert([postedBody isEqual:@"flag=on&choice=b&flavor=chocolate&color=red&color=green&color=blue&notes=edited%0D%0Atext+%2B+%F0%9F%8C%90&edit=survives+resize&action=commit"]);
+        int beforeDenied=count();
+        sqlite3_set_authorizer(mac_db,denyInsert,NULL);
+        navigate(@"/second"); waitFor(^BOOL { return [window.title hasPrefix:@"Second — Assembly"] && [status.stringValue containsString:@"history could not be saved"]; });
+        sqlite3_set_authorizer(mac_db,NULL,NULL); assert(count()==beforeDenied);
         int beforeSlow=count();
         navigate(@"/slow"); waitFor(^BOOL { return slowStarted; });
         navigate(@"/second"); waitFor(^BOOL { return [window.title hasPrefix:@"Second — Assembly"]; });
-        assert(count()==beforeSlow+1 && ![text.string containsString:@"Must never commit"]);
+        assert(count()==beforeSlow+2 && ![text.string containsString:@"Must never commit"]);
         // Switching engines cancels in-flight work and hides the native renderer.
         address.stringValue=@"";
         mac_engine_toggle(nil,NULL,nil);
         assert(!mac_engine_enabled && !web.hidden && scroll.hidden);
         method_setImplementation(method,original);
         sqlite3_close(mac_db);mac_db=NULL;
-        puts("PASS: assembly renderer transport, native links/Unicode ranges, back/forward, scrolling, history, CSS cascade/boxes, linked resources, images/alt/aspect ratio, native GET forms/encoding, response limits, stale callbacks, and WebKit switching");
+        puts("PASS: assembly renderer transport, native links/Unicode ranges, back/forward, scrolling, history, responsive CSS/box sizing/child selectors, progressive resources, images, native GET/POST forms and reflow preservation, response limits, stale callbacks, and WebKit switching");
     }
     return 0;
 }

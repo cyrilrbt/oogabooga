@@ -21,6 +21,8 @@
         "./build.sh release",
         "install -Dm755 build/linux/oogabooga /app/bin/oogabooga",
         "install -Dm644 VERSION /app/share/oogabooga/VERSION",
+        "install -Dm644 LICENSE /app/share/licenses/oogabooga/LICENSE",
+        "install -Dm644 CHANGELOG.md /app/share/doc/oogabooga/CHANGELOG.md",
         "install -Dm644 assets/oogabooga.desktop /app/share/applications/dev.oogabooga.Browser.desktop",
         "sed -i 's/^Icon=.*/Icon=dev.oogabooga.Browser/' /app/share/applications/dev.oogabooga.Browser.desktop",
         "install -Dm644 assets/oogabooga.svg /app/share/icons/hicolor/scalable/apps/dev.oogabooga.Browser.svg",
@@ -30,7 +32,13 @@
         {
           "type": "dir",
           "path": "..",
-          "skip": [".git", "build", ".flatpak-builder", "flatpak-build", "flatpak-repo"]
+          "skip": [
+            ".git",
+            "build",
+            ".flatpak-builder",
+            "flatpak-build",
+            "flatpak-repo"
+          ]
         }
       ]
     }

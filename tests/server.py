@@ -3,13 +3,24 @@
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import base64
 import argparse
+import json
 from pathlib import Path
 from urllib.parse import urlsplit, parse_qs
 from html import escape
 
+REQUEST_COUNTS = {}
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlsplit(self.path).path
+        REQUEST_COUNTS[path] = REQUEST_COUNTS.get(path, 0) + 1
+        if path == '/engine/cache-counts':
+            data = ('<title>Cache counts</title><pre>' + escape(json.dumps(REQUEST_COUNTS)) + '</pre>').encode()
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(data)
+            return
         fixture_files = {
             '/engine/features': ('fixtures/engine-features.html', 'text/html; charset=utf-8'),
             '/engine/features.css': ('fixtures/engine-features.css', 'text/css; charset=utf-8'),
@@ -21,6 +32,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-Type', mime)
             self.send_header('Content-Length', str(len(data)))
+            if mime.startswith(('text/css', 'image/')):
+                self.send_header('Cache-Control', 'public, max-age=600')
             self.end_headers()
             self.wfile.write(data)
             return
@@ -105,6 +118,19 @@ class Handler(BaseHTTPRequestHandler):
             <button onclick="window.open('/popup','auth','width=500,height=400')">Test login popup</button>
             <p><a href="/second">Second page for back/forward</a></p>'''
         self.wfile.write(('<!doctype html><meta charset="utf-8"><title>Browser fixture</title><style>body{font:18px system-ui;max-width:850px;margin:60px auto;background:#f5f3ee;color:#222}a{color:#245bc0}button{padding:12px}</style>' + body).encode())
+
+    def do_POST(self):
+        length = int(self.headers.get('Content-Length', '0'))
+        if not 0 <= length <= 65536:
+            self.send_error(413)
+            return
+        data = self.rfile.read(length).decode('utf-8')
+        fields = parse_qs(data, keep_blank_values=True)
+        body = '<title>POST Result</title><h1>POST submitted</h1><p>' + escape(str(fields)) + '</p><p><a href="features">Return to features</a></p>'
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/html; charset=utf-8')
+        self.end_headers()
+        self.wfile.write(body.encode())
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

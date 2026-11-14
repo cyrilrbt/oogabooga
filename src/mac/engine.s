@@ -43,6 +43,10 @@ _mac_engine_create:
     MSG initFrame
     STORE x0, _engine_scroll
     mov x19, x0
+    LOAD x0, _mac_window
+    LOAD x2, _mac_delegate
+    MSG setDelegate
+    mov x0, x19
     mov x2, #18
     MSG setAutoresizing
     mov x0, x19
@@ -78,7 +82,7 @@ _mac_engine_create:
     mov x2, #1
     MSG setVerticallyResizable
     mov x0, x20
-    NUM d0, 900
+    NUM d0, 0
     NUM d1, 0
     MSG setMinSize
     mov x0, x20
@@ -119,6 +123,18 @@ _mac_engine_create:
     CLASS NSURLSessionConfiguration
     MSG ephemeralConfiguration
     mov x19, x0
+    CLASS NSURLCache
+    MSG alloc
+    mov x2, #16777216
+    mov x3, #0
+    mov x4, #0
+    MSG initCache
+    mov x21, x0
+    mov x0, x19
+    mov x2, x21
+    MSG setURLCache
+    mov x0, x21
+    MSG release
     CLASS NSOperationQueue
     MSG mainQueue
     mov x20, x0
@@ -153,6 +169,7 @@ _mac_engine_open_url:
     bl _mac_allowed_scheme
     cbz w0, Lengine_open_done
     STORE xzr, engine_traversal
+    STORE xzr, _engine_cache_policy
     mov x0, x19
     bl _mac_engine_request
 Lengine_open_done:
@@ -179,14 +196,23 @@ _mac_engine_request:
     CLASS NSMutableData
     MSG new
     STORE x0, _engine_data
+    LOAD x0, _engine_request_override
+    cbnz x0, Lengine_request_ready
     CLASS NSURLRequest
     mov x2, x19
-    MSG requestWithURL
+    LOAD x3, _engine_cache_policy
+    NUM d0, 30
+    MSG resourceRequest
+Lengine_request_ready:
     mov x2, x0
     LOAD x0, _engine_session
     MSG dataTask
     MSG retain
     STORE x0, _engine_task
+    LOAD x0, _engine_request_override
+    MSG release
+    STORE xzr, _engine_request_override
+    LOAD x0, _engine_task
     MSG resume
     STR loading_text
     bl _mac_status_text
@@ -224,6 +250,7 @@ _mac_engine_forward:
     cmp x19, x0
     b.hs Lengine_back_done
 Lengine_traverse:
+    STORE xzr, _engine_cache_policy
     mov x9, #1
     STORE x9, engine_traversal
     STORE x19, engine_pending_index
@@ -245,6 +272,8 @@ _mac_engine_reload:
     bl _mac_status_text
     LEAVE
 Lengine_reload_page:
+    mov x9, #1
+    STORE x9, _engine_cache_policy
     LOAD x0, _engine_url
     cbz x0, Lengine_reload_done
     mov x9, #1
@@ -477,12 +506,15 @@ _mac_engine_commit:
     LOAD x0, _engine_pending_url
     MSG retain
     STORE x0, _engine_url
+    STORE xzr, _engine_history_failed
     bl _mac_engine_record
     cbnz w0, Lcommit_history_error
     STR ready_text
     bl _mac_status_text
     b Lcommit_done
 Lcommit_history_error:
+    mov x9, #1
+    STORE x9, _engine_history_failed
     STR history_error
     bl _mac_status_text
     b Lcommit_done
@@ -491,7 +523,10 @@ Lcommit_failed:
     bl _engine_document_free
     STR parse_error
     bl _mac_status_text
+    mov w0, #0
+    LEAVE
 Lcommit_done:
+    mov w0, #1
     LEAVE
 
 // Record final URL/title and maintain independent engine back/forward navigation.
@@ -581,7 +616,13 @@ _mac_engine_link:
 _mac_engine_display:
     ENTER
     mov x19, x0
+    STORE x19, _engine_render_document
     mov x20, x1
+    bl _mac_engine_measure
+    mov x0, x19
+    LOAD x1, _engine_viewport
+    bl _engine_box_tree
+    mov x0, x19
     mov x1, #0
     bl _engine_layout
     cbz x0, Ldisplay_fail
@@ -621,7 +662,7 @@ Ldisplay_node:
     ldr x9, [x19, #24]
     sub x9, x9, x27
     ldr x1, [x19, #72]
-    add x1, x1, x9, lsl #9
+    add x1, x1, x9, lsl #10
     ldr x4, [x26]
     mov x0, x23
     bl _mac_css_attributes
@@ -681,7 +722,8 @@ Ldisplay_install:
     LOAD x0, _engine_text
     MSG textContainer
     mov x24, x0
-    NUM d0, 860
+    LOAD x9, _engine_viewport
+    scvtf d0, x9
     NUM d1, 1048576
     MSG setContainerSize
     mov x0, x24
@@ -697,13 +739,21 @@ Ldisplay_install:
     MSG usedTextRect
     NUM d4, 60
     fadd d1, d3, d4
-    NUM d0, 900
+    LOAD x9, _engine_viewport
+    add x9, x9, #40
+    scvtf d0, x9
+    NUM d4, 40
+    fadd d2, d2, d4
+    fmax d0, d0, d2
     LOAD x0, _engine_text
     MSG setFrameSize
+    LOAD x9, _engine_reflowing
+    cbnz x9, Ldisplay_keep_scroll
     LOAD x0, _engine_text
     mov x2, #0
     mov x3, #0
     MSG scrollRange
+Ldisplay_keep_scroll:
     mov x0, x19
     mov x1, x21
     bl _mac_controls_position
@@ -760,3 +810,6 @@ engine_history: .space 8
 engine_index: .space 8
 engine_pending_index: .space 8
 engine_traversal: .space 8
+
+.globl _engine_cache_policy
+_engine_cache_policy: .space 8

@@ -12,7 +12,8 @@ _engine_form_encode:
     cmp x0, #2048
     b.hi Lencode_nil
     mov x20, x0
-    add x0, x0, x0, lsl #1
+    mov x9, #6
+    mul x0, x0, x9
     add x0, x0, #1
     bl _malloc
     cbz x0, Lencode_nil
@@ -23,6 +24,10 @@ Lencode_next:
     cbz x20, Lencode_done
     ldrb w9, [x19], #1
     sub x20, x20, #1
+    cmp w9, #13
+    b.eq Lencode_cr
+    cmp w9, #10
+    b.eq Lencode_newline
     cmp w9, #32
     b.eq Lencode_space
     sub w10, w9, #48
@@ -48,6 +53,23 @@ Lencode_next:
     and w9, w9, #15
     ldrb w9, [x23, x9]
     b Lencode_literal
+Lencode_cr:
+    cbz x20, Lencode_newline
+    ldrb w10, [x19]
+    cmp w10, #10
+    b.ne Lencode_newline
+    add x19, x19, #1
+    sub x20, x20, #1
+Lencode_newline:
+    ADDR x10, encoded_crlf
+    mov x11, #0
+Lencode_newline_copy:
+    ldrb w9, [x10, x11]
+    strb w9, [x22], #1
+    add x11, x11, #1
+    cmp x11, #6
+    b.lo Lencode_newline_copy
+    b Lencode_next
 Lencode_space:
     mov w9, #43
 Lencode_literal:
@@ -62,3 +84,4 @@ Lencode_nil:
     LEAVE
 .section __TEXT,__cstring,cstring_literals
 encode_hex: .asciz "0123456789ABCDEF"
+encoded_crlf: .asciz "%0D%0A"
