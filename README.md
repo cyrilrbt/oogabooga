@@ -310,7 +310,7 @@ Schema: `visits(id INTEGER PRIMARY KEY, url TEXT, title TEXT, visited_at INTEGER
 python3 tests/server.py
 ```
 
-Browse to `http://localhost:8765`. Set the cookie, visit Check cookie, quit/reopen the browser, and check again. The page also provides HTTP authentication (`test` / `browser`), popup/opener/close, and back/forward checks. Check History and its search field after visiting the pages.
+Browse to `http://localhost:8765` (or use `python3 tests/server.py --port 8766`). The index links engine galleries, saved compatibility fixtures, Acid1, browser interaction checks and the latest generated compatibility report. It works without JavaScript. Set the cookie, visit Check cookie, quit/reopen the browser, and check again. The page also provides HTTP authentication (`test` / `browser`), popup/opener/close, and back/forward checks. Check History and its search field after visiting the pages.
 
 ## Scope
 

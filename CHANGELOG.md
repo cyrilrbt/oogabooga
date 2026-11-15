@@ -10,6 +10,12 @@ behavior changes, and fixes. Historical entries summarize the repository history
 
 - Set Google (`https://www.google.com/`) as the startup homepage on macOS and Linux.
 
+### Added
+
+- Local test-lab index with engine/form galleries, all saved HTML compatibility
+  fixtures and suggested viewports, browser interaction checks, and links to
+  generated screenshot reports. The index works without JavaScript.
+
 ## 0.15.0 — 2026-11-15
 
 ### Added

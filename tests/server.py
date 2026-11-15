@@ -8,7 +8,47 @@ from pathlib import Path
 from urllib.parse import urlsplit, parse_qs
 from html import escape
 
+ROOT = Path(__file__).resolve().parent
 REQUEST_COUNTS = {}
+
+
+def fixture_catalog():
+    """Expose only known fixture files, including their relative resources."""
+    mime = {'.html': 'text/html; charset=utf-8', '.xht': 'text/html; charset=utf-8',
+            '.css': 'text/css; charset=utf-8', '.png': 'image/png',
+            '.svg': 'image/svg+xml', '.ttf': 'font/ttf'}
+    return {'/fixtures/' + file.relative_to(ROOT / 'fixtures').as_posix():
+            (file, mime[file.suffix])
+            for file in sorted((ROOT / 'fixtures').rglob('*'))
+            if file.is_file() and file.suffix in mime and file.name != 'index.html'}
+
+
+def index_page(cookie, authenticated=False):
+    cases = json.loads((ROOT / 'fixtures/compatibility.json').read_text())
+    sizes = {}
+    for case in cases:
+        route = '/' + case['file'].removeprefix('tests/')
+        sizes.setdefault(route, []).append(f"{case['width']} × {case['height']}")
+    cards = []
+    for route, (file, mime) in fixture_catalog().items():
+        if file.suffix not in ('.html', '.xht') or file.stem.startswith('engine-') or file.stem == 'acid1':
+            continue
+        label = file.stem.replace('compat-', '').replace('engine-', '').replace('-', ' ').title()
+        dimensions = ', '.join(dict.fromkeys(sizes.get(route, [])))
+        detail = 'Suggested viewports: ' + dimensions if dimensions else 'Manual rendering fixture'
+        cards.append(f'<section class="card"><h3><a href="{escape(route)}">{escape(label)}</a></h3>'
+                     f'<p class="meta">{escape(detail)} · {escape(file.relative_to(ROOT).as_posix())}</p></section>')
+    page = (ROOT / 'fixtures/index.html').read_text()
+    report = ('<p><a href="/report/index.html">Open the latest compatibility report</a></p>'
+              if (ROOT.parent / 'build/compatibility/index.html').is_file()
+              else '<p>No report generated yet. Run <code>sh tools/compatibility-report.sh</code>.</p>')
+    replacements = {'COMPATIBILITY': ''.join(cards), 'COOKIE_STATUS': escape(cookie),
+                    'AUTH_STATUS': '<p>PASS: HTTP authentication</p>' if authenticated else '',
+                    'REPORT': report}
+    for key, value in replacements.items():
+        page = page.replace('{{' + key + '}}', value)
+    return page
+
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -32,9 +72,23 @@ class Handler(BaseHTTPRequestHandler):
             '/engine/features.css': ('fixtures/engine-features.css', 'text/css; charset=utf-8'),
             '/engine/image.png': ('engine-image.png', 'image/png'),
         }
+        fixture_files.update({route: (file, mime) for route, (file, mime) in fixture_catalog().items()})
+        fixture_files['/fixtures/support/css1test5526c.png'] = ('fixtures/acid1-reference.png', 'image/png')
+        if path.startswith('/fixtures/') and path not in fixture_files:
+            self.send_error(404)
+            return
+        if path.startswith('/report/'):
+            # Exact generated-file allowlist: never expose arbitrary repository paths.
+            report_root = ROOT.parent / 'build/compatibility'
+            reports = {'/report/' + file.name: (file, 'text/html; charset=utf-8' if file.suffix == '.html' else 'image/png')
+                       for file in report_root.glob('*') if file.is_file() and file.suffix in ('.html', '.png')}
+            if path not in reports:
+                self.send_error(404)
+                return
+            fixture_files.update(reports)
         if path in fixture_files:
             file, mime = fixture_files[path]
-            data = (Path(__file__).parent / file).read_bytes()
+            data = (ROOT / file).read_bytes()
             self.send_response(200)
             self.send_header('Content-Type', mime)
             self.send_header('Content-Length', str(len(data)))
@@ -48,7 +102,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == '/engine/result':
             query = parse_qs(urlsplit(self.path).query)
-            body = '<title>GET Result</title><h1>Form submitted</h1><p>' + escape(str(query)) + '</p><p><a href="features">Return to features</a></p>'
+            body = '<title>GET Result</title><h1>Form submitted</h1><p>' + escape(str(query)) + '</p><p><a href="/engine/features">Return to features</a></p>'
             self.send_response(200)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.end_headers()
@@ -96,7 +150,7 @@ class Handler(BaseHTTPRequestHandler):
                 <p class="center">Centered paragraphs with native glyph shaping.</p>
                 <p class="hidden">HIDDEN CONTENT MUST NOT RENDER 🌐</p>
                 <p><a href="/engine/second">Links still work after hidden Unicode content</a></p>
-                <p>This is a text-flow CSS subset. Linked sheets, boxes, images, and GET forms are available in the <a href="/engine/features">features fixture</a>. Flexbox, variables, tables, and SVG are demonstrated in the <a href="/engine/layout">layout fixture</a>. Grid, positioning, and JavaScript remain unsupported.</p>'''
+                <p>This is a text-flow CSS subset. Linked sheets, boxes, images, and GET forms are available in the <a href="/engine/features">features fixture</a>. Flexbox, variables, tables, and SVG are demonstrated in the <a href="/engine/layout">layout fixture</a>. More layout cases are linked from the <a href="/">test index</a>. JavaScript requires WebKit.</p>'''
             if self.path.startswith('/engine/second'):
                 body = '<!doctype html><meta charset="utf-8"><title>Second Assembly Page</title><h1>Link navigation works</h1><p>This is the second page. Use Back to return.</p><p><a href="/engine/">Return to the fixture</a></p>'
             self.send_response(200)
@@ -118,12 +172,10 @@ class Handler(BaseHTTPRequestHandler):
             body = '<button onclick="window.opener.document.title=\'Popup OK\';window.close()">Complete popup</button>'
         else:
             cookie = 'PASS: persistent cookie received' if 'browser_test=persisted' in self.headers.get('Cookie', '') else 'No test cookie received yet'
-            body = f'''<h1>Oogabooga browser test</h1><p>{cookie}</p>
-            <p>{'PASS: HTTP authentication' if self.path == '/auth' else ''}</p>
-            <p><a href="/cookie">Set persistent cookie</a> · <a href="/">Check cookie</a> · <a href="/auth">HTTP auth (test / browser)</a></p>
-            <button onclick="window.open('/popup','auth','width=500,height=400')">Test login popup</button>
-            <p><a href="/second">Second page for back/forward</a></p>'''
-        self.wfile.write(('<!doctype html><meta charset="utf-8"><title>Browser fixture</title><style>body{font:18px system-ui;max-width:850px;margin:60px auto;background:#f5f3ee;color:#222}a{color:#245bc0}button{padding:12px}</style>' + body).encode())
+            body = index_page(cookie, self.path == '/auth')
+        if self.path == '/popup':
+            body = '<!doctype html><meta charset="utf-8"><title>Browser fixture</title>' + body
+        self.wfile.write(body.encode())
 
     def do_POST(self):
         length = int(self.headers.get('Content-Length', '0'))
@@ -132,7 +184,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         data = self.rfile.read(length).decode('utf-8')
         fields = parse_qs(data, keep_blank_values=True)
-        body = '<title>POST Result</title><h1>POST submitted</h1><p>' + escape(str(fields)) + '</p><p><a href="features">Return to features</a></p>'
+        body = '<title>POST Result</title><h1>POST submitted</h1><p>' + escape(str(fields)) + '</p><p><a href="/engine/features">Return to features</a></p>'
         self.send_response(200)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.end_headers()

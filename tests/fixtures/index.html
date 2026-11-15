@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Oogabooga test lab</title>
+<style>
+body { margin: 24px; max-width: 1000px; background: #f5f3ed; color: #243247; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.5; }
+h1 { font-size: 36px; margin: 8px 0; color: #17243a; }
+h2 { margin: 28px 0 12px; font-size: 24px; }
+h3 { margin: 0 0 6px; font-size: 19px; }
+a { color: #1659b8; }
+p { margin: 8px 0; }
+.card { background: white; border: 1px solid #ccd3dc; border-radius: 8px; padding: 16px; margin: 12px 0; }
+.note { background: #e6edf7; padding: 16px; border-left: 4px solid #1659b8; }
+.meta { color: #536176; font-size: 14px; }
+code, pre { font-family: monospace; }
+pre { background: #e6edf7; padding: 12px; white-space: pre-wrap; }
+</style>
+<header>
+<p class="meta">OOGABOOGA / LOCAL TEST LAB</p>
+<h1>A place to break the browser.</h1>
+<p>Rendering fixtures, interaction checks and offline compatibility cases, all in one place.</p>
+<p><a href="#engine">Engine &amp; forms</a> · <a href="#compat">Compatibility</a> · <a href="#browser">Browser behavior</a> · <a href="#reports">Reports &amp; automated tests</a></p>
+</header>
+<div class="note"><strong>Compare both engines.</strong> On macOS, press Command-E to switch between Assembly and WebKit. Use Back to return here. Resize the window to check wrapping and responsive layout. JavaScript-only checks are marked below.</div>
+<h2 id="engine">Engine &amp; forms</h2>
+<section class="card"><h3><a href="/engine/features">Forms, images &amp; linked stylesheets</a></h3><p>GET/POST submission, Unicode, checkboxes, radio buttons, selects, textareas, missing images and external CSS.</p></section>
+<section class="card"><h3><a href="/engine/layout">Layout gallery</a></h3><p>Flexbox sizing, wrapping, tables, CSS variables and SVG.</p></section>
+<section class="card"><h3><a href="/engine/floats">Floats &amp; clear</a></h3><p>Text wrapping around floats, clearing and container geometry.</p></section>
+<section class="card"><h3><a href="/engine/css">CSS &amp; typography</a></h3><p>Selectors, cascade, inheritance, fonts, colors, hidden content and text alignment.</p></section>
+<section class="card"><h3><a href="/engine/">HTML &amp; navigation basics</a></h3><p>Entities, Unicode, headings, lists, preformatted text and relative links.</p></section>
+<section class="card"><h3><a href="/engine/acid1">Acid1</a></h3><p>CSS1 layout test. Compare with the <a href="/engine/support/css1test5526c.png">reference image</a>.</p></section>
+<h2 id="compat">Offline compatibility fixtures</h2>
+<p>These are the saved pages used by the renderer checks. Suggested viewport sizes come from the compatibility manifest; links open at your current window size. These pages alone do not run assertions.</p>
+{{COMPATIBILITY}}
+<h2 id="browser">Browser behavior</h2>
+<section class="card"><h3>Cookies &amp; HTTP authentication</h3><p>{{COOKIE_STATUS}}</p><p><a href="/cookie">Set persistent cookie</a> · <a href="/">Check cookie / reload index</a> · <a href="/auth">HTTP auth</a></p><p class="meta">Auth credentials: test / browser. For persistence, set the cookie, quit and reopen the browser, then return here. The assembly engine currently uses an ephemeral cookie jar.</p>{{AUTH_STATUS}}</section>
+<section class="card"><h3>History, redirects &amp; resource caching</h3><p><a href="/second">Second page</a> · <a href="/engine/second">Assembly navigation target</a> · <a href="/engine/redirect">HTTP redirect</a> · <a href="/engine/cache-counts">Resource request counts</a></p><p class="meta">Visit a page, use Back/Forward, then open History and search for its title. Reload image/CSS fixtures and compare request counts.</p></section>
+<section class="card"><h3>Popup login flow <span class="meta">— requires JavaScript / WebKit</span></h3><p>Open the popup, then choose Complete popup. The opener title should become Popup OK and the popup should close.</p><button onclick="window.open('/popup','auth','width=500,height=400')">Test login popup</button><p><a href="/popup">Open popup page directly</a> (without an opener, only checks the page).</p></section>
+<h2 id="reports">Reports &amp; automated tests</h2>
+<section class="card"><h3>Rendered compatibility report</h3>{{REPORT}}<p class="meta">The report contains saved screenshots, geometry checks and timing budgets from the last local run. It is not a live test result.</p></section>
+<section class="card"><h3>Tests that run from the terminal</h3><p>The native harnesses cover SQLite, URL handling, HTML/DOM/CSS, display lists, text layout, forms, shortcuts, resource loading and navigation. They are not standalone web pages.</p><pre>./build.sh test
+./tools/test-linux.sh
+sh tools/compatibility-report.sh</pre><p class="meta">Run the Linux integration script in the Linux build environment. The compatibility report requires Apple silicon macOS.</p></section>
+<footer><p><a href="#">Back to top</a> · Local fixtures; no third-party accounts required.</p></footer>
+</html>
