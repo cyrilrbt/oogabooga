@@ -44,7 +44,24 @@ Lheight_min_resolve:
     cmp x23, #0
     csel x23, xzr, x23, lt
 Lheight_store:
+    mov x24, #-1
+    ldr x0, [x19, #(1840+(CSS_MAX_HEIGHT-48)*8)]
+    tbnz x0, #63, Lheight_limit_ready
+    tbz x0, #32, Lheight_max_resolve
+    tbnz x20, #63, Lheight_limit_ready
+Lheight_max_resolve:
+    mov x1, x20
+    bl _engine_box_length
+    sub x24, x0, x21
+    cmp x24, #0
+    csel x24, xzr, x24, lt
+Lheight_limit_ready:
+    str x24, [x19, #BOX_MAX_HEIGHT]
     tbnz x22, #63, Lheight_auto
+    tbnz x24, #63, Lheight_min_clamp
+    cmp x22, x24
+    csel x22, x24, x22, gt
+Lheight_min_clamp:
     cmp x22, x23
     csel x22, x23, x22, lt
 Lheight_auto:

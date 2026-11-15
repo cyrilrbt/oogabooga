@@ -99,7 +99,7 @@ Llaunch_profile_ready:
     mov x0, x19
     mov x2, #0
     MSG setReleasedWhenClosed
-    STR app_title
+    STR _ooga_app_title
     mov x2, x0
     mov x0, x19
     MSG setTitle
@@ -456,13 +456,13 @@ _mac_sync_title_webkit:
     mov x20, x0
     MSG length
     cbz x0, Lsync_default_title
-    STR title_suffix
+    STR _ooga_web_title_suffix
     mov x2, x0
     mov x0, x20
     MSG append
     b Lsync_title
 Lsync_default_title:
-    STR app_title
+    STR _ooga_app_title
 Lsync_title:
     mov x20, x0
     mov x0, x19
@@ -706,7 +706,7 @@ _mac_popup_create:
     mov x20, x0
     mov x2, #0
     MSG setReleasedWhenClosed
-    STR popup_title
+    STR _ooga_popup_title
     mov x2, x0
     mov x0, x20
     MSG setTitle
@@ -791,7 +791,6 @@ _mac_terminate:
     LEAVE
 
 .section __TEXT,__cstring,cstring_literals
-app_title: .asciz "Oogabooga"
 engine_environment: .asciz "OOGABOOGA_ENGINE"
 engine_name: .asciz "webkit"
 profile_environment: .asciz "OOGABOOGA_PROFILE"
@@ -812,8 +811,6 @@ history_error: .asciz "Page loaded; history could not be saved."
 process_error: .asciz "Page process stopped. Press ⌘R to reload."
 home_url: .asciz "https://example.com"
 title_key: .asciz "title"
-title_suffix: .asciz " — Oogabooga"
-popup_title: .asciz "Oogabooga — New Window"
 about_text: .asciz "about"
 empty_text: .asciz ""
 .section __DATA,__bss

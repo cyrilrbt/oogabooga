@@ -463,7 +463,7 @@ Lvariables_node_rule:
     b.hs Lvariables_node_inline
     mov x9, #CSS_RULE_SIZE
     madd x25, x24, x9, x21
-    ldr x9, [x25, #560]
+    ldr x9, [x25, #CSS_RULE_FLAGS]
     tbz x9, #0, Lvariables_node_advance
     mov x0, x19
     mov x1, x20
@@ -477,7 +477,7 @@ Lvariables_node_rule:
     add x9, x24, #1
     orr x3, x3, x9
     mov x0, x23
-    add x9, x25, #544
+    add x9, x25, #CSS_RULE_SOURCE
     ldp x1, x2, [x9]
     bl _css_custom_declarations
 Lvariables_node_advance:

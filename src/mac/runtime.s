@@ -1462,6 +1462,47 @@ _sel_sceneHidden: .quad scene_hidden
 _sel_sceneDeltaX: .quad scene_delta_x
 _sel_sceneDeltaY: .quad scene_delta_y
 _sel_scenePreciseScroll: .quad scene_precise_scroll
+.globl _sel_characterAtIndex
+_sel_characterAtIndex: .quad tracking_character
+.globl _sel_sceneKeyCode, _sel_sceneKeyModifiers
+_sel_sceneKeyCode: .quad scene_key_code
+_sel_sceneKeyModifiers: .quad scene_key_modifiers
+.globl _sel_intrinsicSubstring
+_sel_intrinsicSubstring: .quad intrinsic_substring_name
+.globl _sel_atomicSetGlyphs, _sel_atomicCharacterRange, _sel_atomicSetDelegate
+_sel_atomicSetGlyphs: .quad atomic_set_glyphs_name
+_sel_atomicCharacterRange: .quad atomic_character_range_name
+_sel_atomicSetDelegate: .quad atomic_set_delegate_name
+.globl _sel_atomicAttributedSubstring
+_sel_atomicAttributedSubstring: .quad name_atomicAttributedSubstring
+.globl _sel_atomicInitAttributed
+_sel_atomicInitAttributed: .quad name_atomicInitAttributed
+.globl _sel_atomicAddManager
+_sel_atomicAddManager: .quad name_atomicAddManager
+.globl _sel_atomicInitContainer
+_sel_atomicInitContainer: .quad name_atomicInitContainer
+.globl _sel_atomicAddContainer
+_sel_atomicAddContainer: .quad name_atomicAddContainer
+.globl _sel_atomicGlyphCount
+_sel_atomicGlyphCount: .quad name_atomicGlyphCount
+.globl _sel_textContainers
+_sel_textContainers: .quad atomic_text_containers
+.globl _sel_atomicXHeight
+_sel_atomicXHeight: .quad name_atomicXHeight
+.globl _sel_atomicAscender
+_sel_atomicAscender: .quad name_atomicAscender
+.globl _sel_atomicDescender
+_sel_atomicDescender: .quad name_atomicDescender
+.globl _sel_atomicAddTemporary
+_sel_atomicAddTemporary: .quad name_atomicAddTemporary
+.globl _sel_atomicRemoveTemporary
+_sel_atomicRemoveTemporary: .quad name_atomicRemoveTemporary
+.globl _sel_atomicSelectionBackground
+_sel_atomicSelectionBackground: .quad name_atomicSelectionBackground
+.globl _sel_atomicSelectionForeground
+_sel_atomicSelectionForeground: .quad name_atomicSelectionForeground
+.globl _sel_inputSetBezeled
+_sel_inputSetBezeled: .quad input_set_bezeled
 selector_end:
 selectors_ready: .quad 0
 .section __TEXT,__cstring,cstring_literals
@@ -1585,3 +1626,47 @@ _class_NSLayoutManager: .asciz "NSLayoutManager"
 .section __TEXT,__cstring,cstring_literals
 display_visible_rect: .asciz "visibleRect"
 display_invalidate_cursor: .asciz "invalidateCursorRectsForView:"
+
+.section __TEXT,__cstring,cstring_literals
+tracking_character: .asciz "characterAtIndex:"
+
+.section __TEXT,__cstring,cstring_literals
+scene_key_code: .asciz "keyCode"
+scene_key_modifiers: .asciz "modifierFlags"
+
+.section __TEXT,__cstring,cstring_literals
+intrinsic_substring_name: .asciz "substringWithRange:"
+
+.section __TEXT,__cstring,cstring_literals
+atomic_set_glyphs_name: .asciz "setGlyphs:properties:characterIndexes:font:forGlyphRange:"
+atomic_character_range_name: .asciz "characterRangeForGlyphRange:actualGlyphRange:"
+atomic_set_delegate_name: .asciz "setDelegate:"
+
+.section __TEXT,__cstring,cstring_literals
+name_atomicAttributedSubstring: .asciz "attributedSubstringFromRange:"
+name_atomicInitAttributed: .asciz "initWithAttributedString:"
+name_atomicAddManager: .asciz "addLayoutManager:"
+name_atomicInitContainer: .asciz "initWithContainerSize:"
+name_atomicAddContainer: .asciz "addTextContainer:"
+name_atomicGlyphCount: .asciz "numberOfGlyphs"
+
+.section __TEXT,__cstring,cstring_literals
+atomic_text_containers: .asciz "textContainers"
+
+.section __TEXT,__cstring,cstring_literals
+.globl _class_NSTextStorage
+_class_NSTextStorage: .asciz "NSTextStorage"
+
+.section __TEXT,__cstring,cstring_literals
+name_atomicXHeight: .asciz "xHeight"
+name_atomicAscender: .asciz "ascender"
+name_atomicDescender: .asciz "descender"
+
+.section __TEXT,__cstring,cstring_literals
+name_atomicAddTemporary: .asciz "addTemporaryAttribute:value:forCharacterRange:"
+name_atomicRemoveTemporary: .asciz "removeTemporaryAttribute:forCharacterRange:"
+name_atomicSelectionBackground: .asciz "selectedTextBackgroundColor"
+name_atomicSelectionForeground: .asciz "selectedTextColor"
+
+.section __TEXT,__cstring,cstring_literals
+input_set_bezeled: .asciz "setBezeled:"

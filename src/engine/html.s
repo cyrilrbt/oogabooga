@@ -134,6 +134,9 @@ Lparse_literal:
 Lparse_emit:
     mov x0, x19
     mov x3, x26
+    tbnz x3, #1, Lparse_emit_ready
+    orr x3, x3, #1                // retain decoded whitespace until computed CSS
+Lparse_emit_ready:
     bl _engine_append
     b Lparse_text
 Lparse_text_end:
@@ -1159,12 +1162,18 @@ _engine_empty_block:
     ldr x3, [x0, #16]
     madd x3, x1, x2, x3
     ldr x4, [x3]
+    cmp x4, #NODE_SPAN
+    b.eq Lempty_candidate
+    cmp x4, #NODE_STRONG
+    b.eq Lempty_candidate
+    cmp x4, #NODE_EM
+    b.eq Lempty_candidate
     cmp x4, #NODE_P
     b.lo Lempty_done
     cmp x4, #NODE_QUOTE
     b.hi Lempty_more_blocks
     cmp x4, #NODE_A
-    b.eq Lempty_done
+    b.eq Lempty_candidate
     b Lempty_candidate
 Lempty_more_blocks:
     cmp x4, #NODE_GENERIC

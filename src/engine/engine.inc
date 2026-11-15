@@ -3,7 +3,8 @@
 // title_length, CSS source*, CSS length, CSS metadata*, hidden-byte mask*, work
 // budget, retained persistent DOM*, DOM version represented by this snapshot.
 // A node is 40 bytes: type,parent,start,end,href* (or owned embedded CSS). CSS metadata is defined in css.inc.
-// Byte offsets refer to the decoded visible UTF-8 text. Parent indices form a
+// Byte offsets refer to decoded UTF-8 flow source, before CSS whitespace policy.
+// Parent indices form a
 // bounded flow tree (root=0); nodes and href strings are owned by the document.
 // Layout (32 bytes): wrapped UTF-8 text*, byte_length, UTF-16 offset map*, lines.
 // map[input byte offset] translates node ranges to native attributed-text ranges.

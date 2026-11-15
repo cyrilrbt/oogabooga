@@ -257,6 +257,14 @@ float_bounds:
     ldr x9, [x19, #FLOAT_NATIVE_RECORD]
     cbz x9, Lfloat_bounds_size_ready
     ldr d0, [sp, #160]
+    ldr x10, [x19, #BOX_MAX_HEIGHT]
+    tbnz x10, #63, Lfloat_bounds_minimum
+    scvtf d1, x10
+    fmin d0, d0, d1
+Lfloat_bounds_minimum:
+    ldr x10, [x19, #BOX_MIN_HEIGHT]
+    scvtf d1, x10
+    fmax d0, d0, d1
     ldr x10, [x19, #792]
     ldr x11, [x19, #800]
     add x10, x10, x11
@@ -539,6 +547,14 @@ Lcss_bounds_containment_restore:
     ldp d0, d1, [sp, #144]
     ldp d2, d3, [sp, #160]
 Lcss_bounds_edges:
+    ldr x9, [x19, #BOX_MAX_HEIGHT]
+    tbnz x9, #63, Lcss_bounds_final_min
+    scvtf d4, x9
+    fmin d3, d3, d4
+Lcss_bounds_final_min:
+    ldr x9, [x19, #BOX_MIN_HEIGHT]
+    scvtf d4, x9
+    fmax d3, d3, d4
     ldr x9, [x19, #776]
     ldr x10, [x19, #808]
     add x9, x9, x10

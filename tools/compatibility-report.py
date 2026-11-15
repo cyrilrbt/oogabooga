@@ -29,7 +29,7 @@ article{{background:white;padding:1.5rem;margin:1rem 0;border-left:5px solid #15
 .images{{display:flex;gap:1rem;flex-wrap:wrap}}figure{{margin:0}}img{{max-width:100%;border:1px solid #aaa}}figcaption{{color:#475569}}td{{padding:.2rem 1rem .2rem 0}}
 </style><main><h1>Assembly engine compatibility — {"PASS" if report["pass"] else "FAIL"}</h1>
 <p>Version {escape(report["version"])} · {escape(report["os"])}</p>
-<p>Offline fixtures; geometry references exclude font rasterization by using text-free cases. Timings include native layout and capture, exclude network IO, and vary by hardware. Display total includes nested stages.</p>
+<p>Offline fixtures include representative static pages with text/position checks and screenshots. Geometry references use separate text-free cases to exclude font rasterization. Timings include native layout and capture, exclude network IO, and vary by hardware. Display total includes nested stages.</p>
 {''.join(cards)}</main></html>'''
 (directory / "index.html").write_text(page)
 print(f'Report: {directory / "index.html"}')

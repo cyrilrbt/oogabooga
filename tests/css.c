@@ -23,6 +23,8 @@ extern void engine_margin_reset(Doc *);
 extern void engine_margin_tree(Doc *);
 extern void engine_box_tree(Doc *,uint64_t);
 extern void engine_position_tree(Doc *);
+typedef struct { int64_t width,height; } ReplacedSize;
+extern ReplacedSize engine_replaced_size(Meta *,int64_t,int64_t,int64_t,int64_t);
 extern uint64_t engine_box_metrics(Meta *,uint64_t);
 extern char *engine_form_encode(const char *);
 extern int css_media_match(const char *,const char *,uint64_t);
@@ -101,6 +103,55 @@ int main(void) {
     s=&d->meta[id(d,"font")]; assert(s->value[2]==18 && s->value[3]==700 && s->value[4]==1 && (uint32_t)s->value[10]==27 && s->value[11]==1);
     s=&d->meta[id(d,"reset")]; assert(s->value[3]==400 && s->value[4]==0);
     l=engine_layout(d,0); assert(l && !strstr(l->text,"SECRET")); engine_layout_free(l); engine_document_free(d);
+    // Extended declaration masks must cascade independently of the first 64 slots.
+    d=parse("<style>div{white-space:pre;word-spacing:3px;letter-spacing:2px;vertical-align:top}#extended{white-space:nowrap!important;letter-spacing:4px}span{white-space:inherit;word-spacing:unset;letter-spacing:initial}</style><div id=extended style='white-space:normal;word-spacing:5px'><span id=extendedchild>x</span></div>");
+    s=&d->meta[id(d,"extended")];
+    assert(((int64_t *)s)[880/8]==-17 && ((int64_t *)s)[888/8]==2);
+    assert(((int64_t *)s)[896/8]==5 && ((int64_t *)s)[904/8]==4);
+    s=&d->meta[id(d,"extendedchild")];
+    assert(((int64_t *)s)[880/8]==-16 && ((int64_t *)s)[888/8]==2);
+    assert(((int64_t *)s)[896/8]==5 && ((int64_t *)s)[904/8]==0);
+    engine_css_apply(d); assert(((int64_t *)s)[888/8]==2); engine_document_free(d);
+    d=parse("<div id=constrained style='width:10px;min-width:120px;max-width:80px;height:500px;min-height:120px;max-height:80px;padding:10px;border:2px solid;box-sizing:border-box'>x</div><div id=autoheight style='max-height:50%'>x</div><div style='height:200px'><div id=percentlimit style='height:300px;max-height:50%'>x</div></div>");
+    engine_box_tree(d,400); s=&d->meta[id(d,"constrained")];
+    assert(((int64_t *)s)[768/8]==96 && ((int64_t *)s)[1776/8]==96);
+    assert(((int64_t *)s)[1784/8]==96 && ((int64_t *)s)[1808/8]==56);
+    assert(((int64_t *)&d->meta[id(d,"autoheight")])[1808/8]==-1);
+    assert(((int64_t *)&d->meta[id(d,"percentlimit")])[1776/8]==100);
+    engine_document_free(d);
+    d=parse("<style>.preserve{white-space:pre}.nowrap{white-space:nowrap}.preline{white-space:pre-line}</style><div> normal   café 🌐 </div><div class=preserve> a  b\n c </div><div class=nowrap>long   unbroken</div><div class=preline>one   two\nthree  four</div>");
+    l=engine_layout(d,0); assert(l && strstr(l->text,"normal café 🌐") && strstr(l->text," a  b\n c ") && strstr(l->text,"long unbroken") && strstr(l->text,"one two\nthree four"));
+    for(size_t i=0;i<d->length;i++) assert(l->map[i]<=l->map[i+1]);
+    engine_layout_free(l); engine_document_free(d);
+    d=parse("<div style='white-space:nowrap'>abcdefghijk</div><pre>lmnopqrstuv</pre>");
+    l=engine_layout(d,8); assert(l && strstr(l->text,"abcdefghijk") && strstr(l->text,"lmnopqrstuv"));
+    engine_layout_free(l); engine_document_free(d);
+    d=parse("<img id=ratio style='min-width:120px;max-width:240px;max-height:80px'><img id=conflict style='min-width:200px;max-height:50px'>");
+    engine_box_tree(d,400); s=&d->meta[id(d,"ratio")];
+    ReplacedSize r=engine_replaced_size(s,400,200,-1,-1); assert(r.width==160 && r.height==80);
+    r=engine_replaced_size(s,400,200,200,-1); assert(r.width==200 && r.height==80);
+    r=engine_replaced_size(s,400,200,-1,30); assert(r.width==120 && r.height==30);
+    r=engine_replaced_size(&d->meta[id(d,"conflict")],400,200,-1,-1); assert(r.width==200 && r.height==50);
+    engine_document_free(d);
+    d=parse("<div style='position:relative;height:300px;padding:10px'><div id=stretch style='position:absolute;top:10%;bottom:20px;padding:5px;border:2px solid;max-height:200px'>x</div></div>");
+    engine_box_tree(d,400); engine_flow_tree(d); engine_position_tree(d);
+    assert(((int64_t *)&d->meta[id(d,"stretch")])[1472/8]==200);
+    engine_document_free(d);
+    // Upstream WPT invalid negative max-width must not create a 1px box.
+    FILE *wpt=fopen("tests/fixtures/wpt/max-width-001.xht","rb"); assert(wpt);
+    char wptSource[8192];size_t wptLength=fread(wptSource,1,sizeof(wptSource)-1,wpt);assert(!ferror(wpt));fclose(wpt);wptSource[wptLength]=0;
+    d=parse(wptSource);engine_box_tree(d,400);
+    int wptBoxes=0;for(size_t k=0;k<d->count;k++)if(d->meta[k].tag&&!strcmp(d->meta[k].tag,"div")){assert(d->meta[k].value[22]==-1&&((int64_t *)&d->meta[k])[768/8]==0);wptBoxes++;}
+    assert(wptBoxes==1);engine_document_free(d);
+    d=parse("<div style='display:flex;width:400px;gap:20px'><div id=growcapped style='width:100px;max-width:120px;flex-grow:1'>a</div><div id=growrest style='width:100px;flex-grow:1'>b</div></div><div style='display:flex;width:200px'><div id=shrinkmin style='width:180px;min-width:140px'>a</div><div id=shrinkrest style='width:180px'>b</div></div><div style='display:flex;flex-direction:column;height:300px'><div id=heightcap style='height:50px;max-height:80px;flex-grow:1'>a</div><div id=heightrest style='height:50px;flex-grow:1'>b</div></div>");
+    engine_box_tree(d,600);engine_flow_tree(d);
+    assert(((int64_t *)&d->meta[id(d,"growcapped")])[1464/8]==120);
+    assert(((int64_t *)&d->meta[id(d,"growrest")])[1464/8]==260);
+    assert(((int64_t *)&d->meta[id(d,"shrinkmin")])[1464/8]==140);
+    assert(((int64_t *)&d->meta[id(d,"shrinkrest")])[1464/8]==60);
+    assert(((int64_t *)&d->meta[id(d,"heightcap")])[1472/8]==80);
+    assert(((int64_t *)&d->meta[id(d,"heightrest")])[1472/8]==220);
+    engine_document_free(d);
     // A utility sheet larger than 64 KiB and 256 supported rules must reach its final rule.
     char *large=calloc(1,200000); assert(large); strcpy(large,"<style>");
     for(int i=0;i<800;i++) { char rule[180]; snprintf(rule,sizeof(rule),".utility%d{color:red}/* padding to exercise realistic stylesheet size ........................................................ */",i); strcat(large,rule); }
@@ -131,7 +182,7 @@ int main(void) {
     for(size_t i=0;i<d->length;i++) assert(l->map[i]<=l->map[i+1]);
     engine_layout_free(l); engine_document_free(d);
     d=parse("<a id=button href=/signin style='display:inline-block;padding:10px 24px;background:blue;border-radius:100px;min-height:40px;min-width:80px;vertical-align:middle'>Sign <span>in 🌐</span></a><a id=afterbox href=/after>after café</a><a id=complex href=/complex style='background:red'><input></a>");
-    s=&d->meta[id(d,"button")]; assert(s->value[24]==100 && s->value[25]==40 && s->value[26]==1 && s->value[27]==80);
+    s=&d->meta[id(d,"button")]; assert(s->value[24]==100 && s->value[25]==40 && ((int64_t *)s)[880/8]==-18 && s->value[27]==80);
     engine_inline_boxes(d); l=engine_layout(d,0); assert(l && strstr(l->text,"after café"));
     Node *button=&d->nodes[id(d,"button")],*afterbox=&d->nodes[id(d,"afterbox")];
     assert(l->map[button->end]-l->map[button->start]==1 && l->map[afterbox->end]-l->map[afterbox->start]==10);
@@ -259,13 +310,21 @@ int main(void) {
     size_t page=(size_t)sysconf(_SC_PAGESIZE);
     char *guard=mmap(NULL,page*2,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0); assert(guard!=MAP_FAILED); assert(!mprotect(guard+page,page,PROT_NONE));
     const char *css="/*c*/color:#abc!important; font-family:'Times New Roman',serif; margin:1.5em 0 2px 3px; broken:url('x;z}');font-size:120%";
-    for(size_t k=0;k<=strlen(css);k++) { char *p=guard+page-k; memcpy(p,css,k); uint64_t decl[66]={0}; css_declarations(p,p+k,decl); }
+    for(size_t k=0;k<=strlen(css);k++) { char *p=guard+page-k; memcpy(p,css,k); uint64_t decl[72]={0}; css_declarations(p,p+k,decl); }
     const char *media="only screen and (min-width:767.95px) and (max-width:1200px)";
     for(size_t k=0;k<=strlen(media);k++) { char *p=guard+page-k; memcpy(p,media,k); (void)css_media_match(p,p+k,900); }
     const char *sides="border-width:1em 1.5em 2em .5em;border-style:solid;float:right;clear:both";
-    for(size_t k=0;k<=strlen(sides);k++) { char *p=guard+page-k; memcpy(p,sides,k); uint64_t decl[66]={0}; css_declarations(p,p+k,decl); }
+    for(size_t k=0;k<=strlen(sides);k++) { char *p=guard+page-k; memcpy(p,sides,k); uint64_t decl[72]={0}; css_declarations(p,p+k,decl); }
     const char *font="font:italic 700 18px/1.5 'Arial',sans-serif";
-    for(size_t k=0;k<=strlen(font);k++) { char *p=guard+page-k; memcpy(p,font,k); uint64_t decl[66]={0}; css_declarations(p,p+k,decl); }
+    for(size_t k=0;k<=strlen(font);k++) { char *p=guard+page-k; memcpy(p,font,k); uint64_t decl[72]={0}; css_declarations(p,p+k,decl); }
+    const char *extendedDecl="white-space:pre-wrap!important;letter-spacing:-2px;word-spacing:3px;vertical-align:25%;max-height:80px";
+    for(size_t k=0;k<=strlen(extendedDecl);k++) { char *p=guard+page-k;memcpy(p,extendedDecl,k);uint64_t decl[72]={0};css_declarations(p,p+k,decl); }
+    // Guard the output ABI as well as input truncation: 576 bytes exactly.
+    char *outputGuard=mmap(NULL,page*2,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0);assert(outputGuard!=MAP_FAILED&&!mprotect(outputGuard+page,page,PROT_NONE));
+    uint64_t *boundedDecl=(void *)(outputGuard+page-576);memset(boundedDecl,0,576);
+    css_declarations(extendedDecl,extendedDecl+strlen(extendedDecl),boundedDecl);
+    assert(boundedDecl[66]==15 && boundedDecl[67]==2);
+    munmap(outputGuard,page*2);
     munmap(guard,page*2);
     char *encoded=engine_form_encode("café +&=🌐"); assert(encoded && !strcmp(encoded,"caf%C3%A9+%2B%26%3D%F0%9F%8C%90")); free(encoded);
     d=parse("<div id=ov1 style='overflow:hidden auto;overflow-x:clip'>a</div><div id=ov2 style='overflow-x:hidden;overflow:visible clip'>b</div><div id=ov3 style='overflow:hidden!important;overflow-y:visible'>c</div><div style='overflow:clip'><div id=ov4 style='overflow:inherit'>d</div></div>");

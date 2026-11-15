@@ -375,5 +375,240 @@
         ]
       }
     ]
+  },
+  {
+    "name": "search-page",
+    "file": "tests/fixtures/compat-search-page.html",
+    "width": 640,
+    "height": 400,
+    "budget_ms": 50,
+    "text": [
+      "Ooga Search",
+      "Search the static web",
+      "Privacy",
+      "Terms"
+    ],
+    "text_geometry": [
+      {
+        "text": "Ooga Search",
+        "center_x": 320
+      }
+    ]
+  },
+  {
+    "name": "news-page",
+    "file": "tests/fixtures/compat-news-page.html",
+    "width": 640,
+    "height": 400,
+    "budget_ms": 50,
+    "text": [
+      "Assembly Daily",
+      "A browser made from instructions",
+      "Read the full article",
+      "Latest"
+    ],
+    "text_geometry": [
+      {
+        "text": "A browser made from instructions",
+        "x": 10
+      },
+      {
+        "text": "Latest",
+        "x": 430,
+        "same_y_as": "A browser made from instructions"
+      }
+    ]
+  },
+  {
+    "name": "docs-page",
+    "file": "tests/fixtures/compat-docs-page.html",
+    "width": 640,
+    "height": 400,
+    "budget_ms": 50,
+    "text": [
+      "Build the browser",
+      "  mov x0, #1\n  bl  _render",
+      "Unicode survives: caf\u00e9 \ud83c\udf10"
+    ],
+    "text_geometry": [
+      {
+        "text": "Build the browser",
+        "x": 160
+      },
+      {
+        "text": "Introduction",
+        "x": 10
+      }
+    ]
+  },
+  {
+    "name": "forms-page",
+    "file": "tests/fixtures/compat-forms-page.html",
+    "width": 640,
+    "height": 400,
+    "budget_ms": 50,
+    "text": [
+      "Contact us",
+      "Name:",
+      "Email:",
+      "Message:"
+    ],
+    "text_geometry": [
+      {
+        "text": "Name:",
+        "x": 20
+      }
+    ]
+  },
+  {
+    "name": "wpt-max-width-001",
+    "file": "tests/fixtures/wpt/max-width-001.xht",
+    "width": 640,
+    "height": 240,
+    "budget_ms": 50,
+    "forbidden_colors": [
+      [
+        255,
+        0,
+        0
+      ]
+    ],
+    "text": [
+      "Test passes if there is no red."
+    ]
+  },
+  {
+    "name": "inline-boxes-wide",
+    "file": "tests/fixtures/compat-inline-boxes.html",
+    "width": 640,
+    "height": 300,
+    "budget_ms": 50,
+    "text": [
+      "Before",
+      "Inside top",
+      "Inside bottom",
+      "After"
+    ],
+    "text_geometry": [
+      {
+        "text": "Before",
+        "x": 0,
+        "same_baseline_as": "After"
+      }
+    ]
+  },
+  {
+    "name": "floating-header-320",
+    "file": "tests/fixtures/compat-floating-header.html",
+    "width": 320,
+    "height": 220,
+    "budget_ms": 50,
+    "text": [
+      "Inbox",
+      "Photos",
+      "Content after the header"
+    ],
+    "text_geometry": [
+      {
+        "text": "Inbox",
+        "right_max": 320
+      },
+      {
+        "text": "Photos",
+        "right_max": 320
+      }
+    ]
+  },
+  {
+    "name": "floating-header-640",
+    "file": "tests/fixtures/compat-floating-header.html",
+    "width": 640,
+    "height": 220,
+    "budget_ms": 50,
+    "text": [
+      "Inbox",
+      "Photos",
+      "Content after the header"
+    ],
+    "text_geometry": [
+      {
+        "text": "Inbox",
+        "right_max": 640
+      },
+      {
+        "text": "Photos",
+        "right_max": 640
+      }
+    ]
+  },
+  {
+    "name": "floating-header-1000",
+    "file": "tests/fixtures/compat-floating-header.html",
+    "width": 1000,
+    "height": 220,
+    "budget_ms": 50,
+    "text": [
+      "Inbox",
+      "Photos",
+      "Content after the header"
+    ],
+    "text_geometry": [
+      {
+        "text": "Inbox",
+        "right_max": 1000
+      },
+      {
+        "text": "Photos",
+        "right_max": 1000
+      }
+    ]
+  },
+  {
+    "name": "inline-boxes-220",
+    "file": "tests/fixtures/compat-inline-boxes.html",
+    "width": 220,
+    "height": 600,
+    "budget_ms": 50,
+    "text": [
+      "Before",
+      "Inside top",
+      "Inside bottom",
+      "After empty",
+      "Inner link"
+    ],
+    "text_geometry": [
+      {
+        "text": "Inside top",
+        "right_max": 220
+      },
+      {
+        "text": "Inner link",
+        "right_max": 220
+      }
+    ]
+  },
+  {
+    "name": "inline-boxes-400",
+    "file": "tests/fixtures/compat-inline-boxes.html",
+    "width": 400,
+    "height": 600,
+    "budget_ms": 50,
+    "text": [
+      "Before",
+      "Inside top",
+      "Inside bottom",
+      "After empty",
+      "Inner link"
+    ],
+    "text_geometry": [
+      {
+        "text": "Inside top",
+        "right_max": 400
+      },
+      {
+        "text": "Inner link",
+        "right_max": 400
+      }
+    ]
   }
 ]

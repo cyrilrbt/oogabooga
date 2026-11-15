@@ -277,7 +277,7 @@ Lrules_selector:
     mov x9, #CSS_RULE_SIZE
     madd x26, x22, x9, x19
     stp x23, x24, [x26]
-    add x9, x26, #544
+    add x9, x26, #CSS_RULE_SOURCE
     stp x20, x25, [x9]
     mov x0, x20
     mov x1, x25
@@ -291,11 +291,12 @@ Lrules_selector:
     bl _memmem
     cmp x0, #0
     cset x9, ne
-    str x9, [x26, #568]
+    str x9, [x26, #CSS_RULE_VISITED]
     cbz x0, Lrules_visible_properties
     ldr x9, [x26, #16]
     and x9, x9, #1
     str x9, [x26, #16]
+    str xzr, [x26, #544]
 Lrules_visible_properties:
     mov x0, x20
     sub x1, x25, x20
@@ -304,25 +305,27 @@ Lrules_visible_properties:
     bl _memmem
     cmp x0, #0
     cset x9, ne
-    str x9, [x26, #560]
+    str x9, [x26, #CSS_RULE_FLAGS]
     mov x0, x20
     sub x1, x25, x20
     ADDR x2, var_marker
     mov x3, #4
     bl _memmem
     cbz x0, Lrules_flags_done
-    ldr x9, [x26, #560]
+    ldr x9, [x26, #CSS_RULE_FLAGS]
     orr x9, x9, #2
-    str x9, [x26, #560]
+    str x9, [x26, #CSS_RULE_FLAGS]
 Lrules_flags_done:
-    ldr x9, [x26, #568]
+    ldr x9, [x26, #CSS_RULE_VISITED]
     cbz x9, Lrules_flags_visible
-    ldr x9, [x26, #560]
+    ldr x9, [x26, #CSS_RULE_FLAGS]
     and x9, x9, #0xfffffffffffffffe
-    str x9, [x26, #560]
+    str x9, [x26, #CSS_RULE_FLAGS]
 Lrules_flags_visible:
     ldr x9, [x26, #16]
-    ldr x10, [x26, #560]
+    ldr x10, [x26, #544]          // declarations above property 63
+    orr x9, x9, x10
+    ldr x10, [x26, #CSS_RULE_FLAGS]
     orr x9, x9, x10
     cbz x9, Lrules_advance
     add x22, x22, #1
@@ -395,6 +398,7 @@ Lrules_done:
 
 // Cascade one declaration block onto a metadata record, property by property.
 _css_cascade:
+    mov x10, x1
     mov x3, #0
     ldr x4, [x1]
     ldr x5, [x1, #8]
@@ -402,6 +406,11 @@ _css_cascade:
 Lcascade_property:
     cmp x3, #CSS_PROPERTIES
     b.hs Lcascade_done
+    cmp x3, #64
+    b.ne Lcascade_mask_ready
+    ldr x4, [x10, #528]
+    ldr x5, [x10, #536]
+Lcascade_mask_ready:
     mov x6, #1
     lsl x6, x6, x3
     tst x4, x6
@@ -416,7 +425,15 @@ Lcascade_compare:
     cmp x7, x9
     b.lo Lcascade_next
     str x7, [x8]
+    cmp x3, #64
+    b.hs Lcascade_ext_value
     ldr x9, [x1, x3, lsl #3]
+    b Lcascade_value_ready
+Lcascade_ext_value:
+    sub x9, x3, #64
+    add x8, x10, #544
+    ldr x9, [x8, x9, lsl #3]
+Lcascade_value_ready:
     CSS_VALUE_ADDR x8, x0, x3
     str x9, [x8]
 Lcascade_next:
@@ -587,6 +604,10 @@ Lapply_default:
     mov x1, #0
     mov x2, #32
     bl _memset
+    add x0, x23, #976
+    mov x1, #0
+    mov x2, #32
+    bl _memset
     mov x26, #0
     ADDR x27, css_defaults
     ADDR x28, css_inherited_mask
@@ -596,10 +617,19 @@ Lapply_default_property:
     b.hs Lapply_ua
     ldr x10, [x27, x26, lsl #3]
     cbz x22, Lapply_default_store
+    cmp x26, #64
+    b.lo Lapply_default_low_inherit
+    mov x11, #14
+    sub x12, x26, #64
+    lsr x11, x11, x12
+    tbz x11, #0, Lapply_default_store
+    b Lapply_default_inherit
+Lapply_default_low_inherit:
     mov x11, #1
     lsl x11, x11, x26
     tst x28, x11
     b.eq Lapply_default_store
+Lapply_default_inherit:
     CSS_VALUE_ADDR x11, x24, x26
     ldr x10, [x11]
 Lapply_default_store:
@@ -719,6 +749,8 @@ Lapply_center_ua:
     b Lapply_rules
 Lapply_pre_ua:
     str xzr, [x23, #120]             // UA preformatted text uses monospace
+    mov x10, #1
+    str x10, [x23, #888]
     b Lapply_rules
 Lapply_italic_ua:
     mov x10, #1
@@ -758,23 +790,24 @@ Lapply_rule:
     lsl x2, x0, #16
     add x9, x26, #1
     orr x2, x2, x9
-    str x2, [sp, #544]
-    ldr x9, [x27, #560]
+    str x2, [sp, #608]
+    ldr x9, [x27, #CSS_RULE_FLAGS]
     tbz x9, #1, Lapply_static_declarations
     mov x0, sp
     mov x1, #0
-    mov x2, #528
+    mov x2, #CSS_DECL_SIZE
     bl _memset
-    add x9, x27, #544
+    add x9, x27, #CSS_RULE_SOURCE
     ldp x0, x1, [x9]
     mov x2, sp
     mov x3, x23
     bl _css_declarations_resolved
-    ldr x9, [x27, #568]
+    ldr x9, [x27, #CSS_RULE_VISITED]
     cbz x9, Lapply_resolved_visible
     ldr x9, [sp]
     and x9, x9, #1
     str x9, [sp]
+    str xzr, [sp, #528]
 Lapply_resolved_visible:
     mov x1, sp
     b Lapply_declarations_ready
@@ -782,7 +815,7 @@ Lapply_static_declarations:
     add x1, x27, #16
 Lapply_declarations_ready:
     mov x0, x23
-    ldr x2, [sp, #544]
+    ldr x2, [sp, #608]
     bl _css_cascade
 Lapply_rule_next:
     add x26, x26, #1
@@ -792,7 +825,7 @@ Lapply_inline:
     cbz x26, Lapply_resolve
     mov x0, sp
     mov x1, #0
-    mov x2, #528
+    mov x2, #CSS_DECL_SIZE
     bl _memset
     mov x0, x26
     bl _strlen
@@ -821,6 +854,14 @@ Lapply_resolve_property:
     b.eq Lapply_initial
     cmn x0, #4
     b.ne Lapply_resolve_length
+    cmp x26, #64
+    b.lo Lapply_unset_low
+    mov x10, #14
+    sub x11, x26, #64
+    lsr x10, x10, x11
+    tbnz x10, #0, Lapply_inherit
+    b Lapply_initial
+Lapply_unset_low:
     ADDR x10, css_inherited_mask
     ldr x10, [x10]
     mov x11, #1
@@ -882,18 +923,38 @@ Lapply_not_current_color:
     b.hi Lapply_resolved_store
     b Lapply_length
 Lapply_extension_length:
+    cmp x26, #CSS_VERTICAL_ALIGN
+    b.eq Lapply_vertical_length
+    cmp x26, #CSS_WORD_SPACING
+    b.eq Lapply_length
+    cmp x26, #CSS_LETTER_SPACING
+    b.eq Lapply_length
+    cmp x26, #CSS_MAX_HEIGHT
+    b.eq Lapply_length
     cmp x26, #CSS_INSET_TOP
     b.lo Lapply_resolved_store
     cmp x26, #CSS_INSET_LEFT
     b.ls Lapply_length
     cmp x26, #CSS_GRID_AUTO_ROWS
     b.ne Lapply_resolved_store
+    b Lapply_length
+Lapply_vertical_length:
+    cmn x0, #24
+    b.lt Lapply_length
+    cmp x0, #0
+    b.lt Lapply_resolved_store
 Lapply_length:
     mov x1, x26
     mov x2, x24
     mov x3, x23
     ldr x4, [x19, #72]
     bl _css_length
+    cmp x26, #CSS_WORD_SPACING
+    b.eq Lapply_signed_length
+    cmp x26, #CSS_LETTER_SPACING
+    b.eq Lapply_signed_length
+    cmp x26, #CSS_VERTICAL_ALIGN
+    b.eq Lapply_signed_length
     cmp x26, #CSS_TOP
     b.eq Lapply_signed_length
     cmp x26, #CSS_BOTTOM
@@ -1026,7 +1087,8 @@ css_inherited_mask: .quad (3197 | (7 << 39))
 css_defaults:
 .quad -1, -1, 14, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0
 .quad 0, 0, 0, 0, 0, 0, 1000, -1, -1, -1, -1, -6, -1, 1, 1000, 0, 0, 0, 0, 0
-.quad 0,-1,-1,-1,-1,-1,0,0,0,0,1,0,1,0,0,0
+.quad 0,-1,-1,-1,-1,-1,-1,0,0,0,1,0,1,0,0,0
+.quad -16,0,0,0
 .section __TEXT,__cstring,cstring_literals
 id_name: .asciz "id"
 class_name: .asciz "class"

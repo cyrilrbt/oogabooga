@@ -12,6 +12,14 @@ _css_layout_value:
     bl _css_trim
     mov x20, x0
     mov x21, x1
+    cmp x19, #CSS_MAX_HEIGHT
+    b.eq Llayout_max_height
+    cmp x19, #CSS_VERTICAL_ALIGN
+    b.eq Llayout_vertical
+    cmp x19, #CSS_WORD_SPACING
+    b.eq Llayout_spacing
+    cmp x19, #CSS_LETTER_SPACING
+    b.eq Llayout_spacing
     cmp x19, #CSS_GRID_COLUMNS
     b.eq Llayout_tracks
     cmp x19, #CSS_GRID_ROWS
@@ -47,10 +55,37 @@ Llayout_keyword_next:
 Llayout_keyword_yes:
     ldr x0, [x22, #16]
     b Llayout_good
+Llayout_vertical:
+    // Keyword values are distinct from signed pixel/percentage offsets.
+    ADDR x22, layout_keywords
+    b Llayout_keyword
+Llayout_spacing:
+    mov x0, x20
+    mov x1, x21
+    ADDR x2, kw_normal
+    bl _css_eq
+    cbnz x0, Llayout_zero
+    b Llayout_signed
 Llayout_tracks:
     mov x0, x20
     mov x1, x21
     bl _css_grid_tracks
+    LEAVE
+Llayout_max_height:
+    mov x0, x20
+    mov x1, x21
+    ADDR x2, kw_none
+    bl _css_eq
+    cbnz x0, Llayout_z_auto
+    mov x0, x20
+    mov x1, x21
+    ADDR x2, kw_auto
+    bl _css_eq
+    cbnz x0, Llayout_bad
+    mov x0, #CSS_WIDTH
+    mov x1, x20
+    mov x2, x21
+    bl _css_value
     LEAVE
 Llayout_z:
     mov x0, x20
@@ -123,12 +158,32 @@ Llayout_good:
     mov x1, #1
     LEAVE
 Llayout_bad:
+    // vertical-align also accepts a length when it was not a keyword.
+    cmp x19, #CSS_VERTICAL_ALIGN
+    b.ne Llayout_reject
+    mov x19, #-1
+    b Llayout_signed
+Llayout_reject:
     mov x0, #0
     mov x1, #0
     LEAVE
 .section __DATA,__const
 .p2align 3
 layout_keywords:
+.quad CSS_WHITE_SPACE, kw_normal, 0
+.quad CSS_WHITE_SPACE, kw_pre, 1
+.quad CSS_WHITE_SPACE, kw_nowrap, 2
+.quad CSS_WHITE_SPACE, kw_pre_wrap, 3
+.quad CSS_WHITE_SPACE, kw_pre_line, 4
+.quad CSS_WHITE_SPACE, kw_break_spaces, 5
+.quad CSS_VERTICAL_ALIGN, kw_baseline, -16
+.quad CSS_VERTICAL_ALIGN, kw_top, -17
+.quad CSS_VERTICAL_ALIGN, kw_middle, -18
+.quad CSS_VERTICAL_ALIGN, kw_bottom, -19
+.quad CSS_VERTICAL_ALIGN, kw_text_top, -20
+.quad CSS_VERTICAL_ALIGN, kw_text_bottom, -21
+.quad CSS_VERTICAL_ALIGN, kw_sub, -22
+.quad CSS_VERTICAL_ALIGN, kw_super, -23
 .quad CSS_POSITION, kw_static, 0
 .quad CSS_POSITION, kw_relative, 1
 .quad CSS_POSITION, kw_absolute, 2
@@ -151,6 +206,21 @@ layout_keywords:
 .quad -1,0,0
 .section __TEXT,__cstring,cstring_literals
 kw_auto: .asciz "auto"
+kw_none: .asciz "none"
+kw_normal: .asciz "normal"
+kw_pre: .asciz "pre"
+kw_nowrap: .asciz "nowrap"
+kw_pre_wrap: .asciz "pre-wrap"
+kw_pre_line: .asciz "pre-line"
+kw_break_spaces: .asciz "break-spaces"
+kw_baseline: .asciz "baseline"
+kw_top: .asciz "top"
+kw_middle: .asciz "middle"
+kw_bottom: .asciz "bottom"
+kw_text_top: .asciz "text-top"
+kw_text_bottom: .asciz "text-bottom"
+kw_sub: .asciz "sub"
+kw_super: .asciz "super"
 kw_static: .asciz "static"
 kw_relative: .asciz "relative"
 kw_absolute: .asciz "absolute"

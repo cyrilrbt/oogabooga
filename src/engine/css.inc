@@ -1,9 +1,20 @@
 // CSS metadata: one 2048-byte record per node. id*, classes*, inline*, tag*;
-// 48 computed values at +32; priorities at +1024; owned attributes at +512.
-// Rule: selector*, length, declaration mask, important mask, 48 values, raw declarations and flags (448 bytes).
+// Computed values use CSS_VALUE_ADDR; priorities use CSS_PRIORITY_ADDR.
+// Owned attributes begin at +512. Extension fields preserve the 2 KiB node ABI.
+// Rules contain selector/length, a 576-byte declaration, raw source and flags.
 .set CSS_META_SIZE, 2048
-.set CSS_RULE_SIZE, 576
-.set CSS_PROPERTIES, 64
+.set CSS_RULE_SIZE, 640
+.set CSS_DECL_SIZE, 576
+.set CSS_RULE_SOURCE, 592
+.set CSS_RULE_FLAGS, 608
+.set CSS_RULE_VISITED, 616
+.set CSS_PROPERTIES, 68
+.set CSS_VERTICAL_ALIGN, 64
+.set CSS_WHITE_SPACE, 65
+.set CSS_WORD_SPACING, 66
+.set CSS_LETTER_SPACING, 67
+.set FLOW_MIN_CONTENT, 1008
+.set FLOW_MAX_CONTENT, 1016
 .set CSS_MAX_SOURCE, 1048576
 .set CSS_MAX_RULES, 4096
 .set CSS_COLOR, 0
@@ -13,7 +24,7 @@
 .set CSS_ITALIC, 4
 .set CSS_UNDERLINE, 5
 .set CSS_ALIGN, 6
-.set CSS_DISPLAY, 7               // 0 normal/block fallback, 1 none, 2 inline flow
+.set CSS_DISPLAY, 7               // 0 block, 1 none, 2 inline, 3 flex, 4 grid, 5 inline-block
 .set CSS_TOP, 8
 .set CSS_BOTTOM, 9
 .set CSS_LINE, 10
@@ -66,7 +77,7 @@
 
 .set CSS_RADIUS, 24
 .set CSS_MIN_HEIGHT, 25
-.set CSS_VERTICAL_ALIGN, 26
+.set CSS_RESERVED_26, 26
 .set CSS_MIN_WIDTH, 27
 
 .set CSS_DIRECTION, 28
@@ -149,7 +160,10 @@
 .set CSS_INSET_BOTTOM, 51
 .set CSS_INSET_LEFT, 52
 .set CSS_Z_INDEX, 53
-.set CSS_OVERFLOW, 54
+.set CSS_MAX_HEIGHT, 54
+// Shorthand-only opcode; declarations expand into the two real axis slots.
+.set CSS_OVERFLOW, 1000
+.set BOX_MAX_HEIGHT, 1808
 .set CSS_GRID_COLUMNS, 55
 .set CSS_GRID_ROWS, 56
 .set CSS_GRID_COLUMN, 57
@@ -161,6 +175,8 @@
 .set CSS_OVERFLOW_Y, 63
 // dst is a byte address; prop and metadata must be different from dst.
 .macro CSS_VALUE_ADDR dst, meta, prop
+    cmp \prop, #64
+    b.hs Lcss_inline_value_\@
     cmp \prop, #48
     b.hs Lcss_ext_value_\@
     add \dst, \meta, \prop, lsl #3
@@ -169,9 +185,16 @@
 Lcss_ext_value_\@:
     add \dst, \meta, \prop, lsl #3
     add \dst, \dst, #1456
+    b Lcss_value_ready_\@
+Lcss_inline_value_\@:
+    sub \dst, \prop, #64
+    add \dst, \meta, \dst, lsl #3
+    add \dst, \dst, #880
 Lcss_value_ready_\@:
 .endm
 .macro CSS_PRIORITY_ADDR dst, meta, prop
+    cmp \prop, #64
+    b.hs Lcss_inline_priority_\@
     cmp \prop, #48
     b.hs Lcss_ext_priority_\@
     add \dst, \meta, \prop, lsl #3
@@ -186,6 +209,11 @@ Lcss_ext_priority_\@:
 Lcss_last_priority_\@:
     add \dst, \meta, \prop, lsl #3
     add \dst, \dst, #1488
+    b Lcss_priority_ready_\@
+Lcss_inline_priority_\@:
+    sub \dst, \prop, #64
+    add \dst, \meta, \dst, lsl #3
+    add \dst, \dst, #976
 Lcss_priority_ready_\@:
 .endm
 .set ATTR_RAW, 2000

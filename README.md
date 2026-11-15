@@ -113,7 +113,7 @@ Choose **Navigate → Use Assembly Engine (Experimental)** or press **⌘E** to 
 OOGABOOGA_ENGINE=webkit build/Oogabooga.app/Contents/MacOS/oogabooga https://example.com
 ```
 
-The ARM64 engine tokenizes static HTML into a bounded flow tree, supplies implied `html`/`body` elements, decodes named/numeric entities, collapses whitespace, and maps UTF-8 byte offsets to native UTF-16 ranges. CSS parsing, selector matching, inheritance, and the cascade are handwritten assembly; native text layout measures styled glyphs and wraps them inside assembly-created, nested content boxes. It supports paragraphs, headings, lists, preformatted text, titles, legacy `<center>` alignment, and relative HTTP(S) links. Inline span/emphasis tags and simple CSS inline/inline-block containers stay in text flow. Native AppKit text services supply glyph shaping, drawing, text selection, link hit testing, and scrolling; WebKit is not used to parse or render this mode. Back/forward/reload and SQLite history work in both modes, with independent in-window navigation stacks. Clickable links show the pointing-hand cursor; authored link colors remain authoritative, including sites that intentionally use purple for unvisited links.
+The ARM64 engine tokenizes static HTML into a bounded flow tree, supplies implied `html`/`body` elements, decodes named/numeric entities, collapses whitespace, and maps UTF-8 byte offsets to native UTF-16 ranges. CSS parsing, selector matching, inheritance, and the cascade are handwritten assembly; native text layout measures styled glyphs and wraps them inside assembly-created, nested content boxes. It supports paragraphs, headings, lists, preformatted text, titles, legacy `<center>` alignment, and relative HTTP(S) links. Inline span/emphasis tags stay in text flow; inline-blocks have independent nested shaping contexts with retained source text. Native AppKit text services supply glyph shaping, drawing, text selection, link hit testing, and scrolling; WebKit is not used to parse or render this mode. Back/forward/reload and SQLite history work in both modes, with independent in-window navigation stacks. Clickable links show the pointing-hand cursor; authored link colors remain authoritative, including sites that intentionally use purple for unvisited links.
 
 This first engine is macOS-only. Linux continues to use WebKitGTK. It does **not** implement full HTML5 tree-construction rules, JavaScript, fragment anchors, file uploads, or modern login flows. Comments and inert script bodies are retained in a separate mutable document tree and excluded from rendering; style blocks are parsed as CSS and never displayed. Layout supports normal text flow, nested boxes, bounded flexbox/Grid subsets, and HTML tables. Relative/absolute/fixed positioning, stacking contexts, group opacity, clipping, and contained wheel scrolling have regression coverage; sticky positioning and full CSS box behavior remain incomplete. Unsupported pages can be opened in WebKit with ⌘E.
 
@@ -130,8 +130,8 @@ Supported properties:
 - `color`, solid `background`/`background-color`: basic named colors, `#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, comma/space-separated `rgb()` and `rgba()`, and numeric/percentage alpha channels. Background and text colors preserve alpha.
 - Common `font: [style] [weight] size[/line-height] family-list` shorthand and `font-family`: serif/sans-serif/monospace and common platform-family aliases, with comma fallbacks; `font-size`, normal/bold/numeric `font-weight`, normal/italic/oblique `font-style`, and none/underline `text-decoration`.
 - `text-align`, `line-height`, `margin`, and the four `margin-*` properties map to native paragraph alignment, line metrics, spacing, and indents. `px`, `em`, and `rem` lengths are supported; font sizes and line heights also accept percentages, and line height accepts unitless multipliers. Font sizes are clamped to 6–72 pixels; spacing/line height to 200 pixels.
-- `display:none` and HTML `hidden` remove content from layout, including descendants and links. Simple inline/inline-block containers flow horizontally with collapsible boundary spaces; explicit `<br>` breaks remain intact. Horizontal margins/padding on inline text are represented as trailing glyph spacing; independent box geometry is currently limited to the styled-link path below. `display:flex` enables the layout described below; grid values currently use block-flow fallback.
-- Block `width`, `max-width`, `box-sizing`, and minimum content `height`, `padding` (one to four values), `padding-*`, solid `border-width` (one to four values), per-side `border-*-width`, and `border-color`, and margins. Widths, padding, and margins also accept percentages of the containing content width; horizontal margins accept `auto`. Other lengths support px/em/rem and zero; `width`/`height` also accept `auto`. Boxes retain nesting and backgrounds across multiple paragraphs. Margins do not collapse; solid/none `border` shorthand is supported, alongside the longhand properties.
+- `display:none` and HTML `hidden` remove content from layout, including descendants and links. Inline-block containers reserve independent margin/border boxes and support nested block text, controls, padding, borders, backgrounds, empty sized boxes, and baseline/top/bottom/middle/text-top/text-bottom alignment. Numeric and sub/super baseline shifts work. Ordinary inline text still has limited fragment-edge spacing/borders; full inline fragmentation remains in progress. `display:flex` and `display:grid` enable the bounded layouts below.
+- Block `width`, `max-width`, `box-sizing`, and minimum content `height`, `padding` (one to four values), `padding-*`, solid `border-width` (one to four values), per-side `border-*-width`, and `border-color`, and margins. Widths, padding, and margins also accept percentages of the containing content width; horizontal margins accept `auto`. Other lengths support px/em/rem and zero; `width`/`height` also accept `auto`. Boxes retain nesting and backgrounds across multiple paragraphs. Eligible block margins collapse in assembly; padding, border, and formatting contexts prevent collapse. Solid/none `border` shorthand is supported alongside the longhand properties.
 
 `float:left/right/none` and `clear:left/right/both/none` use assembly-computed
 margin boxes and collision bands. Text lines exclude preceding floats and regain
@@ -201,7 +201,7 @@ Scene coordinates cover box/glyph painting, link hit testing, cursor regions,
 mouse selection, native widget clips, and contained wheel scrolling. Contained
 scroll offsets survive reflow by stable DOM identity. Native controls still use
 platform views: arbitrary sibling overlap/compositing with glyphs and controls,
-full keyboard scroll routing, and general inline/inline-block formatting remain
+complete keyboard scroll routing and ordinary inline-fragment border/padding layout remain
 in the [engine backlog](ENGINE_TODO.md). These are bounded static-page features,
 not complete CSS conformance.
 
@@ -220,8 +220,7 @@ Flex supports `flex-direction:row`/`column`, row wrapping, `flex-grow`,
 `row-gap`, `column-gap`, `justify-content` (start/end/center/space distribution),
 `align-items`, and `align-self`. Native glyph measurement supplies preferred sizes;
 assembly partitions rows and distributes space. Each container supports up to 256
-items. This is a bounded layout subset: full min/max freezing, CSS order, column
-wrapping, and all intrinsic-size rules are not implemented. TextKit table cells
+items. Min/max freezing redistributes remaining space on both axes; floated and positioned parents reflow child contexts against their used widths. This is a bounded layout subset: automatic minimums, fractional-factor corner cases, CSS order, column wrapping, and complete Unicode intrinsic-size rules are not implemented. TextKit table cells
 supply drawing; some unequal-height flex backgrounds can stretch to the row.
 
 Tables retain `table`, `tr`, `td`, `th`, row groups, and captions, including omitted
@@ -244,8 +243,7 @@ label. Website text/background colors are preserved.
 This path handles text-only link contents up to 2 KiB, including simple nested
 text markup. Links with hidden content, line breaks, images, or form controls
 retain ordinary text flow. Nested text is drawn using the anchor’s computed text
-style; independent nested inline boxes and multiline box fragmentation remain
-unsupported. Resize and progressive stylesheet updates preserve native link
+style. General inline-block containers use the independent formatting contexts above; this short styled-link adapter remains a separate optimized path. Multiline ordinary-inline box fragmentation remains unsupported. Resize and progressive stylesheet updates preserve native link
 controls and update their geometry or return them to ordinary text as needed.
 
 ### Images and forms

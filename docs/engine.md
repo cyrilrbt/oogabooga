@@ -42,11 +42,51 @@ installing fonts in the process/system registry. See README for format limits.
 
 Run `./build.sh test`; inspect `build/compatibility/index.html` and its JSON/PNG
 artifacts. Independent rectangle references use exact colors with one-pixel edge
-tolerance. Nine text-free fixtures avoid font/widget masking; native integration
+tolerance. Nine text-free fixtures avoid font/widget masking; four representative static
+page fixtures add visible-text checks, independent text-position/alignment checks,
+and saved screenshots. A WPT sizing fixture also checks absence of red pixels.
+Inline and floating-header fixtures cover 220–1000px viewports. Native integration
 tests separately cover Unicode, editing, links, fonts, requests and failures.
-Budgets are coarse 25-ms median limits after two warmups and five samples, not a
+Budgets are coarse 25-ms geometry / 50-ms static-page median limits after two warmups and five samples, not a
 cross-hardware speed claim. Broader site/WPT coverage remains in `ENGINE_TODO.md`.
 
 `tests/fixtures/ooga-test.ttf` is an Apache-2.0 test asset generated entirely by
 `python3 tools/generate-test-font.py`, using only Python's standard library.
 Its rectangular ASCII glyphs deliberately provide known advances for font tests.
+
+## Sizing and inline contexts
+
+Width limits are content-box values from `engine_width_limits`; border-box
+padding/borders are deducted once and minima win conflicting maxima. Height
+limits retain `-1` for indefinite/absent maxima. Replaced sizing receives bounded
+natural dimensions and optional explicit axes; automatic axes preserve aspect
+ratio where both-axis constraints permit it. Raster allocation still has a
+4096-point safety limit. Flex items freeze at min/max limits and redistribute remaining space. Intrinsic
+run/tree measurements feed shrink-to-fit floats, positioned and inline boxes.
+Automatic flex minima, fractional-factor corner cases and complete Unicode break
+opportunities remain incomplete.
+
+Flow snapshots retain decoded source whitespace. `engine_layout` applies the
+computed per-byte whitespace policy while building the UTF-16 map; parser-owned
+block separators remain distinct from source line breaks. Block `pre`/`nowrap`
+paragraphs disable native soft wrapping. Inline-blocks use separate native shaping contexts, preserving source characters
+in the parent storage while reserving one whole box. Assembly resolves used
+widths, border/margin geometry, empty boxes, ascent/descent, and baseline/top/
+bottom/middle/text-top/text-bottom/numeric/sub/super alignment. Child blocks,
+images, controls and nested inline-blocks stay in their own context. Each context
+supports up to 256 direct boxes. Copied metadata and retained child storages keep
+paint records independent of transient document allocations.
+
+Paint commands retain their shaping manager, source base and content origin.
+The same context lookup drives link regions, mouse indices, selection projection,
+control positions and dashboard geometry checks. Synthetic boundary CR/LF is
+trimmed from normal/nowrap child shaping ranges; complete explicit-break edge
+semantics, ordinary inline fragmentation, `break-spaces` line edges and tab stops
+remain incomplete. The existing short styled-link native adapter remains.
+
+Keyboard contained scrolling shares the assembly wheel ancestor-chain policy.
+Modified keys remain native so selection and editing commands keep their responder
+behavior. Full widget stacking/group opacity and selection-aware scrolling through
+all keyboard editing/scroll cases remain unfinished. `tests/fixtures/wpt/README.md` records
+which imported tests are computed checks and which visual tests remain pending;
+none of these checks establishes broad WPT conformance.

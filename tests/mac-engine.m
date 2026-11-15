@@ -38,6 +38,8 @@ extern void mac_engine_complete(id,SEL,id,id,NSError *);
 extern int history_add(sqlite3 *,const char *,const char *);
 extern void mac_engine_refresh(void);
 extern NSURL *mac_scene_link_at_point(double,double);
+extern NSRect mac_atomic_text_rect(NSUInteger,NSUInteger);
+extern double mac_atomic_text_baseline(NSUInteger);
 extern int mac_scene_scroll_at_point(double,double,double,double);
 extern int history_open(const char *, sqlite3 **);
 extern __unsafe_unretained id mac_app,mac_delegate;
@@ -90,6 +92,9 @@ static BOOL slowStarted;
     NSDictionary *headers=@{@"Content-Type":@"text/html; charset=utf-8"};
     NSInteger status=200;
     NSString *html=@"<title>First</title><h1>Hello 🌐</h1><p><a href='/second?a=1&amp;b=2'>next café</a> <a href='javascript:alert(1)'>bad link</a></p><script>SHOULD NOT RENDER</script>";
+    if([path isEqual:@"/atomic"]) html=[NSString stringWithContentsOfFile:@"tests/fixtures/compat-inline-boxes.html" encoding:NSUTF8StringEncoding error:NULL];
+    if([path isEqual:@"/input-borders"]) html=@"<title>Input borders</title><style>body{background:white}input{width:300px;height:30px}</style><input id=defaultborder value='Editable café'><input id=noborder style='border:none' value='No outline'><input id=customborder style='border:2px solid red;border-radius:0' value='Red outline'><input id=roundborder style='border:1px solid blue;border-radius:50%' value='Rounded'>";
+    if([path isEqual:@"/typography"]) html=@"<title>Typography</title><style>body{margin:0;font:16px monospace}.track{letter-spacing:2px;word-spacing:5px}.pre{white-space:pre}.nowrap{white-space:nowrap;width:100px}#image{min-width:120px;max-width:160px;max-height:80px}</style><p class=track>A café 🌐 B</p><p>base <span style='vertical-align:super'>raised</span> <span style='vertical-align:-3px'>lowered</span></p><div class=pre> a  b\n c </div><div class=nowrap>Long unbroken text stays on a single line beyond the box</div><img id=image src=/assets/image.png>";
     if([path isEqual:@"/mutation"]) html=@"<title>Mutable tree</title><link rel=stylesheet href='/assets/mutation.css'><style>.hot{font-weight:700}</style><div id=container><p id=message>Before mutation</p><p id=proof>External CSS survives</p><form action=/posted method=post><input id=keep name=q value=start><input id=remove name=removed value=old><input id=mutatesend type=submit value=Submit></form><img id=photo src=/assets/image.png width=80></div>";
     if([path isEqual:@"/assets/mutation.css"]) { html=@"#message{color:red}#proof{color:green}";headers=@{@"Content-Type":@"text/css"}; }
     if([path isEqual:@"/imports"]) html=@"<title>Imported styles</title><link rel=stylesheet id=importroot href=/styles/root.css><style>@import '/assets/embedded.css';#importtarget{color:green}</style><p id=importtarget>Import cascade</p><p id=importnested>Nested import</p><p id=importcondition>Conditional import</p>";
@@ -181,6 +186,18 @@ static uint64_t *metadata(NSString *identifier) {
     for(uint64_t i=0;i<doc[3];i++) { char *name=*(char **)(meta+i*2048); if(name && [identifier isEqualToString:[NSString stringWithUTF8String:name]]) return (uint64_t *)(meta+i*2048); }
     abort();
 }
+static NSColor *inputEdge(NSView *view) {
+    NSInteger width=(NSInteger)view.bounds.size.width,height=(NSInteger)view.bounds.size.height;
+    NSBitmapImageRep *bitmap=[[NSBitmapImageRep alloc]initWithBitmapDataPlanes:NULL pixelsWide:width pixelsHigh:height bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSCalibratedRGBColorSpace bytesPerRow:0 bitsPerPixel:0];
+    NSGraphicsContext *context=[NSGraphicsContext graphicsContextWithBitmapImageRep:bitmap];
+    CGContextSetRGBFillColor(context.CGContext,1,1,1,1);CGContextFillRect(context.CGContext,CGRectMake(0,0,width,height));
+    [view.layer renderInContext:context.CGContext];
+    return [[bitmap colorAtX:0 y:height/2] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+}
+static NSRect paintRect(NSString *identifier) {
+    uint64_t *command=(void *)(uintptr_t)metadata(identifier)[1816/8];assert(command&&command[0]==1);
+    return *(NSRect *)(command+2);
+}
 static id control(NSString *identifier) {
     uint64_t *doc=engine_document; unsigned char *meta=(void *)(uintptr_t)doc[9];
     for(uint64_t i=0;i<doc[3];i++) { char *name=*(char **)(meta+i*2048); if(name && [identifier isEqualToString:[NSString stringWithUTF8String:name]]) return engine_controls[mac_control_key(i)]; }
@@ -207,6 +224,9 @@ static NSRect blockRect(NSTextView *text,NSRange characters) {
 }
 static NSEvent *sceneMouse(NSTextView *text,NSEventType type,NSPoint viewPoint) {
     return [NSEvent mouseEventWithType:type location:[text convertPoint:viewPoint toView:nil] modifierFlags:0 timestamp:0 windowNumber:text.window.windowNumber context:nil eventNumber:1 clickCount:1 pressure:1];
+}
+static NSEvent *sceneKey(NSTextView *text,unsigned short code,NSEventModifierFlags flags) {
+    return [NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:flags timestamp:0 windowNumber:text.window.windowNumber context:nil characters:@"\uf701" charactersIgnoringModifiers:@"\uf701" isARepeat:NO keyCode:code];
 }
 static int denyInsert(void *ctx,int action,const char *a,const char *b,const char *c,const char *d) { (void)ctx;(void)a;(void)b;(void)c;(void)d;return action==SQLITE_INSERT ? SQLITE_DENY : SQLITE_OK; }
 int main(void) {
@@ -434,7 +454,7 @@ int main(void) {
         assert(signin && [signin.title isEqual:@"Sign in 🌐"] && signin.frame.size.height==40);
         NSRange boxGlyph=[text.string rangeOfString:@"\ufffc"];
         NSRect boxGlyphRect=[text.layoutManager boundingRectForGlyphRange:boxGlyph inTextContainer:text.textContainer];
-        assert(fabs(signin.frame.origin.x-(boxGlyphRect.origin.x+text.textContainerInset.width))<1);
+        assert(fabs([signin.superview convertRect:signin.frame toView:text].origin.x-(boxGlyphRect.origin.x+text.textContainerInset.width))<1);
         NSSize titleSize=[signin.attributedTitle size]; assert(signin.frame.size.width>=titleSize.width+48 && signin.frame.size.width<titleSize.width+50);
         assert(signin.wantsLayer && signin.layer.cornerRadius==20 && [signin.accessibilityRole isEqual:NSAccessibilityLinkRole]);
         NSColor *boxBackground=[NSColor colorWithCGColor:signin.layer.backgroundColor];
@@ -445,7 +465,7 @@ int main(void) {
         NSTextAttachment *borderedAttachment=[text.textStorage attribute:NSAttachmentAttributeName atIndex:borderedRange.location effectiveRange:NULL];
         assert(fabs(borderedAttachment.attachmentCell.cellSize.width-(bordered.frame.size.width+8))<1);
         NSRect borderedGlyphRect=[text.layoutManager boundingRectForGlyphRange:borderedRange inTextContainer:text.textContainer];
-        assert(fabs(bordered.frame.origin.x-(borderedGlyphRect.origin.x+text.textContainerInset.width+4))<1);
+        assert(fabs([bordered.superview convertRect:bordered.frame toView:text].origin.x-(borderedGlyphRect.origin.x+text.textContainerInset.width+4))<1);
         NSRange following=[text.string rangeOfString:@"after café"]; assert(following.location!=NSNotFound && [[text.textStorage attribute:NSLinkAttributeName atIndex:following.location effectiveRange:NULL] isEqual:[NSURL URLWithString:@"https://engine.test/afterbox"]]);
         [window setContentSize:NSMakeSize(650,780)]; mac_engine_resize(nil,NULL,nil);
         assert(control(@"signin")==signin && signin.frame.size.height==40);
@@ -501,6 +521,71 @@ int main(void) {
         NSTextTableBlock *lb=(id)((NSParagraphStyle *)[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:lower.location effectiveRange:NULL]).textBlocks.lastObject;
         NSTextTableBlock *wb=(id)((NSParagraphStyle *)[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:wide.location effectiveRange:NULL]).textBlocks.lastObject;
         assert(ub.table==lb.table && lb.table==wb.table && ub.startingColumn==1 && lb.startingRow==1 && wb.columnSpan==2);
+        navigate(@"/atomic");waitFor(^BOOL{return [window.title hasPrefix:@"Inline formatting contexts — Assembly"]&&[status.stringValue containsString:@"ready."];});
+        NSControl *atomicOne=control(@"one"),*atomicTwo=control(@"two");
+        assert(atomicOne && atomicTwo);
+        NSRect atomicOneRect=[atomicOne.superview convertRect:atomicOne.frame toView:text],atomicTwoRect=[atomicTwo.superview convertRect:atomicTwo.frame toView:text];
+        NSLog(@"Atomic controls: %@ / %@",NSStringFromRect(atomicOneRect),NSStringFromRect(atomicTwoRect));
+        assert(fabs(atomicOneRect.origin.y-atomicTwoRect.origin.y)<1 && atomicTwoRect.origin.x>=NSMaxX(atomicOneRect)+7);
+        assert([text.string containsString:@"Inside top"] && [text.string containsString:@"Inside bottom"]);
+        NSRect atomicFrame=paintRect(@"frameone");
+        assert(fabs(atomicOneRect.origin.x-atomicFrame.origin.x-1)<1 && fabs(atomicOneRect.size.width-(atomicFrame.size.width-2))<1);
+        assert(fabs(atomicOneRect.origin.y-atomicFrame.origin.y-1)<1 && fabs(atomicOneRect.size.height-(atomicFrame.size.height-2))<1);
+        NSRect emptyInline=paintRect(@"empty"),topInline=paintRect(@"aligntop"),bottomInline=paintRect(@"alignbottom");
+        assert(fabs(emptyInline.size.width-24)<1 && fabs(emptyInline.size.height-30)<1);
+        assert(fabs(NSMaxY(topInline)-NSMaxY(bottomInline))<1);
+        NSRange innerLink=[text.string rangeOfString:@"Inner link"],insideTop=[text.string rangeOfString:@"Inside top"];
+        NSRect innerLinkRect=mac_atomic_text_rect(innerLink.location,innerLink.length);
+        assert([mac_scene_link_at_point(NSMidX(innerLinkRect),NSMidY(innerLinkRect)).path isEqual:@"/second"]);
+        text.selectedRange=NSMakeRange(insideTop.location,innerLink.location+innerLink.length-insideTop.location);
+        assert([[text.string substringWithRange:text.selectedRange] containsString:@"Inside bottom"]);
+        assert([[text.string substringWithRange:text.selectedRange] containsString:@"Inner link"]);
+        NSRect selectionRect=mac_atomic_text_rect(insideTop.location,insideTop.length);
+        NSRect selectionCapture=NSMakeRect(0,0,300,120);
+        NSBitmapImageRep *selectionBitmap=[text bitmapImageRepForCachingDisplayInRect:selectionCapture];[text cacheDisplayInRect:selectionCapture toBitmapImageRep:selectionBitmap];
+        __block NSColor *selectionColor;
+        [text.effectiveAppearance performAsCurrentDrawingAppearance:^{selectionColor=[NSColor.selectedTextBackgroundColor colorUsingColorSpace:NSColorSpace.sRGBColorSpace];}];
+        NSUInteger selectedPixels=0;
+        for(NSInteger y=MAX(0,(NSInteger)selectionRect.origin.y);y<MIN(120,(NSInteger)NSMaxY(selectionRect));y++)for(NSInteger x=MAX(0,(NSInteger)selectionRect.origin.x);x<MIN(300,(NSInteger)NSMaxX(selectionRect));x++) {
+            NSColor *pixel=[[selectionBitmap colorAtX:x*selectionBitmap.pixelsWide/300 y:y*selectionBitmap.pixelsHigh/120] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+            selectedPixels += fabs(pixel.redComponent-selectionColor.redComponent)<.08 && fabs(pixel.greenComponent-selectionColor.greenComponent)<.08 && fabs(pixel.blueComponent-selectionColor.blueComponent)<.08;
+        }
+        assert(selectedPixels>5);
+        [window setContentSize:NSMakeSize(350,780)];mac_engine_resize(nil,NULL,nil);
+        assert(control(@"one")==atomicOne && control(@"two")==atomicTwo);
+        innerLink=[text.string rangeOfString:@"Inner link"];innerLinkRect=mac_atomic_text_rect(innerLink.location,innerLink.length);
+        assert([mac_scene_link_at_point(NSMidX(innerLinkRect),NSMidY(innerLinkRect)).path isEqual:@"/second"]);
+        [window setContentSize:NSMakeSize(200,780)];mac_engine_resize(nil,NULL,nil);
+        atomicOneRect=[atomicOne.superview convertRect:atomicOne.frame toView:text];atomicTwoRect=[atomicTwo.superview convertRect:atomicTwo.frame toView:text];
+        assert(atomicTwoRect.origin.y>=NSMaxY(atomicOneRect));
+        atomicFrame=paintRect(@"frametwo");assert(fabs(atomicTwoRect.origin.x-atomicFrame.origin.x-1)<1 && fabs(atomicTwoRect.origin.y-atomicFrame.origin.y-1)<1);
+        [window setContentSize:NSMakeSize(720,780)];mac_engine_resize(nil,NULL,nil);
+        navigate(@"/input-borders");waitFor(^BOOL{return [window.title hasPrefix:@"Input borders — Assembly"]&&[status.stringValue containsString:@"ready."];});
+        NSTextField *defaultBorder=control(@"defaultborder"),*noBorder=control(@"noborder"),*customBorder=control(@"customborder");
+        assert(defaultBorder.bezeled && defaultBorder.layer.borderWidth==1 && defaultBorder.frame.size.height==30);
+        assert(!noBorder.bezeled && !noBorder.bordered && noBorder.layer.borderWidth==0);
+        NSColor *defaultEdge=inputEdge(defaultBorder),*noneEdge=inputEdge(noBorder);
+        assert(defaultEdge.redComponent<.8 && fabs(defaultEdge.redComponent-defaultEdge.greenComponent)<.02);
+        assert(noneEdge.redComponent>.95 && noneEdge.greenComponent>.95 && noneEdge.blueComponent>.95);
+        assert(((NSTextField *)control(@"roundborder")).layer.cornerRadius==15);
+        NSColor *customBorderColor=[NSColor colorWithCGColor:customBorder.layer.borderColor];
+        assert(customBorder.layer.borderWidth==2 && customBorder.layer.cornerRadius==0 && customBorderColor.redComponent>.99 && customBorderColor.greenComponent<.01);
+        assert([window makeFirstResponder:defaultBorder]);NSText *borderEditor=defaultBorder.currentEditor;assert(borderEditor);borderEditor.string=@"Still editable 🌐";borderEditor.selectedRange=NSMakeRange(2,3);
+        [window setContentSize:NSMakeSize(600,780)];mac_engine_resize(nil,NULL,nil);
+        assert(control(@"defaultborder")==defaultBorder && defaultBorder.currentEditor==borderEditor && NSEqualRanges(borderEditor.selectedRange,NSMakeRange(2,3)) && [borderEditor.string isEqual:@"Still editable 🌐"]);
+        assert(defaultBorder.layer.borderWidth==1 && noBorder.layer.borderWidth==0 && customBorder.layer.borderWidth==2);
+        navigate(@"/typography");waitFor(^BOOL{return [window.title hasPrefix:@"Typography — Assembly"]&&[status.stringValue containsString:@"ready."];});
+        NSRange tracked=[text.string rangeOfString:@"A café 🌐 B"];
+        assert(tracked.location!=NSNotFound);
+        assert([[text.textStorage attribute:NSKernAttributeName atIndex:tracked.location effectiveRange:NULL] integerValue]==2);
+        assert([[text.textStorage attribute:NSKernAttributeName atIndex:tracked.location+1 effectiveRange:NULL] integerValue]==7);
+        assert([text.string containsString:@" a  b\n c "]);
+        NSRange raised=[text.string rangeOfString:@"raised"],lowered=[text.string rangeOfString:@"lowered"];
+        assert([[text.textStorage attribute:NSBaselineOffsetAttributeName atIndex:raised.location effectiveRange:NULL] doubleValue]>4);
+        assert([[text.textStorage attribute:NSBaselineOffsetAttributeName atIndex:lowered.location effectiveRange:NULL] doubleValue]==-3);
+        NSRange nowrap=[text.string rangeOfString:@"Long unbroken text"];
+        NSParagraphStyle *nowrapStyle=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:nowrap.location effectiveRange:NULL];
+        assert(nowrapStyle.lineBreakMode==NSLineBreakByClipping);
         navigate(@"/imports");waitFor(^BOOL{return [window.title hasPrefix:@"Imported styles — Assembly"]&&[status.stringValue containsString:@"ready."];});
         assert(atomic_load(&importRequests)==4); // ancestor cycle never makes a request
         NSRange importTarget=[text.string rangeOfString:@"Import cascade"],importNested=[text.string rangeOfString:@"Nested import"],importCondition=[text.string rangeOfString:@"Conditional import"];
@@ -561,6 +646,19 @@ int main(void) {
         assert([mac_scene_link_at_point(NSMidX(scrollGlyph),NSMidY(scrollGlyph)-120).path isEqual:@"/second"]); // contained scroll survives reflow
         assert(mac_scene_scroll_at_point(5,5,0,-120));
         assert(!mac_scene_link_at_point(NSMidX(scrollGlyph),NSMidY(scrollGlyph)-120));
+        NSRange scrollTop=[text.string rangeOfString:@"Scroll top"];
+        text.selectedRange=NSMakeRange(scrollTop.location,0);
+        [text keyDown:sceneKey(text,125,0)];
+        [text keyDown:sceneKey(text,125,0)];
+        [text keyDown:sceneKey(text,125,0)];
+        assert([mac_scene_link_at_point(NSMidX(scrollGlyph),NSMidY(scrollGlyph)-120).path isEqual:@"/second"]);
+        assert(text.selectedRange.location==scrollTop.location && !text.selectedRange.length);
+        [text keyDown:sceneKey(text,115,0)]; // Home returns the focused scroll port to its start.
+        assert(!mac_scene_link_at_point(NSMidX(scrollGlyph),NSMidY(scrollGlyph)-120));
+        [text keyDown:sceneKey(text,121,0)]; // Page movement uses the port height, not the window height.
+        assert(mac_scene_scroll_at_point(5,5,0,100));
+        assert([mac_scene_link_at_point(NSMidX(scrollGlyph),NSMidY(scrollGlyph)-120).path isEqual:@"/second"]);
+        [text keyDown:sceneKey(text,115,0)];
         navigate(@"/webfont");waitFor(^BOOL{return [window.title hasPrefix:@"Web fonts — Assembly"]&&atomic_load(&fontStarted);});
         NSRange fontText=[text.string rangeOfString:@"WWWW"];NSFont *fallbackFont=[text.textStorage attribute:NSFontAttributeName atIndex:fontText.location effectiveRange:NULL];
         assert(![fallbackFont.fontName isEqual:@"OogaFixture-Regular"]);

@@ -23,10 +23,16 @@ Lmeasure_item:
     mov x10, #40
     madd x22, x20, x10, x9
     str xzr, [x21, #NATIVE_HAS_REPLACED]
+    str xzr, [x21, #FLOW_MIN_CONTENT]
+    str xzr, [x21, #FLOW_MAX_CONTENT]
     ldr x9, [x22]
+    ldr x10, [x21, #NATIVE_EMPTY]
+    cbnz x10, Lmeasure_empty
     mov x23, #220
     mov x24, #28
     cmp x9, #NODE_INPUT
+    b.eq Lmeasure_control
+    cmp x9, #NODE_BUTTON
     b.eq Lmeasure_control
     cmp x9, #NODE_SELECT
     b.eq Lmeasure_control
@@ -35,11 +41,78 @@ Lmeasure_item:
     mov x24, #100
 Lmeasure_control:
     mov x0, x21
+    ldr x1, [x22]
+    mov x2, x20
+    bl _mac_control_create
+    cbz x0, Lmeasure_control_dimensions
+    mov x25, x0
+    mov x0, x21
+    bl _mac_css_font
+    mov x2, x0
+    mov x0, x25
+    ldr x9, [x22]
+    cmp x9, #NODE_TEXTAREA
+    b.ne Lmeasure_control_font
+    str x2, [sp, #152]
+    MSG documentView
+    ldr x2, [sp, #152]
+Lmeasure_control_font:
+    MSG setFont
+    mov x0, x21
+    ldr x1, [x22]
+    bl _mac_control_kind
+    mov x2, x0
+    mov x0, x21
+    mov x1, x25
+    bl _mac_input_border
+    ldr x9, [x22]
+    cmp x9, #NODE_TEXTAREA
+    b.eq Lmeasure_control_dimensions
+    mov x0, x25
+    MSG intrinsicSize
+    fcvtps x26, d0
+    fcvtps x27, d1
+    cmp x27, #0
+    csel x24, x27, x24, gt
+    mov x0, x21
+    ldr x1, [x22]
+    bl _mac_control_kind
+    cmp x0, #1
+    b.eq Lmeasure_button_width
+    cmp x0, #8
+    b.eq Lmeasure_button_width
+    cmp x0, #4
+    b.eq Lmeasure_toggle_width
+    cmp x0, #5
+    b.ne Lmeasure_control_dimensions
+Lmeasure_toggle_width:
+    cmp x26, #0
+    csel x23, x26, x23, gt
+    b Lmeasure_control_dimensions
+Lmeasure_button_width:
+    mov x9, #100
+    cmp x26, x9
+    csel x23, x26, x9, gt
+Lmeasure_control_dimensions:
+    mov x0, x21
     bl _mac_element_dimensions
     cmp x0, #0
     csel x23, x23, x0, lt
     cmp x1, #0
     csel x24, x24, x1, lt
+    mov x0, x21
+    ldr x1, [x21, #848]
+    mov x2, x23
+    bl _engine_width_clamp
+    mov x23, x0
+    ldr x9, [x21, #BOX_MAX_HEIGHT]
+    tbnz x9, #63, Lmeasure_control_min_height
+    cmp x24, x9
+    csel x24, x9, x24, gt
+Lmeasure_control_min_height:
+    ldr x9, [x21, #BOX_MIN_HEIGHT]
+    cmp x24, x9
+    csel x24, x9, x24, lt
     b Lmeasure_store
 Lmeasure_image:
     cmp x9, #NODE_SVG
@@ -71,6 +144,33 @@ Lmeasure_image_dimensions:
     csel x24, x24, x1, lt
     b Lmeasure_store
 Lmeasure_text:
+    // Nested text below a formatting context contributes its own styled run.
+    // Ordinary prose outside those contexts still skips the intrinsic pass.
+    ldr x10, [x22, #8]
+    mov x11, #64
+Lmeasure_intrinsic_ancestor:
+    cbz x11, Lmeasure_text_local
+    sub x11, x11, #1
+    ldr x12, [x19, #72]
+    add x12, x12, x10, lsl #11
+    ldr x13, [x12, #88]
+    cmp x13, #3
+    b.hs Lmeasure_text_needed
+    ldr x13, [x12, #(32+CSS_FLOAT*8)]
+    cbnz x13, Lmeasure_text_needed
+    ldr x13, [x12, #(1840+(CSS_POSITION-48)*8)]
+    cmp x13, #2
+    b.hs Lmeasure_text_needed
+    cbz x10, Lmeasure_text_local
+    ldr x12, [x19, #16]
+    mov x13, #40
+    madd x12, x10, x13, x12
+    ldr x10, [x12, #8]
+    b Lmeasure_intrinsic_ancestor
+Lmeasure_text_local:
+    ldr x10, [x21, #(1840+(CSS_POSITION-48)*8)]
+    cmp x10, #2
+    b.hs Lmeasure_text_needed
     // Only flex items, table cells and floats consume intrinsic text metrics.
     // Ordinary paragraphs are shaped once by the real text layout pass.
     ldr x10, [x21, #(32+CSS_FLOAT*8)]
@@ -151,12 +251,30 @@ Lmeasure_filtered:
     MSG sizeAttributes
     fcvtps x25, d0
     fcvtps x26, d1
+    str x25, [x21, #FLOW_MAX_CONTENT]
+    ldr x9, [x21, #888]
+    cmp x9, #1
+    b.eq Lmeasure_no_break_min
+    cmp x9, #2
+    b.eq Lmeasure_no_break_min
+    mov x0, x23
+    mov x1, x24
+    bl _mac_min_content
+    str x0, [x21, #FLOW_MIN_CONTENT]
+    b Lmeasure_release_text
+Lmeasure_no_break_min:
+    str x25, [x21, #FLOW_MIN_CONTENT]
+Lmeasure_release_text:
     mov x0, x23
     MSG release
     mov x0, x24
     MSG release
     mov x23, x25
     mov x24, x26
+    b Lmeasure_store
+Lmeasure_empty:
+    mov x23, #0
+    mov x24, #0
     b Lmeasure_store
 Lmeasure_large:
     ldr x23, [x21, #848]
@@ -169,6 +287,14 @@ Lmeasure_cap:
     csel x23, x9, x23, hi
     cmp x24, x9
     csel x24, x9, x24, hi
+    ldr x9, [x21, #FLOW_MIN_CONTENT]
+    cbnz x9, Lmeasure_min_saved
+    str x23, [x21, #FLOW_MIN_CONTENT]
+Lmeasure_min_saved:
+    ldr x9, [x21, #FLOW_MAX_CONTENT]
+    cbnz x9, Lmeasure_max_saved
+    str x23, [x21, #FLOW_MAX_CONTENT]
+Lmeasure_max_saved:
     str x23, [x21, #FLOW_INTRINSIC_W]
     str x24, [x21, #FLOW_INTRINSIC_H]
     add x20, x20, #1
@@ -385,8 +511,8 @@ Lgrid_align_baseline:
     mov x2, #3
     b Lgrid_set_alignment
 Lgrid_table_alignment:
-    ldr x9, [x22, #240]
-    cmp x9, #1
+    ldr x9, [x22, #880]
+    cmn x9, #18
     b.ne Lgrid_set_alignment
     mov x2, #1
     b Lgrid_set_alignment

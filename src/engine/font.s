@@ -14,7 +14,7 @@ _css_font_declarations:
     mov x22, x3
     mov x0, sp
     mov x1, #0
-    mov x2, #528
+    mov x2, #CSS_DECL_SIZE
     bl _memset
     // Shorthand resets omitted style, weight and line-height.
     mov x9, #400

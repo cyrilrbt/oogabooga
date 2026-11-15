@@ -78,6 +78,7 @@ Lflow_layout_done:
 // even when source markup has adjacent inline elements and no separating byte.
 .globl _engine_flow_breaks
 _engine_flow_breaks:
+    mov x16, x2                    // per-byte computed whitespace policy
     ldr x2, [x0, #72]
     ldr x3, [x0, #16]
     ldr x4, [x0, #24]
@@ -94,6 +95,8 @@ Lflow_break_next:
     cmp x9, #1
     b.eq Lflow_break_advance
     cmp x9, #2
+    b.eq Lflow_break_advance
+    cmp x9, #5
     b.eq Lflow_break_advance
     mov x9, #40
     madd x10, x7, x9, x3
@@ -158,6 +161,11 @@ Lflow_gap_before:
     cmp x11, x13
     b.ls Lflow_gap_after_start
     sub x14, x11, #1
+    ldrb w15, [x16, x14]
+    cmp w15, #2
+    b.eq Lflow_gap_after_start
+    cmp w15, #4
+    b.hs Lflow_gap_after_start
     ldrb w15, [x5, x14]
     cmp w15, #32
     b.hi Lflow_gap_after_start
@@ -171,6 +179,11 @@ Lflow_gap_after_start:
     ldr x13, [x8, #24]
 Lflow_gap_after:
     cmp x12, x13
+    b.hs Lflow_break_advance
+    ldrb w15, [x16, x12]
+    cmp w15, #2
+    b.eq Lflow_break_advance
+    cmp w15, #4
     b.hs Lflow_break_advance
     ldrb w15, [x5, x12]
     cmp w15, #32

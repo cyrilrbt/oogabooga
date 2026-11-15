@@ -140,8 +140,6 @@ _mac_control_create:
     mov x19, x0
     mov x20, x1
     mov x21, x2
-    LOAD x9, _engine_reflowing
-    cbz x9, Lcontrol_new
     mov x0, x21
     bl _mac_control_key
     mov x2, x0
@@ -363,16 +361,21 @@ Lposition_visible_range:
     ldr x10, [x9, x10, lsl #3]
     cmp x10, x23
     cset w2, eq
+    str x2, [sp, #216]
     mov x0, x22
     MSG setHidden
+    ldr x9, [sp, #216]
+    cbnz x9, Lposition_advance
     ldr x9, [x19, #72]
     add x9, x9, x21, lsl #11
     ldr x9, [x9, #88]
     cmp x9, #1
     b.eq Lposition_advance
-    LOAD x0, _engine_text
-    MSG layoutManager
+    mov x0, x23
+    bl _mac_atomic_target
     mov x24, x0
+    mov x23, x2
+    stp d0, d1, [sp, #192]
     mov x2, x23
     mov x3, #1
     mov x4, #0
@@ -395,8 +398,7 @@ Lposition_visible_range:
     fsub d1, d1, d0                // baseline measured up from the line bottom
     ldr d2, [sp, #152]
     fadd d1, d1, d2
-    LOAD x9, _engine_inset
-    scvtf d4, x9
+    ldr d4, [sp, #200]
     fadd d1, d1, d4
     str d1, [sp, #184]
     mov x0, x24
@@ -404,8 +406,7 @@ Lposition_visible_range:
     MSG glyphLocation
     ldr d2, [sp, #144]
     fadd d0, d0, d2
-    LOAD x9, _engine_inset
-    scvtf d4, x9
+    ldr d4, [sp, #192]
     fadd d0, d0, d4
     str d0, [sp, #144]
     mov x0, x22

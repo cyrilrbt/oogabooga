@@ -6,6 +6,7 @@ cd "$(dirname "$0")"
 mode=${1:-debug}
 case "$mode" in debug|release|test) ;; *) echo 'Usage: ./build.sh [debug|release|test]' >&2; exit 1 ;; esac
 mkdir -p build/obj build/Oogabooga.app/Contents/MacOS build/Oogabooga.app/Contents/Resources
+./tools/generate-metadata.sh
 flags='-arch arm64 -mmacosx-version-min=12.0'
 objects="build/obj/core.o"
 xcrun clang $flags -g -c src/core.s -o build/obj/core.o
@@ -18,7 +19,6 @@ xcrun clang $flags $objects -framework Cocoa -framework CoreText -framework Imag
 [ "$mode" != release ] || strip -x build/oogabooga
 cp build/oogabooga build/Oogabooga.app/Contents/MacOS/oogabooga.new
 mv -f build/Oogabooga.app/Contents/MacOS/oogabooga.new build/Oogabooga.app/Contents/MacOS/oogabooga
-./tools/generate-metadata.sh
 cp build/metadata/Info.plist build/Oogabooga.app/Contents/Info.plist
 cp LICENSE CHANGELOG.md build/Oogabooga.app/Contents/Resources/
 ./tools/build-mac-icon.sh
@@ -52,6 +52,8 @@ if [ "$mode" = test ]; then
     build/mac-delegates-test
     xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-shortcuts.m $test_objects -framework Cocoa -framework CoreText -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-shortcuts-test
     build/mac-shortcuts-test
+    xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-inline.m $test_objects -framework Cocoa -framework CoreText -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-inline-test
+    build/mac-inline-test
     sh ./tools/probe-mac-layout.sh
     xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-engine.m $test_objects -framework Cocoa -framework CoreText -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-engine-test
     build/mac-engine-test

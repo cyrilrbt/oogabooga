@@ -116,6 +116,8 @@ flex_line:
     mov x24, x5
     mov x25, x6
     mov x26, x7
+    bl _engine_flex_resolve
+    str x0, [sp, #120]
     mov x27, #0
     mov x28, #0
     str xzr, [sp]
@@ -138,6 +140,11 @@ Lflex_line_sum:
     add x9, x9, #1
     b Lflex_line_sum
 Lflex_line_space:
+    ldr x9, [sp, #120]
+    cbz x9, Lflex_line_legacy_factors
+    mov x28, #0
+    str xzr, [sp]
+Lflex_line_legacy_factors:
     sub x9, x22, x21
     str x9, [sp, #8]
     sub x9, x9, #1
@@ -359,6 +366,9 @@ Lflex_collect:
     mov x9, #1
     str x9, [x24, #FLOW_COLSPAN]
     str x9, [x24, #FLOW_ROWSPAN]
+    mov x0, x24
+    ldr x1, [x21, #768]
+    bl _engine_box_metrics
     mov x0, x24
     mov x1, x26
     bl flex_base

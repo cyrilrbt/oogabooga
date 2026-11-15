@@ -598,7 +598,7 @@ Lrecord_history:
     MSG host
     mov x19, x0
 Lrecord_title:
-    STR title_suffix
+    STR _ooga_engine_title_suffix
     mov x2, x0
     mov x0, x19
     MSG append
@@ -661,14 +661,20 @@ Ldisplay_viewport_ready:
     mov x0, x19
     LOAD x1, _engine_viewport
     bl _engine_box_tree
+    bl _mac_controls_reset
     mov x0, x19
     bl _mac_flow_measure
+    mov x0, x19
+    bl _engine_intrinsic_tree
     mov x0, x19
     bl _engine_flow_tree
     mov x0, x19
     bl _engine_float_tree
     mov x0, x19
     bl _engine_position_tree
+    mov x0, x19
+    mov x1, #0
+    bl _engine_context_reflow
     mov x0, x19
     bl _engine_margin_tree
     mov x0, x19
@@ -772,9 +778,17 @@ Ldisplay_install:
     mov x0, x19
     mov x1, x21
     bl _mac_float_prepare
+    LOAD x0, _engine_text
+    MSG layoutManager
+    mov x3, x0
     mov x0, x19
     mov x1, x21
     mov x2, x23
+    bl _mac_atomic_prepare
+    mov x0, x19
+    mov x1, x21
+    mov x2, x23
+    mov x3, #0
     bl _mac_blocks
     LOAD x0, _engine_text
     MSG textStorage
@@ -809,6 +823,11 @@ Ldisplay_typesetter_ready:
     mov x0, x25
     mov x2, x24
     MSG ensureTextLayout
+    mov x0, x25
+    LOAD x9, _engine_inset
+    scvtf d0, x9
+    fmov d1, d0
+    bl _mac_atomic_place
     mov x0, x19
     mov x1, x21
     mov x2, x25
@@ -872,7 +891,6 @@ parse_error: .asciz "Assembly engine: this page exceeds parser limits or could n
 encoding_error: .asciz "Assembly engine: the page character encoding is unsupported or invalid. Switch to WebKit with ⌘E."
 html_mime: .asciz "text/html"
 xhtml_mime: .asciz "application/xhtml+xml"
-title_suffix: .asciz " — Assembly · Oogabooga"
 .section __DATA,__bss
 .p2align 3
 .globl _mac_engine_enabled

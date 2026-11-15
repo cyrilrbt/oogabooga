@@ -81,6 +81,51 @@ Lposition_height_reference:
     ldr x27, [x23, #BOX_HEIGHT]
     tbz x27, #63, Lposition_height_ready
     ldr x27, [x23, #FLOW_INTRINSIC_H]
+    ldr x9, [x28, #BOX_HEIGHT]
+    tbnz x9, #63, Lposition_height_limits
+    // Auto height stretches only in a definite containing block with both
+    // vertical insets specified. Account for the child's complete outer box.
+    cbz x25, Lposition_height_padding_ready
+    ldr x10, [x28, #824]
+    add x9, x9, x10
+    ldr x10, [x28, #832]
+    add x9, x9, x10
+Lposition_height_padding_ready:
+    str x9, [sp, #152]
+    ldr x0, [x23, #(1840+(CSS_INSET_TOP-48)*8)]
+    cmn x0, #1
+    b.eq Lposition_height_limits
+    ldr x10, [x23, #(1840+(CSS_INSET_BOTTOM-48)*8)]
+    cmn x10, #1
+    b.eq Lposition_height_limits
+    mov x1, x9
+    bl _engine_box_signed_length
+    str x0, [sp, #160]
+    ldr x0, [x23, #(1840+(CSS_INSET_BOTTOM-48)*8)]
+    ldr x1, [sp, #152]
+    bl _engine_box_signed_length
+    ldr x27, [sp, #152]
+    ldr x9, [sp, #160]
+    sub x27, x27, x9
+    sub x27, x27, x0
+    ldr x9, [x23, #792]
+    sub x27, x27, x9
+    ldr x9, [x23, #800]
+    sub x27, x27, x9
+    ldr x9, [x23, #824]
+    sub x27, x27, x9
+    ldr x9, [x23, #832]
+    sub x27, x27, x9
+    ldr x9, [x23, #BOX_BORDER_TOP]
+    sub x27, x27, x9
+    ldr x9, [x23, #BOX_BORDER_BOTTOM]
+    sub x27, x27, x9
+Lposition_height_limits:
+    ldr x9, [x23, #BOX_MAX_HEIGHT]
+    tbnz x9, #63, Lposition_height_minimum
+    cmp x27, x9
+    csel x27, x9, x27, gt
+Lposition_height_minimum:
     ldr x9, [x23, #BOX_MIN_HEIGHT]
     cmp x27, x9
     csel x27, x9, x27, lt
@@ -115,16 +160,23 @@ Lposition_height_ready:
     sub x26, x26, x9
     b Lposition_content_width
 Lposition_shrink:
-    ldr x9, [x23, #FLOW_INTRINSIC_W]
-    cmp x9, x26
-    csel x26, x9, x26, lt
+    mov x0, x23
+    ldr x1, [x23, #FLOW_MIN_CONTENT]
+    ldr x2, [x23, #FLOW_INTRINSIC_W]
+    mov x3, x26
+    bl _engine_shrink_to_fit
+    mov x26, x0
     b Lposition_content_width
 Lposition_explicit_width:
     ldr x26, [x23, #768]
 Lposition_content_width:
-    cmp x26, #1
-    mov x9, #1
-    csel x26, x9, x26, lt
+    mov x0, x23
+    ldr x1, [x23, #848]
+    mov x2, x26
+    bl _engine_width_clamp
+    mov x26, x0
+    cmp x26, #0
+    csel x26, xzr, x26, lt
     str x26, [x23, #FLOW_WIDTH]
     str x26, [x23, #768]
     ldr x9, [x23, #776]

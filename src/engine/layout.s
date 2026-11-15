@@ -45,12 +45,21 @@ Llayout_allocate:
     str x0, [sp, #192]
     ldr x1, [x19, #8]
     add x1, x1, #1
+    lsl x1, x1, #1                 // flow events followed by per-byte CSS modes
     mov x0, #1
     bl _calloc
     str x0, [sp, #208]
     cbz x0, Llayout_error
-    mov x1, x0
+    ldr x1, [x19, #8]
+    add x1, x1, #1
+    ldr x9, [sp, #208]
+    add x1, x9, x1
+    str x1, [sp, #216]
     mov x0, x19
+    bl _engine_whitespace_modes
+    mov x0, x19
+    ldr x1, [sp, #208]
+    ldr x2, [sp, #216]
     bl _engine_flow_breaks
     add x22, x21, x22
     mov x24, #0                      // output bytes
@@ -142,6 +151,13 @@ Llayout_soft_advance:
     add x28, x28, #1
     b Llayout_next
 Llayout_visible:
+    ldr x9, [sp, #216]
+    ldrb w9, [x9, x28]
+    cmp w9, #2
+    b.lo Llayout_hidden_policy
+    cmp w9, #3
+    b.ne Llayout_decode
+Llayout_hidden_policy:
     ldr x9, [sp, #200]
     cbz x9, Llayout_decode
     ldrb w9, [x21]
@@ -170,6 +186,40 @@ Llayout_skip_break:
     add x28, x28, #1
     b Llayout_next
 Llayout_decode:
+    ldr x9, [sp, #216]
+    ldrb w10, [x9, x28]
+    cbz w10, Llayout_utf8_decode
+    cmp w10, #1
+    b.eq Llayout_collapse
+    cmp w10, #3
+    b.eq Llayout_collapse
+    cmp w10, #5
+    b.ne Llayout_utf8_decode
+    ldrb w9, [x21]
+    cmp w9, #10
+    b.eq Llayout_utf8_decode
+    cmp w9, #13
+    b.eq Llayout_utf8_decode
+Llayout_collapse:
+    ldrb w9, [x21]
+    cmp w9, #32
+    b.hi Llayout_utf8_decode
+    ldr x10, [sp, #192]
+    str x25, [x10, x28, lsl #3]
+    cbz x24, Llayout_soft_advance
+    sub x9, x24, #1
+    ldrb w9, [x23, x9]
+    cmp w9, #32
+    b.ls Llayout_soft_advance
+    str x24, [sp, #144]
+    str x27, [sp, #152]
+    mov w9, #32
+    strb w9, [x23, x24]
+    add x24, x24, #1
+    add x25, x25, #1
+    add x27, x27, #1
+    b Llayout_soft_advance
+Llayout_utf8_decode:
     mov x0, x21
     mov x1, x22
     bl _engine_utf8
@@ -181,6 +231,12 @@ Llayout_decode:
     b.eq Llayout_newline
     cmp w9, #13
     b.eq Llayout_cr
+    ldr x9, [sp, #216]
+    ldrb w9, [x9, x28]
+    cmp w9, #2
+    b.eq Llayout_map
+    cmp w9, #3
+    b.eq Llayout_map
     cmp x27, x26
     b.lo Llayout_map
     ldr x9, [sp, #144]

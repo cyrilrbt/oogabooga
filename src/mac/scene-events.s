@@ -80,6 +80,7 @@ _mac_scene_link_at_point:
 // command, actual view point -> logical UTF-16 insertion index.
 scene_character_index:
     ENTER
+    mov x19, x0
     ldr x9, [x0, #8]
     LOAD x10, _mac_scene
     ldr x10, [x10, #8]
@@ -87,21 +88,43 @@ scene_character_index:
     ldp d2, d3, [x10, #SC_TX]
     fsub d0, d0, d2
     fsub d1, d1, d3
-    LOAD x9, _engine_inset
-    scvtf d2, x9
-    fsub d0, d0, d2
-    fsub d1, d1, d2
     stp d0, d1, [sp, #144]
-    LOAD x0, _engine_text
-    MSG textContainer
-    mov x19, x0
+    ldr x9, [x19]
+    cmp x9, #2
+    b.lo Lcharacter_main
+    cmp x9, #4
+    b.hi Lcharacter_main
+    ldr x20, [x19, #104]
+    cbz x20, Lcharacter_main
+    ldp d0, d1, [x19, #88]
+    ldr x22, [x19, #120]
+    cmp x9, #4
+    b.ne Lcharacter_context
+    ldr x22, [x19, #112]
+    b Lcharacter_context
+Lcharacter_main:
     LOAD x0, _engine_text
     MSG layoutManager
-    mov x2, x19
+    mov x20, x0
+    LOAD x9, _engine_inset
+    scvtf d0, x9
+    fmov d1, d0
+    mov x22, #0
+Lcharacter_context:
+    ldp d2, d3, [sp, #144]
+    fsub d2, d2, d0
+    fsub d3, d3, d1
+    stp d2, d3, [sp, #144]
+    mov x0, x20
+    MSG textContainers
+    mov x2, #0
+    MSG objectAtIndex
+    mov x2, x0
+    mov x0, x20
     mov x3, #0
     ldp d0, d1, [sp, #144]
     MSG sceneCharacterIndex
-    mov x19, x0
+    add x19, x0, x22
     LOAD x0, _engine_text
     MSG string
     MSG length

@@ -147,6 +147,9 @@ Lattributes_foreground:
     cmp x23, #NODE_EM
     b.ne Lattributes_underline
 Lattributes_inline_background:
+    ldr x9, [x20, #88]
+    cmp x9, #2
+    b.ne Lattributes_underline
     ldr x9, [x20, #872]
     cbnz x9, Lattributes_underline
     ldr x0, [x20, #40]
@@ -160,6 +163,21 @@ Lattributes_underline:
     MSG numberLongLong
     mov x24, x0
     STYLE_ATTR _NSUnderlineStyleAttributeName, x24
+    ldr x9, [x20, #88]
+    cmp x9, #5
+    b.eq Lattributes_baseline_done
+    cmp x23, #NODE_TEXT
+    b.eq Lattributes_baseline_done
+    mov x0, x20
+    bl _mac_inline_baseline
+    cbz x0, Lattributes_baseline_done
+    str d0, [sp, #144]
+    CLASS NSNumber
+    ldr d0, [sp, #144]
+    MSG numberDouble
+    mov x24, x0
+    STYLE_ATTR _NSBaselineOffsetAttributeName, x24
+Lattributes_baseline_done:
     // Native paragraph geometry is applied to block nodes, never inline ranges.
     cmp x23, #NODE_TEXT
     b.eq Lattributes_done
@@ -187,6 +205,8 @@ Lattributes_underline:
     b.eq Lattributes_done
     ldr x9, [x20, #88]
     cmp x9, #2
+    b.eq Lattributes_done
+    cmp x9, #5
     b.eq Lattributes_done
     mov x0, x20
     bl _mac_css_paragraph
@@ -320,7 +340,64 @@ Lparagraph_alignment:
 Lparagraph_max_line:
     MSG setMaximumLine
 Lparagraph_done:
+    ldr x9, [x20, #888]
+    cmp x9, #1
+    b.eq Lparagraph_no_wrap
+    cmp x9, #2
+    b.ne Lparagraph_return
+Lparagraph_no_wrap:
+    mov x0, x24
+    mov x2, #2                     // NSLineBreakByClipping; preserve explicit LF
+    MSG setLineBreak
+Lparagraph_return:
     mov x0, x24
     LEAVE
 
 verdana_regular: .asciz "Verdana"
+
+.text
+.p2align 2
+// Numeric inline baseline shifts and sub/super use the containing font/line
+// metrics. Line-relative keyword alignment is handled separately by box layout.
+.globl _mac_inline_baseline
+_mac_inline_baseline:
+    ENTER
+    mov x19, x0
+    ldr x0, [x19, #880]
+    cmn x0, #22
+    b.eq Lbaseline_sub
+    cmn x0, #23
+    b.eq Lbaseline_super
+    cmp x0, #0
+    b.ge Lbaseline_numeric
+    cmn x0, #24
+    b.ge Lbaseline_none
+Lbaseline_numeric:
+    ldr w1, [x19, #112]
+    cbnz x1, Lbaseline_resolve
+    ldr x1, [x19, #48]
+Lbaseline_resolve:
+    bl _engine_box_signed_length
+    scvtf d0, x0
+    mov x0, #1
+    LEAVE
+Lbaseline_sub:
+    ldr x9, [x19, #48]
+    scvtf d0, x9
+    mov x9, #5
+    scvtf d1, x9
+    fdiv d0, d0, d1
+    fneg d0, d0
+    mov x0, #1
+    LEAVE
+Lbaseline_super:
+    ldr x9, [x19, #48]
+    scvtf d0, x9
+    mov x9, #3
+    scvtf d1, x9
+    fdiv d0, d0, d1
+    mov x0, #1
+    LEAVE
+Lbaseline_none:
+    mov x0, #0
+    LEAVE

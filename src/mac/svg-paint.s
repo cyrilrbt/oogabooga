@@ -65,7 +65,7 @@ Lsvg_paint_fallback:
 .globl _mac_svg_paint
 _mac_svg_paint:
     ENTER
-    sub sp, sp, #512
+    sub sp, sp, #640
     mov x19, x0
     mov x20, x1
     mov x21, x2
@@ -217,7 +217,7 @@ Lsvg_paint_style_value:
     mov x24, x0
     mov x0, sp
     mov x1, #0
-    mov x2, #400
+    mov x2, #CSS_DECL_SIZE
     bl _memset
     mov x0, x24
     bl _strlen
@@ -246,7 +246,7 @@ Lsvg_style_stroke:
     str x10, [x21, #8]
 Lsvg_style_width:
     tbz x9, #CSS_STROKE_WIDTH, Lsvg_style_opacity
-    str x9, [sp, #416]
+    str x9, [sp, #592]
     ldr x0, [sp, #(16+CSS_STROKE_WIDTH*8)]
     // Raw px width from the declaration parser; SVG unitless lengths also work.
     and x0, x0, #0xffffffff
@@ -254,7 +254,7 @@ Lsvg_style_width:
     udiv x0, x0, x10
     scvtf d0, x0
     str d0, [x21, #16]
-    ldr x9, [sp, #416]
+    ldr x9, [sp, #592]
 Lsvg_style_opacity:
     tbz x9, #CSS_OPACITY, Lsvg_style_free
     ldr x9, [sp, #(16+CSS_OPACITY*8)]
@@ -268,7 +268,7 @@ Lsvg_style_free:
     mov x0, x24
     bl _free
 Lsvg_paint_done:
-    add sp, sp, #512
+    add sp, sp, #640
     LEAVE
 
 // CGContext,state -> fill/stroke the path with inherited paint and opacity.

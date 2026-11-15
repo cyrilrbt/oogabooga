@@ -347,8 +347,9 @@ Linline_title_x:
     str d1, [sp, #112]
     ldr d0, [sp, #96]
     fadd d0, d0, d1
-    ldr x9, [x20, #240]
-    cbz x9, Linline_baseline_store
+    ldr x9, [x20, #880]
+    cmn x9, #18
+    b.ne Linline_baseline_store
     ldr x9, [sp, #48]
     scvtf d0, x9
     fmov d1, #0.5

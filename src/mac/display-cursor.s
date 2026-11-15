@@ -109,6 +109,7 @@ scene_drag_name: .asciz "mouseDragged:"
 scene_up_name: .asciz "mouseUp:"
 scene_cursor_name: .asciz "cursorUpdate:"
 scene_scroll_name: .asciz "scrollWheel:"
+scene_key_name: .asciz "keyDown:"
 scene_mouse_encoding: .asciz "v@:@"
 .section __DATA,__const
 .p2align 3
@@ -118,4 +119,5 @@ scene_mouse_methods:
 .quad scene_up_name,_mac_scene_mouse_up
 .quad scene_cursor_name,_mac_scene_cursor_update
 .quad scene_scroll_name,_mac_scene_scroll_wheel
+.quad scene_key_name,_mac_scene_key_down
 .quad 0,0

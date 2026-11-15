@@ -4,6 +4,61 @@ Record user-visible changes here whenever `VERSION` changes. Keep the newest
 version first, use the same SemVer as `VERSION`, and distinguish added features,
 behavior changes, and fixes. Historical entries summarize the repository history.
 
+## 0.14.1 — 2026-11-15
+
+### Fixed
+
+- Give native text inputs a visible default outline on white pages while
+  preserving explicit border:none, uniform border colors/widths and corner radii.
+  Keep the field editor, focus ring and live editing state through reflow.
+
+## 0.14.0 — 2026-11-15
+
+### Added
+
+- Add independent, nested inline-block formatting contexts for mixed text,
+  block children, images and controls. Retain source characters for copying;
+  reserve whole margin/border boxes, line ascent/descent and vertical alignment.
+  Support sized empty inline boxes and keep internal separators out of parent
+  line layout.
+- Measure min/max content runs, combine intrinsic sizes through the flow tree,
+  freeze constrained flex items and redistribute remaining space on both axes.
+  Reflow flex/Grid/table children after float/positioned/inline parent sizing.
+- Use shared shaping-context origins for retained paint, links, selection and
+  native control placement. Measure and reuse the actual controls before layout;
+  project logical selection colors into nested inline text.
+- Add nested inline/control/border geometry, alignment, resize/wrapping, selection,
+  and inner-link integration checks. Add inline-box fixtures at 220/400/640px and
+  floating flex headers at 320/640/1000px to the offline dashboard.
+- Show the VERSION value after Oogabooga in macOS window titles, including
+  assembly, WebKit, initial and popup windows.
+
+- Preserve decoded source whitespace until CSS cascade, with inherited `normal`,
+  `pre`, `nowrap`, `pre-wrap`, `pre-line`, and `break-spaces` flow policies.
+  Native block paragraphs honor preformatted/no-wrap lines. Apply text tracking,
+  additional word spacing, numeric baseline offsets, and sub/super shifts in the
+  assembly text adapter.
+- Share assembly min/max content-width constraints across normal and positioned
+  boxes. Resolve `max-height` against definite containing heights, preserve
+  intrinsic image ratios when constraints allow, and stretch automatic positioned
+  heights between opposing insets. Preserve zero-width content boxes.
+- Route unmodified arrow, Page Up/Down, Home, and End keys to contained CSS scroll
+  ports using the text selection, retaining native handling for modified keys.
+- Add offline search, news, documentation, and forms fixtures with screenshots,
+  visible-text/position checks, and timing budgets. Vendor attributed WPT sizing/whitespace
+  sources; test the invalid negative maximum/zero-width computed geometry and no-red
+  visual assertion.
+  The Ahem-dependent whitespace visual test remains pending.
+
+### Fixed
+
+- Keep extended CSS declarations independent in cascade/important/inheritance
+  handling, including stylesheets containing only extended properties.
+- Prevent normal block whitespace cleanup from trimming adjacent preformatted
+  source text; retain monotonic Unicode range maps.
+- Size SVG declaration scratch storage for the full declaration ABI.
+- Apply ordinary block width, padding and border geometry to styled forms.
+
 ## 0.13.0 — 2026-11-15
 
 ### Added

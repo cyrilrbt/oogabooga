@@ -252,12 +252,16 @@ Lfloat_collect:
     ldr x28, [x27, #768]
     ldr x9, [x27, #144]
     tbz x9, #63, Lfloat_size_height
-    ldr x28, [x27, #FLOW_INTRINSIC_W]
-    mov x9, #1
+    mov x0, x27
+    ldr x1, [x27, #FLOW_MIN_CONTENT]
+    ldr x2, [x27, #FLOW_INTRINSIC_W]
+    mov x3, x24
+    bl _engine_shrink_to_fit
+    mov x28, x0
+    // Native line-height estimation below divides by width.
     cmp x28, #1
+    mov x9, #1
     csel x28, x9, x28, lt
-    cmp x28, x24
-    csel x28, x24, x28, gt
 Lfloat_size_height:
     str x28, [x27, #FLOW_WIDTH]
     str x28, [x27, #768]

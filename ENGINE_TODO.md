@@ -29,13 +29,20 @@ partial groundwork; parsing a value does not mean rendering it correctly.
 
 ## Current implementation work
 
-- Compatibility dashboard and nine text-free reference fixtures run in local/CI
-  tests; broad saved-site coverage, memory reporting and calibrated budgets remain.
+- Compatibility dashboard, nine text-free references, and four original static
+  search/news/docs/forms pages run in local/CI tests. Page checks currently verify
+  text, selected positions/alignment and screenshots; full page references, memory reporting and
+  calibrated budgets remain. Imported WPT status is recorded separately.
 - Persistent mutation APIs and native rebuild/control/resource preservation are
   covered; complete HTML5 construction and broad selector query APIs remain.
 - Margin collapse, definite/percentage heights, BFC barriers, scene painting,
   clipping controls, mouse interaction and contained scrolling are covered.
-  General inline formatting and full widget compositing remain.
+  Inherited whitespace, tracking, word spacing, numeric/sub/super offsets, shared
+  width/height limits, intrinsic image constraints and keyboard contained scrolling
+  have coverage. Independent nested inline-block contexts, min/max flex freezing,
+  intrinsic sizing/tree aggregation, dependent context reflow and shared native
+  control/link/selection coordinates also have coverage. Ordinary inline
+  fragmentation, complete intrinsic rules and full widget compositing remain.
 - Grid sparse placement, structural selectors and nested stylesheet imports are
   covered. Basic TrueType/OpenType font loading and reflow are covered;
   WOFF/WOFF2, broader flex/table cases and representative pages remain.
@@ -128,8 +135,9 @@ Python, and shell without shipping those implementations as the engine.
 - [ ] Resolve auto widths/heights, shrink-to-fit, min/max constraints, intrinsic
   aspect ratios, and percentage heights with definite/indefinite ancestors.
 - [ ] Support mixed inline/block content without synthetic separator artifacts.
-- [ ] Make general inline/inline-block boxes independent of the styled-link
-  special case, including padding, borders, backgrounds, margins, and baselines.
+- [x] Give inline-block containers independent nested contexts with padding,
+  borders, backgrounds, margins, empty-box sizing and baselines, beyond the
+  styled-link special case. Ordinary inline fragment borders remain separate.
 - [ ] Correct line-height, baseline/vertical alignment, wrapping, whitespace
   modes, nonbreaking spaces, overflow wrapping, and text overflow/ellipsis.
 - [ ] Cover bidi direction, mixed scripts, combining marks, emoji, font fallback,

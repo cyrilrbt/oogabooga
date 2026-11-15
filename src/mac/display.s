@@ -363,8 +363,10 @@ _mac_display_compile_impl:
     mov x20, x1
     mov x21, x2
     mov x22, x3
+    stp x21, x22, [sp, #160]
     mov x24, #0
 Lcompile_node:
+    ldp x21, x22, [sp, #160]
     ldr x9, [x19, #24]
     cmp x24, x9
     b.hs Lcompile_done
@@ -395,6 +397,24 @@ Lcompile_leaf:
     ldr x3, [x9, x11, lsl #3]
     sub x3, x3, x2
     cbz x3, Lcompile_next
+    stp x2, x3, [sp, #176]
+    mov x0, x2
+    bl _mac_atomic_target
+    mov x21, x0
+    mov x22, x1
+    str x3, [sp, #192]
+    stp d0, d1, [sp, #200]
+    str x2, [sp, #176]
+    mov x0, x21
+    MSG textStorage
+    MSG length
+    ldr x2, [sp, #176]
+    cmp x2, x0
+    b.hs Lcompile_next
+    sub x9, x0, x2
+    ldr x3, [sp, #184]
+    cmp x3, x9
+    csel x3, x9, x3, hi
     mov x0, x21
     mov x4, #0
     MSG glyphRange
@@ -413,13 +433,17 @@ Lcompile_type:
     str x24, [x27, #8]
     ldp x2, x3, [sp, #144]
     stp x2, x3, [x27, #56]
+    str x21, [x27, #104]
+    ldr x9, [sp, #192]
+    str x9, [x27, #120]
+    ldp d0, d1, [sp, #200]
+    stp d0, d1, [x27, #88]
     mov x0, x21
     mov x4, x22
     MSG glyphRect
-    LOAD x9, _engine_inset
-    scvtf d4, x9
+    ldp d4, d5, [sp, #200]
     fadd d0, d0, d4
-    fadd d1, d1, d4
+    fadd d1, d1, d5
     stp d0, d1, [x27, #16]
     stp d2, d3, [x27, #32]
     b Lcompile_next
@@ -445,6 +469,23 @@ Lcompile_link:
     ldr x28, [x9, x11, lsl #3]
     sub x28, x28, x23
     cbz x28, Lcompile_next
+    mov x0, x19
+    mov x1, x24
+    mov x2, x23
+    bl _mac_atomic_node_target
+    mov x21, x0
+    mov x22, x1
+    mov x23, x2
+    str x3, [sp, #192]
+    stp d0, d1, [sp, #200]
+    mov x0, x21
+    MSG textStorage
+    MSG length
+    cmp x23, x0
+    b.hs Lcompile_next
+    sub x9, x0, x23
+    cmp x28, x9
+    csel x28, x9, x28, hi
     mov x0, x21
     MSG textStorage
     adrp x9, _NSLinkAttributeName@GOTPAGE
@@ -459,11 +500,14 @@ Lcompile_link:
     mov x2, x23
     mov x3, x28
     mov x4, x24
+    ldr x5, [sp, #192]
+    ldp d0, d1, [sp, #200]
     bl compile_link_lines
 Lcompile_next:
     add x24, x24, #1
     b Lcompile_node
 Lcompile_done:
+    ldp x21, x22, [sp, #160]
     mov x0, x19
     mov x1, x20
     mov x2, x21
@@ -519,6 +563,8 @@ compile_link_lines:
     mov x20, x1
     mov x21, x2
     mov x22, x4
+    str x5, [sp, #160]
+    stp d0, d1, [sp, #168]
     mov x4, #0
     MSG glyphRange
     mov x23, x0
@@ -544,15 +590,19 @@ Llink_line:
     str x9, [x26]
     str x22, [x26, #8]
     str x21, [x26, #120]
+    str x19, [x26, #104]
+    ldr x9, [sp, #160]
+    str x9, [x26, #112]
+    ldp d0, d1, [sp, #168]
+    stp d0, d1, [x26, #88]
     mov x0, x19
     mov x2, x23
     sub x3, x25, x23
     mov x4, x20
     MSG glyphRect
-    LOAD x9, _engine_inset
-    scvtf d4, x9
+    ldp d4, d5, [sp, #168]
     fadd d0, d0, d4
-    fadd d1, d1, d4
+    fadd d1, d1, d5
     stp d0, d1, [x26, #16]
     stp d2, d3, [x26, #32]
     mov x23, x25

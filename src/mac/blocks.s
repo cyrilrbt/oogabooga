@@ -5,13 +5,21 @@
 .include "src/engine/css.inc"
 .text
 .p2align 2
-// document, UTF16 layout, attributed string
+// document, UTF16 layout, attributed string, inline scope (root index+1; 0=main)
 .globl _mac_blocks
 _mac_blocks:
     ENTER
     mov x19, x0
     mov x20, x1
     mov x21, x2
+    str x3, [sp, #152]
+    str xzr, [sp, #160]
+    cbz x3, Lblocks_scope_ready
+    str x4, [sp, #160]
+Lblocks_scope_ready:
+    mov x0, x21
+    MSG length
+    str x0, [sp, #168]
     ldr x0, [x19, #24]
     mov x1, #8
     bl _calloc
@@ -28,6 +36,12 @@ Lblock_create:
     ldr x9, [x19, #24]
     cmp x23, x9
     b.hs Lblocks_ranges
+    mov x0, x19
+    mov x1, x23
+    bl _engine_inline_owner
+    ldr x9, [sp, #152]
+    cmp x0, x9
+    b.ne Lblock_create_next
     ldr x24, [x19, #72]
     add x24, x24, x23, lsl #11
     ldr x9, [x19, #16]
@@ -64,6 +78,8 @@ Lblock_regular:
     cmp x9, #NODE_TEXT
     b.eq Lblock_create_next
     ldr x10, [x24, #88]
+    cmp x10, #5
+    b.eq Lblock_create_next
     cmp x10, #2
     b.eq Lblock_inline_type
     cmp x9, #NODE_A
@@ -86,6 +102,8 @@ Lblock_inline_type:
     cmp x9, #NODE_DL
     b.hs Lblock_container
     cmp x9, #NODE_TABLE
+    b.eq Lblock_container
+    cmp x9, #NODE_FORM
     b.eq Lblock_container
     cmp x9, #NODE_NAV
     b.hi Lblock_create_next
@@ -266,6 +284,12 @@ Lblocks_range:
     ldr x9, [x19, #24]
     cmp x23, x9
     b.hs Lblocks_free
+    mov x0, x19
+    mov x1, x23
+    bl _engine_inline_owner
+    ldr x9, [sp, #152]
+    cmp x0, x9
+    b.ne Lblocks_range_next
     ldr x24, [x19, #16]
     mov x9, #40
     madd x24, x23, x9, x24
@@ -277,13 +301,26 @@ Lblocks_leaf:
     ldr x11, [x24, #24]
     ldr x25, [x9, x10, lsl #3]
     ldr x26, [x9, x11, lsl #3]
+    ldr x9, [sp, #160]
+    ldr x10, [sp, #168]
+    add x10, x10, x9
+    cmp x25, x9
+    csel x25, x9, x25, lo
+    cmp x26, x10
+    csel x26, x10, x26, hi
+    cmp x25, x26
+    b.hs Lblocks_range_next
     sub x26, x26, x25
-    cbz x26, Lblocks_range_next
+    sub x25, x25, x9
     CLASS NSMutableArray
     MSG new
     mov x27, x0
     mov x28, x23
 Lblocks_ancestors:
+    ldr x9, [sp, #152]
+    add x10, x28, #1
+    cmp x9, x10
+    b.eq Lblocks_apply
     cmp x28, #1
     b.lo Lblocks_apply
     ldr x2, [x22, x28, lsl #3]
@@ -305,6 +342,8 @@ Lblocks_apply:
     add x9, x9, x23, lsl #11
     ldr x9, [x9, #88]
     cmp x9, #2
+    b.eq Lblocks_copy_style
+    cmp x9, #5
     b.eq Lblocks_copy_style
     ldr x9, [x24]
     cmp x9, #NODE_TEXT

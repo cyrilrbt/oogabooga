@@ -979,6 +979,8 @@ Ldecl_done:
 // Store one declaration, preserving an earlier !important against later normal values.
 .globl _css_store_decl
 _css_store_decl:
+    cmp x1, #64
+    b.hs Lstore_extended
     mov x4, #1
     lsl x4, x4, x1
     ldr x5, [x0, #8]
@@ -997,10 +999,33 @@ Lstore_value:
     str x3, [x0, x1, lsl #3]
 Lstore_return:
     ret
+Lstore_extended:
+    sub x1, x1, #64
+    mov x4, #1
+    lsl x4, x4, x1
+    ldr x5, [x0, #536]
+    cbnz x2, Lstore_ext_important
+    tst x5, x4
+    b.ne Lstore_return
+    b Lstore_ext_value
+Lstore_ext_important:
+    orr x5, x5, x4
+    str x5, [x0, #536]
+Lstore_ext_value:
+    ldr x5, [x0, #528]
+    orr x5, x5, x4
+    str x5, [x0, #528]
+    add x0, x0, #544
+    str x3, [x0, x1, lsl #3]
+    ret
 
 .section __DATA,__const
 .p2align 3
 property_table:
+.quad p_vertical_align, CSS_VERTICAL_ALIGN
+.quad p_white_space, CSS_WHITE_SPACE
+.quad p_word_spacing, CSS_WORD_SPACING
+.quad p_letter_spacing, CSS_LETTER_SPACING
 .quad p_position, CSS_POSITION
 .quad p_inset_top, CSS_INSET_TOP
 .quad p_inset_right, CSS_INSET_RIGHT
@@ -1036,7 +1061,6 @@ property_table:
 .quad p_radius, CSS_RADIUS
 .quad p_min_height, CSS_MIN_HEIGHT
 .quad p_min_width, CSS_MIN_WIDTH
-.quad p_valign, CSS_VERTICAL_ALIGN
 .quad p_font, 103
 .quad p_color, CSS_COLOR
 .quad p_background, CSS_BACKGROUND
@@ -1047,6 +1071,7 @@ property_table:
 .quad p_decoration, CSS_UNDERLINE
 .quad p_align, CSS_ALIGN
 .quad p_display, CSS_DISPLAY
+.quad p_max_height, CSS_MAX_HEIGHT
 .quad p_top, CSS_TOP
 .quad p_bottom, CSS_BOTTOM
 .quad p_line, CSS_LINE
@@ -1170,7 +1195,7 @@ keyword_table:
 .quad CSS_DISPLAY, grid_text, 4
 .quad CSS_DISPLAY, block_text, 0
 .quad CSS_DISPLAY, inline_text, 2
-.quad CSS_DISPLAY, inline_block_text, 2
+.quad CSS_DISPLAY, inline_block_text, 5
 .quad -1, 0, 0
 .section __TEXT,__cstring,cstring_literals
 rgb_text: .asciz "rgb("
@@ -1207,6 +1232,11 @@ p_style: .asciz "font-style"
 p_decoration: .asciz "text-decoration"
 p_align: .asciz "text-align"
 p_display: .asciz "display"
+p_max_height: .asciz "max-height"
+p_vertical_align: .asciz "vertical-align"
+p_white_space: .asciz "white-space"
+p_word_spacing: .asciz "word-spacing"
+p_letter_spacing: .asciz "letter-spacing"
 p_top: .asciz "margin-top"
 p_bottom: .asciz "margin-bottom"
 p_line: .asciz "line-height"

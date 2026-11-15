@@ -7,6 +7,8 @@
 extern Class mac_register_class(void);
 extern void *engine_parse(const char *,size_t);
 extern void engine_document_free(void *);
+extern NSRect mac_atomic_text_rect(NSUInteger,NSUInteger);
+extern double mac_atomic_text_baseline(NSUInteger);
 extern int mac_engine_display(void *,NSURL *);
 extern NSLayoutManager *mac_display_manager_create(void) __attribute__((ns_returns_retained));
 extern void mac_resources_reset(void);
@@ -110,6 +112,43 @@ static int report(NSString *directory,NSString *manifest) {
             NSArray *rgb=sample[@"rgb"];
             BOOL match=rgb.count==3 && fabs((double)pixel[0]-[rgb[0] doubleValue])<6 && fabs((double)pixel[1]-[rgb[1] doubleValue])<6 && fabs((double)pixel[2]-[rgb[2] doubleValue])<6;
             [checks addObject:@{@"name":sample[@"name"]?:@"pixel",@"pass":@(match),@"x":@(x),@"y":@(y),@"actual":@[@(pixel[0]),@(pixel[1]),@(pixel[2])]}];
+            passed &= match;
+        }
+        for(NSString *expected in test[@"text"]) {
+            BOOL match=[engine_text.string containsString:expected];
+            [checks addObject:@{@"name":[@"visible text: " stringByAppendingString:expected],@"pass":@(match)}];
+            passed &= match;
+        }
+        for(NSArray *forbidden in test[@"forbidden_colors"]) {
+            if(forbidden.count!=3) return 1;
+            NSUInteger found=0;
+            for(NSInteger y=0;y<height;y++)for(NSInteger x=0;x<width;x++) {
+                NSUInteger pixel[4]={0};[image getPixel:pixel atX:x*image.pixelsWide/width y:y*image.pixelsHigh/height];
+                found += labs((long)pixel[0]-[forbidden[0] integerValue])<6 && labs((long)pixel[1]-[forbidden[1] integerValue])<6 && labs((long)pixel[2]-[forbidden[2] integerValue])<6;
+            }
+            BOOL match=found==0;
+            [checks addObject:@{@"name":[NSString stringWithFormat:@"forbidden color %@ absent",forbidden],@"pass":@(match),@"matching_pixels":@(found)}];
+            passed &= match;
+        }
+        for(NSDictionary *geometry in test[@"text_geometry"]) {
+            NSRange range=[engine_text.string rangeOfString:geometry[@"text"]];
+            NSRect actual=NSZeroRect;BOOL match=range.location!=NSNotFound;
+            if(match) actual=mac_atomic_text_rect(range.location,range.length);
+            double tolerance=geometry[@"tolerance"]?[geometry[@"tolerance"] doubleValue]:2;
+            if(geometry[@"x"]) match &= fabs(actual.origin.x-[geometry[@"x"] doubleValue])<=tolerance;
+            if(geometry[@"right_max"]) match &= NSMaxX(actual)<=[geometry[@"right_max"] doubleValue]+tolerance;
+            if(geometry[@"center_x"]) match &= fabs(NSMidX(actual)-[geometry[@"center_x"] doubleValue])<=tolerance;
+            if(geometry[@"same_y_as"]) {
+                NSRange other=[engine_text.string rangeOfString:geometry[@"same_y_as"]];
+                if(other.location==NSNotFound) match=NO;
+                else {NSRect otherRect=[engine_text.layoutManager boundingRectForGlyphRange:[engine_text.layoutManager glyphRangeForCharacterRange:other actualCharacterRange:NULL] inTextContainer:engine_text.textContainer];match &= fabs(otherRect.origin.y-actual.origin.y)<=tolerance;}
+            }
+            if(geometry[@"same_baseline_as"]) {
+                NSRange other=[engine_text.string rangeOfString:geometry[@"same_baseline_as"]];
+                if(other.location==NSNotFound) match=NO;
+                else match &= fabs(mac_atomic_text_baseline(other.location)-mac_atomic_text_baseline(range.location))<=tolerance;
+            }
+            [checks addObject:@{@"name":[@"text geometry: " stringByAppendingString:geometry[@"text"]],@"pass":@(match),@"actual_rect":NSStringFromRect(actual)}];
             passed &= match;
         }
         NSString *referencePNG=@"";

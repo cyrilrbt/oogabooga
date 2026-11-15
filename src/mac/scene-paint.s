@@ -138,26 +138,48 @@ Lscene_draw_command:
     ldr x9, [x25]
     cmp x9, #1
     b.eq Lscene_draw_box
+    mov x0, x25
+    bl _mac_atomic_selection_prepare
     // Native selection/inline backgrounds belong immediately below these
     // glyphs, inside the same transformed, clipped stacking context.
     CLASS NSLayoutManager
     add x9, sp, #536
-    stp x19, x0, [x9]
+    ldr x10, [x25, #104]
+    cmp x10, #0
+    csel x10, x19, x10, eq
+    stp x10, x0, [x9]
     mov x0, x9
     SELECT x1, sceneGlyphBackground
     ldp x2, x3, [x25, #56]
+    ldr x10, [x25, #104]
+    cbz x10, Lscene_native_origin_bg
+    ldp d0, d1, [x25, #88]
+    b Lscene_native_draw_bg
+Lscene_native_origin_bg:
     add x9, sp, #560
     ldp d0, d1, [x9]
+Lscene_native_draw_bg:
     bl _objc_msgSendSuper
     CLASS NSLayoutManager
     add x9, sp, #536
-    stp x19, x0, [x9]
+    ldr x10, [x25, #104]
+    cmp x10, #0
+    csel x10, x19, x10, eq
+    stp x10, x0, [x9]
     mov x0, x9
     mov x1, x20
     ldp x2, x3, [x25, #56]
+    ldr x10, [x25, #104]
+    cbz x10, Lscene_native_origin_fg
+    ldp d0, d1, [x25, #88]
+    b Lscene_native_draw_fg
+Lscene_native_origin_fg:
     add x9, sp, #560
     ldp d0, d1, [x9]
+Lscene_native_draw_fg:
     bl _objc_msgSendSuper
+    mov x0, x25
+    bl _mac_atomic_selection_clear
     b Lscene_draw_restore
 Lscene_draw_box:
     // Replay one stable command without mutating/moving its retained record.

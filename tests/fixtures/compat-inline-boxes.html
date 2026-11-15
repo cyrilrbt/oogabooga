@@ -1,0 +1,7 @@
+<!doctype html><title>Inline formatting contexts</title>
+<style>body{margin:0;background:white;font:16px/1.5 Arial}p{margin:0}.box{display:inline-block;width:140px;padding:8px;border:2px solid #2459ae;background:#eef;margin:0 6px}.box div{margin:0}.wrap{display:inline-block;margin:4px}.frame{display:block;border:1px solid #123456;height:30px}.frame input{height:30px;margin:0}form{display:block}</style>
+<p>Before <span id=outer class=box><div>Inside top</div><div>Inside bottom</div></span> After</p>
+<form><span class=wrap><span id=frameone class=frame><input id=one type=submit value=Search></span></span><span class=wrap><span id=frametwo class=frame><input id=two type=submit value=Lucky></span></span></form>
+<p>Empty <span id=empty style="display:inline-block;width:24px;height:30px;background:red"></span> After empty</p>
+<p>Aligned <span id=aligntop style="display:inline-block;height:48px;width:80px;vertical-align:top;background:#eef">Top</span> <span id=alignbottom style="display:inline-block;height:24px;width:80px;vertical-align:bottom;background:#dde">Bottom</span></p>
+<p><span style="display:inline-block;padding:4px;border:1px solid blue"><a href=/second>Inner link</a></span></p>

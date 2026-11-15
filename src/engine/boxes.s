@@ -96,20 +96,14 @@ Lmetric_border_side:
     cbz x9, Lmetric_max
     sub x24, x24, x23              // border-box width includes padding/border
 Lmetric_max:
-    ldr x0, [x19, #208]
-    tbnz x0, #63, Lmetric_clamp
+    mov x0, x19
     mov x1, x20
-    bl _engine_box_length
-    ldr x9, [x19, #216]
-    cbz x9, Lmetric_max_compare
-    sub x0, x0, x23
-Lmetric_max_compare:
-    cmp x24, x0
-    csel x24, x0, x24, gt
+    mov x2, x24
+    bl _engine_width_clamp
+    mov x24, x0
 Lmetric_clamp:
-    mov x9, #1
-    cmp x24, x9
-    csel x24, x9, x24, lt
+    cmp x24, #0
+    csel x24, xzr, x24, lt
     str x24, [x19, #768]
     sub x25, x20, x24
     sub x25, x25, x23

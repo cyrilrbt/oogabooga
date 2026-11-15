@@ -157,6 +157,8 @@ margin_kind:
     b.hs Lmargin_kind_ignored
     cmp x4, #2
     b.eq Lmargin_kind_other
+    cmp x4, #5
+    b.eq Lmargin_kind_other
     cmp x3, #NODE_ROOT
     b.eq Lmargin_kind_other
     cmp x3, #NODE_HTML

@@ -65,7 +65,6 @@ _mac_attachments:
     mov x19, x0
     mov x20, x1
     mov x21, x2
-    bl _mac_controls_reset
     mov x22, #0
 Lattachment_next:
     ldr x9, [x19, #24]
@@ -153,6 +152,10 @@ Lattachment_flow_dimensions_done:
     ldr x2, [sp, #184]
 Lattachment_control_font:
     MSG setFont
+    mov x0, x26
+    ldr x1, [sp, #192]
+    ldr x2, [sp, #176]
+    bl _mac_input_border
     ldr x9, [sp, #176]
     cmp x9, #0
     b.eq Lattachment_single_line
@@ -201,40 +204,28 @@ Lattachment_natural_height:
     mov x28, x9
     b Lattachment_control_max
 Lattachment_default_width:
-    ldr x0, [sp, #176]
-    cmp x0, #1
-    mov x9, #220
-    ldr x10, [sp, #208]
-    mov x11, #100
-    cmp x10, x11
-    csel x10, x11, x10, lt
-    cmp x0, #1
-    csel x9, x10, x9, eq
-    cmp x0, #8
-    csel x9, x10, x9, eq
-    ldr x11, [sp, #176]
-    cmp x11, #4
-    b.eq Lattachment_check_width
-    cmp x11, #5
-    b.ne Lattachment_control_width
-Lattachment_check_width:
-    ldr x9, [sp, #208]
-Lattachment_control_width:
+    ldr x9, [x26, #FLOW_INTRINSIC_W]
     ldr x10, [sp, #144]
     cmp x10, #0
-    csel x9, x9, x10, lt
-    mov x28, x9
-    ldr x0, [x26, #208]
-    tbnz x0, #63, Lattachment_control_max
+    csel x28, x9, x10, lt
+    mov x0, x26
     ldr x1, [x26, #848]
-    bl _engine_box_length
-    cmp x28, x0
-    csel x28, x0, x28, hi
+    mov x2, x28
+    bl _engine_width_clamp
+    mov x28, x0
 Lattachment_control_max:
     str x28, [sp, #144]
     ldr x9, [sp, #152]
     ldr x10, [sp, #184]
     cmp x9, #0
+    csel x9, x10, x9, lt
+    ldr x10, [x26, #BOX_MAX_HEIGHT]
+    tbnz x10, #63, Lattachment_height_minimum
+    cmp x9, x10
+    csel x9, x10, x9, gt
+Lattachment_height_minimum:
+    ldr x10, [x26, #BOX_MIN_HEIGHT]
+    cmp x9, x10
     csel x9, x10, x9, lt
     str x9, [sp, #152]
     ldr x9, [sp, #176]
@@ -245,6 +236,10 @@ Lattachment_control_max:
     scvtf d0, x9
     scvtf d1, x10
     MSG setFrameSize
+    mov x0, x26
+    ldr x1, [sp, #192]
+    ldr x2, [sp, #176]
+    bl _mac_input_border
 Lattachment_reserve_image:
     CLASS NSImage
     MSG alloc
@@ -314,45 +309,21 @@ Lattachment_image_size:
     b.hi Lattachment_bad_image
     fcmp d1, d2
     b.hi Lattachment_bad_image
-    fdiv d4, d0, d1
-    ldp x9, x10, [sp, #144]
-    cmp x9, #0
-    b.lt Limage_width_auto
-    scvtf d0, x9
-    cmp x10, #0
-    b.ge Limage_height_explicit
-    fdiv d1, d0, d4
-    b Limage_fit
-Limage_width_auto:
-    cmp x10, #0
-    b.lt Limage_fit
-    scvtf d1, x10
-    fmul d0, d1, d4
-    b Limage_fit
-Limage_height_explicit:
-    scvtf d1, x10
-Limage_fit:
-    ldr x9, [x26, #848]
-    scvtf d2, x9
-    ldr x0, [x26, #208]
-    tbnz x0, #63, Limage_max_resolved
-    ldr x1, [x26, #848]
-    bl _engine_box_length
-    scvtf d3, x0
-    fmin d2, d2, d3
-Limage_max_resolved:
-    fcmp d0, d2
-    b.le Limage_height_fit
-    fdiv d3, d2, d0
-    fmul d1, d1, d3
-    fmov d0, d2
-Limage_height_fit:
+    fcvtps x1, d0
+    fcvtps x2, d1
+    mov x0, x26
+    ldp x3, x4, [sp, #144]
+    bl _engine_replaced_size
+    scvtf d0, x0
+    scvtf d1, x1
+    // Bound raster allocations independently of CSS dimensions.
     NUM d2, 4096
-    fcmp d1, d2
+    fmax d3, d0, d1
+    fcmp d3, d2
     b.le Limage_size
-    fdiv d3, d2, d1
-    fmul d0, d0, d3
-    fmov d1, d2
+    fdiv d2, d2, d3
+    fmul d0, d0, d2
+    fmul d1, d1, d2
 Limage_size:
     stp d0, d1, [sp, #144]
     mov x0, x28

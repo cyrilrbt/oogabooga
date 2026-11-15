@@ -40,7 +40,10 @@ Linline_next:
     add x7, x3, x6, lsl #11
     ldr x7, [x7, #88]
     cmp x7, #2
+    b.eq Linline_flow_element
+    cmp x7, #5
     b.ne Linline_advance
+Linline_flow_element:
     mov x7, #40
     madd x7, x6, x7, x1
     ldr x8, [x7]

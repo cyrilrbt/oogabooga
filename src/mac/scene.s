@@ -23,6 +23,9 @@ Lscene_needed:
     add x9, x20, x22, lsl #11
     ldr x10, [x9, #696]
     cbnz x10, Lscene_needed_next
+    ldr x10, [x9, #88]
+    cmp x10, #5
+    b.eq Lscene_allocate
     ldr x10, [x9, #(1840+(CSS_POSITION-48)*8)]
     ldr x11, [x9, #(1840+(CSS_OVERFLOW_X-48)*8)]
     orr x10, x10, x11
@@ -106,6 +109,22 @@ Lscene_measure_node:
     ldr x26, [x9, x11, lsl #3]
     cmp x26, x25
     b.ls Lscene_measure_next
+    mov x0, x19
+    mov x1, x23
+    mov x2, x25
+    bl _mac_atomic_node_target
+    mov x21, x0
+    mov x22, x1
+    stp d0, d1, [sp, #32]
+    sub x26, x26, x3
+    mov x25, x2
+    mov x0, x21
+    MSG textStorage
+    MSG length
+    cmp x26, x0
+    csel x26, x0, x26, hi
+    cmp x25, x26
+    b.hs Lscene_measure_next
     mov x0, x21
     mov x2, x25
     sub x3, x26, x25
@@ -145,10 +164,9 @@ Lscene_measure_block:
     ldr x3, [sp]
     mov x4, #0
     MSG sceneBlockBounds
-    LOAD x9, _engine_inset
-    scvtf d4, x9
+    ldp d4, d5, [sp, #32]
     fadd d0, d0, d4
-    fadd d1, d1, d4
+    fadd d1, d1, d5
     ldr x0, [sp, #24]
     bl _mac_display_box
     b Lscene_measure_geometry
@@ -167,16 +185,32 @@ Lscene_measure_glyphs:
     ldp x2, x3, [sp, #8]
     mov x4, x22
     MSG glyphRect
-    LOAD x9, _engine_inset
-    scvtf d4, x9
+    ldp d4, d5, [sp, #32]
     fadd d0, d0, d4
-    fadd d1, d1, d4
+    fadd d1, d1, d5
     // Unboxed block ancestors still supply a full containing width for relative
     // percentages. Inline ancestors retain the measured inline glyph width.
     ldr x9, [x19, #72]
     add x9, x9, x23, lsl #11
     ldr x10, [x9, #88]
     cmp x10, #2
+    b.eq Lscene_measure_set
+    cmp x10, #5
+    b.eq Lscene_measure_set
+    ldr x10, [x24]
+    cmp x10, #NODE_TEXT
+    b.eq Lscene_measure_set
+    cmp x10, #NODE_INPUT
+    b.eq Lscene_measure_set
+    cmp x10, #NODE_IMG
+    b.eq Lscene_measure_set
+    cmp x10, #NODE_BUTTON
+    b.eq Lscene_measure_set
+    cmp x10, #NODE_SELECT
+    b.eq Lscene_measure_set
+    cmp x10, #NODE_TEXTAREA
+    b.eq Lscene_measure_set
+    cmp x10, #NODE_SVG
     b.eq Lscene_measure_set
     ldr x10, [x9, #768]
     scvtf d4, x10
