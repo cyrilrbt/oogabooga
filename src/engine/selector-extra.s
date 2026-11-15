@@ -20,6 +20,31 @@ Lboundary_scan:
     csel x3, xzr, x3, eq
     b Lboundary_advance
 Lboundary_unquoted:
+    cmp w6, #47
+    b.ne Lboundary_not_comment
+    add x7, x0, #1
+    cmp x7, x1
+    b.hs Lboundary_not_comment
+    ldrb w7, [x7]
+    cmp w7, #42
+    b.ne Lboundary_not_comment
+    add x0, x0, #2
+Lboundary_comment:
+    add x7, x0, #1
+    cmp x7, x1
+    b.hs Lboundary_comment_end
+    ldrb w6, [x0], #1
+    cmp w6, #42
+    b.ne Lboundary_comment
+    ldrb w6, [x0]
+    cmp w6, #47
+    b.ne Lboundary_comment
+    add x0, x0, #1
+    b Lboundary_scan
+Lboundary_comment_end:
+    mov x0, x1
+    ret
+Lboundary_not_comment:
     cmp w6, #34
     b.eq Lboundary_quote
     cmp w6, #39

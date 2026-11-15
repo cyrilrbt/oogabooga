@@ -63,6 +63,18 @@ Lblock_regular:
     ldr x9, [x9]
     cmp x9, #NODE_TEXT
     b.eq Lblock_create_next
+    ldr x10, [x24, #88]
+    cmp x10, #2
+    b.eq Lblock_inline_type
+    cmp x9, #NODE_A
+    b.eq Lblock_container
+    cmp x9, #NODE_SPAN
+    b.eq Lblock_container
+    cmp x9, #NODE_STRONG
+    b.eq Lblock_container
+    cmp x9, #NODE_EM
+    b.eq Lblock_container
+Lblock_inline_type:
     cmp x9, #NODE_A
     b.eq Lblock_create_next
     cmp x9, #NODE_SPAN
@@ -93,6 +105,18 @@ Lblock_container:
     cmn x9, #1
     b.ne Lblock_make
 Lblock_non_background:
+    ldr x9, [x24, #(1840+(CSS_POSITION-48)*8)]
+    cbnz x9, Lblock_make
+    ldr x9, [x24, #(1840+(CSS_OVERFLOW_X-48)*8)]
+    ldr x10, [x24, #(1840+(CSS_OVERFLOW_Y-48)*8)]
+    orr x9, x9, x10
+    cbnz x9, Lblock_make
+    ldr x9, [x24, #NATIVE_EMPTY]
+    cbnz x9, Lblock_make
+    ldr x9, [x24, #FLOW_BEFORE]
+    ldr x10, [x24, #FLOW_AFTER]
+    orr x9, x9, x10
+    cbnz x9, Lblock_make
     ldr x9, [x24, #(32+CSS_CLEAR*8)]
     cbnz x9, Lblock_make
     ldr x9, [x19, #72]
@@ -138,7 +162,7 @@ Lblock_store:
     mov x2, #0
     MSG blockWidth
 Lblock_height:
-    ldr x9, [x24, #152]
+    ldr x9, [x24, #BOX_HEIGHT]
     tbnz x9, #63, Lblock_edges
     scvtf d0, x9
     mov x0, x25

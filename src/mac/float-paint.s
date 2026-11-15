@@ -56,6 +56,8 @@ Lpainter_new:
 // drawBackgroundForGlyphRange:atPoint: (range x2/x3, point d0/d1).
 .globl _mac_display_background_impl
 _mac_display_background_impl:
+    LOAD x9, _mac_scene
+    cbnz x9, Lpaint_scene_background
     ENTER
     mov x19, x0
     mov x20, x1
@@ -91,6 +93,8 @@ _mac_display_background_impl:
     bl _objc_msgSendSuper
 Lpaint_done:
     LEAVE
+Lpaint_scene_background:
+    ret
 .section __TEXT,__cstring,cstring_literals
 painter_name: .asciz "OogaFloatLayoutManager"
 painter_draw_name: .asciz "drawBackgroundForGlyphRange:atPoint:"
@@ -101,6 +105,10 @@ painter_encoding: .asciz "v@:{_NSRange=QQ}{CGPoint=dd}"
 // Replay retained glyph/image ranges, culling against the actual damaged rect.
 .globl _mac_display_glyphs_impl
 _mac_display_glyphs_impl:
+    LOAD x9, _mac_scene
+    cbz x9, Lglyph_legacy
+    b _mac_scene_draw
+Lglyph_legacy:
     ENTER
     mov x19, x0
     mov x20, x1

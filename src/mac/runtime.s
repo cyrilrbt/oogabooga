@@ -891,6 +891,7 @@ css_method_ensureTextLayout: .asciz "ensureLayoutForTextContainer:"
 css_method_typesetterBehavior: .asciz "typesetterBehavior"
 css_method_setTypesetterBehavior: .asciz "setTypesetterBehavior:"
 css_method_replaceLayoutManager: .asciz "replaceLayoutManager:"
+css_method_allValues: .asciz "allValues"
 css_method_usedTextRect: .asciz "usedRectForTextContainer:"
 .globl _class_NSFontManager
 _class_NSFontManager: .asciz "NSFontManager"
@@ -948,6 +949,8 @@ _sel_typesetterBehavior: .quad css_method_typesetterBehavior
 _sel_setTypesetterBehavior: .quad css_method_setTypesetterBehavior
 .globl _sel_replaceLayoutManager
 _sel_replaceLayoutManager: .quad css_method_replaceLayoutManager
+.globl _sel_allValues
+_sel_allValues: .quad css_method_allValues
 .globl _sel_usedTextRect
 _sel_usedTextRect: .quad css_method_usedTextRect
 
@@ -1429,8 +1432,62 @@ _sel_setFill: .quad float_set_fill
 .globl _sel_visibleRect, _sel_invalidateCursorRects
 _sel_visibleRect: .quad display_visible_rect
 _sel_invalidateCursorRects: .quad display_invalidate_cursor
+.globl _sel_standardizedURL, _sel_setURLFragment, _sel_equalObject
+_sel_standardizedURL: .quad import_standardized_url
+_sel_setURLFragment: .quad import_set_fragment
+_sel_equalObject: .quad import_equal_object
+.globl _sel_initOwnedBytes, _sel_textBlocks, _sel_sceneBlockBounds
+_sel_initOwnedBytes: .quad scene_owned_bytes
+_sel_textBlocks: .quad scene_text_blocks
+_sel_sceneBlockBounds: .quad scene_block_bounds
+.globl _sel_sceneGlyphBackground
+_sel_sceneGlyphBackground: .quad scene_glyph_background
+.globl _sel_eventLocation, _sel_convertScenePoint, _sel_arrowCursor, _sel_IBeamCursor, _sel_cursorSet
+.globl _sel_sceneCharacterIndex, _sel_sceneSelectedRange, _sel_setSceneSelectedRange, _sel_eventClickCount, _sel_sceneSelectWord
+_sel_eventLocation: .quad scene_event_location
+_sel_convertScenePoint: .quad scene_convert_point
+_sel_arrowCursor: .quad scene_arrow_cursor
+_sel_IBeamCursor: .quad scene_ibeam_cursor
+_sel_cursorSet: .quad scene_cursor_set
+_sel_sceneCharacterIndex: .quad scene_character_index
+_sel_sceneSelectedRange: .quad scene_selected_range
+_sel_setSceneSelectedRange: .quad scene_set_selected_range
+_sel_eventClickCount: .quad scene_click_count
+_sel_sceneSelectWord: .quad scene_select_word
+.globl _sel_sceneMasksBounds, _sel_sceneAlpha, _sel_sceneHidden
+_sel_sceneMasksBounds: .quad scene_masks_bounds
+_sel_sceneAlpha: .quad scene_alpha
+_sel_sceneHidden: .quad scene_hidden
+.globl _sel_sceneDeltaX, _sel_sceneDeltaY, _sel_scenePreciseScroll
+_sel_sceneDeltaX: .quad scene_delta_x
+_sel_sceneDeltaY: .quad scene_delta_y
+_sel_scenePreciseScroll: .quad scene_precise_scroll
 selector_end:
 selectors_ready: .quad 0
+.section __TEXT,__cstring,cstring_literals
+import_standardized_url: .asciz "standardizedURL"
+import_set_fragment: .asciz "setFragment:"
+import_equal_object: .asciz "isEqual:"
+scene_owned_bytes: .asciz "initWithBytesNoCopy:length:freeWhenDone:"
+scene_text_blocks: .asciz "textBlocks"
+scene_block_bounds: .asciz "boundsRectForTextBlock:atIndex:effectiveRange:"
+scene_glyph_background: .asciz "drawBackgroundForGlyphRange:atPoint:"
+scene_event_location: .asciz "locationInWindow"
+scene_convert_point: .asciz "convertPoint:fromView:"
+scene_arrow_cursor: .asciz "arrowCursor"
+scene_ibeam_cursor: .asciz "IBeamCursor"
+scene_cursor_set: .asciz "set"
+scene_character_index: .asciz "characterIndexForPoint:inTextContainer:fractionOfDistanceBetweenInsertionPoints:"
+scene_selected_range: .asciz "selectedRange"
+scene_set_selected_range: .asciz "setSelectedRange:"
+scene_click_count: .asciz "clickCount"
+scene_select_word: .asciz "selectWord:"
+scene_masks_bounds: .asciz "setMasksToBounds:"
+scene_alpha: .asciz "setAlphaValue:"
+scene_hidden: .asciz "isHidden"
+scene_delta_x: .asciz "scrollingDeltaX"
+scene_delta_y: .asciz "scrollingDeltaY"
+scene_precise_scroll: .asciz "hasPreciseScrollingDeltas"
 .text
 .p2align 2
 .globl _mac_init_selectors

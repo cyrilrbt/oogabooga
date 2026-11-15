@@ -24,6 +24,9 @@ Lfit_source_top:
     add x8, x3, x14, lsl #7
     cmp x8, x1
     b.eq Lfit_source_top_done
+    ldr x9, [x8, #56]
+    tst x9, #3
+    b.eq Lfit_source_top_next
     ldr x9, [x8, #48]
     cbz x9, Lfit_source_top_next
     ldr x9, [x8, #120]
@@ -69,6 +72,9 @@ Lfit_obstacle:
     add x8, x3, x7, lsl #7
     cmp x8, x1
     b.eq Lfit_available
+    ldr x9, [x8, #56]
+    tst x9, #3
+    b.eq Lfit_next
     ldr x9, [x8, #48]
     cbz x9, Lfit_next
     ldr x9, [x8, #120]

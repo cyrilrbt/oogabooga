@@ -19,14 +19,23 @@ extern void engine_css_apply(Doc *);
 extern void engine_inline_boxes(Doc *);
 extern void engine_flow_tree(Doc *);
 extern void engine_float_tree(Doc *);
+extern void engine_margin_reset(Doc *);
+extern void engine_margin_tree(Doc *);
 extern void engine_box_tree(Doc *,uint64_t);
+extern void engine_position_tree(Doc *);
 extern uint64_t engine_box_metrics(Meta *,uint64_t);
 extern char *engine_form_encode(const char *);
 extern int css_media_match(const char *,const char *,uint64_t);
+typedef struct {char *url,*media;uint64_t start,end,next;} Import;
+extern int engine_css_import_next(const char *,size_t,size_t,Import *);
+extern int css_nth_formula(const char *,const char *,int64_t);
 extern uint64_t css_match(Doc *,uint64_t,const char *,const char *);
 static Doc *parse(const char *s) { Doc *d=engine_parse(s,strlen(s)); assert(d); return d; }
 static size_t id(Doc *d,const char *name) { for(size_t i=0;i<d->count;i++) if(d->meta[i].id && strcmp(d->meta[i].id,name)==0) return i; abort(); }
 static uint64_t match(Doc *d,size_t i,const char *selector) { return css_match(d,i,selector,selector+strlen(selector)); }
+static void margins(Doc *d) { engine_margin_reset(d); engine_box_tree(d,400); engine_flow_tree(d); engine_float_tree(d); engine_margin_tree(d); }
+static int64_t top(Doc *d,const char *name) { return ((int64_t *)&d->meta[id(d,name)])[792/8]; }
+static int64_t bottom(Doc *d,const char *name) { return ((int64_t *)&d->meta[id(d,name)])[800/8]; }
 int main(void) {
     _Static_assert(sizeof(Meta)==2048,"CSS ABI");
     Doc *d=parse("<html><body class='page'><p id='target' class='note loud' style='color:purple; margin: 1px 2px 3px 4px'>Hello <span id=child>child</span></p><p id=other>Other</p><style>/* comment */p {color:red;font-size:20px} .note{color:blue} #target{color:green} body.page p.note {font-weight:700} #other{color:#abc} @media print {p{display:none}}</style></body></html>");
@@ -115,7 +124,7 @@ int main(void) {
     assert(d->meta[link].value[0]==255);
     ((uint64_t *)&d->meta[link])[108]=1; engine_css_apply(d);
     assert(!match(d,link,"a:link") && match(d,link,"a:visited"));
-    assert(d->meta[link].value[0]==0x800080 && d->meta[link].value[7]==0 && d->meta[link].value[14]==-1);
+    assert(d->meta[link].value[0]==0x800080 && d->meta[link].value[7]==2 && d->meta[link].value[14]==-1);
     engine_document_free(d);
     d=parse("<style>.inline{display:inline-block}</style><center><div class=inline>Search field</div><br><span class=inline>Search buttons</span><br><br>Footer</center>");
     l=engine_layout(d,0); assert(l && strstr(l->text,"Search field") && strstr(l->text,"\nSearch buttons\n\nFooter"));
@@ -192,6 +201,60 @@ int main(void) {
     uint64_t *gg1=(uint64_t *)&d->meta[id(d,"g1")],*gg2=(uint64_t *)&d->meta[id(d,"g2")],*gg3=(uint64_t *)&d->meta[id(d,"g3")];
     assert(gg1[1464/8]==100 && gg2[1464/8]==490 && gg2[1448/8]==2 && gg3[1456/8]==2 && gg3[1432/8]==1 && gg3[1472/8]>=110);
     engine_document_free(d);
+    d=parse("<div style='display:grid;grid-template-columns:repeat(3,100px)'><div id=wide style='grid-column:span 2'>w</div><div id=next style='grid-column:span 2'>n</div><div id=last>l</div><div id=reserved style='grid-row:1;grid-column:3'>r</div></div>");
+    engine_box_tree(d,400);engine_flow_tree(d);
+    uint64_t *wide=(uint64_t *)&d->meta[id(d,"wide")],*next=(uint64_t *)&d->meta[id(d,"next")],*last=(uint64_t *)&d->meta[id(d,"last")],*reserved=(uint64_t *)&d->meta[id(d,"reserved")];
+    assert(wide[1432/8]==0&&wide[1440/8]==0&&wide[1448/8]==2);
+    assert(reserved[1432/8]==0&&reserved[1440/8]==2);
+    assert(next[1432/8]==1&&next[1440/8]==0&&next[1448/8]==2);
+    assert(last[1432/8]==1&&last[1440/8]==2);
+    engine_document_free(d);
+    d=parse("<div style='display:grid;grid-template-columns:repeat(3,100px)'><div id=wide style='grid-column:span 2'>w</div><div id=next style='grid-column:span 2'>n</div><div id=last>l</div></div>");
+    engine_box_tree(d,400);engine_flow_tree(d);
+    last=(uint64_t *)&d->meta[id(d,"last")];
+    assert(last[1432/8]==1&&last[1440/8]==2); // do not backfill the hole in row 0
+    engine_document_free(d);
+    const char *formulas[]={"odd","even","2n+1","-n + 3","n","0n+2","+3","-2n+6","2 n+1","n+-1","n+","999999999999n","2n + 1 garbage"};
+    for(size_t f=0;f<sizeof(formulas)/sizeof(*formulas);f++) for(int k=1;k<=8;k++) {
+        int expected=f==0?k%2:f==1?!(k%2):f==2?k%2:f==3?k<=3:f==4?1:f==5?k==2:f==6?k==3:f==7?(k<=6&&!(k%2)):0;
+        assert(css_nth_formula(formulas[f],formulas[f]+strlen(formulas[f]),k)==expected);
+    }
+    d=parse("<style>#nth > p:nth-child(2n+1){color:red}#nth > p:nth-of-type(2){font-weight:700}</style><div id=nth><!--comment--><p id=n1>1</p><x-unknown id=n2 hidden></x-unknown><p id=n3>3</p><p id=n4>4</p></div>");
+    assert(match(d,id(d,"n1"),"p:nth-child(odd)")&&match(d,id(d,"n3"),"p:nth-child(3)"));
+    assert(!match(d,id(d,"n3"),"p:nth-child(2)")&&match(d,id(d,"n3"),"p:nth-of-type(2)"));
+    assert(match(d,id(d,"n3"),"p:nth-last-child(2)")&&match(d,id(d,"n3"),"p:nth-last-of-type(2)"));
+    assert(match(d,id(d,"n2"),"x-unknown:nth-child(2)")&&!match(d,id(d,"n1"),"p:nth-child(2n+)"));
+    assert(d->meta[id(d,"n1")].value[0]==0xff0000&&d->meta[id(d,"n3")].value[0]==0xff0000&&d->meta[id(d,"n3")].value[3]==700);
+    engine_document_free(d);
+    d=parse("<div><style>p{color:red}</style><!--ignored--><p id=afterstyle>x</p><p id=beforestyle>y</p><style></style></div><div id=white> </div><div id=comment><!--ignored--></div><div id=hiddenchild><x-hidden hidden></x-hidden></div>");
+    assert(!match(d,id(d,"afterstyle"),":first-child")&&match(d,id(d,"afterstyle"),":nth-child(2)"));
+    assert(!match(d,id(d,"beforestyle"),":last-child")&&!match(d,id(d,"white"),":empty"));
+    assert(match(d,id(d,"comment"),":empty")&&!match(d,id(d,"hiddenchild"),":empty"));
+    engine_document_free(d);
+    d=parse("<div style='position:relative;width:300px;height:200px;padding:10px;border:5px solid'><div id=abs style='position:absolute;left:10px;right:20px;height:50%;padding:5px;border:2px solid'>x</div><div id=fixedsize style='position:fixed;width:50%;height:20px'>f</div><div id=hiddenabs style='display:none;position:absolute;width:100px'>h</div></div>");
+    engine_box_tree(d,800);engine_flow_tree(d);engine_float_tree(d);engine_position_tree(d);
+    uint64_t *absbox=(uint64_t *)&d->meta[id(d,"abs")],*fixedbox=(uint64_t *)&d->meta[id(d,"fixedsize")];
+    assert(absbox[1472/8]==110&&absbox[1464/8]==276&&absbox[1704/8]==290&&absbox[1720/8]==1);
+    assert(fixedbox[1464/8]==400&&fixedbox[1472/8]==20&&fixedbox[1720/8]==1);
+    assert(!((uint64_t *)&d->meta[id(d,"hiddenabs")])[1720/8]);
+    engine_document_free(d);
+    // Every declaration prefix ends at a protected boundary.
+    d=parse("<div style='border:1px solid black'><p id=ma style='height:10px;margin:0 0 30px'>A</p><p id=mb style='height:10px;margin:20px 0 0'>B</p></div>");
+    margins(d); assert(bottom(d,"ma")==0 && top(d,"mb")==30);
+    engine_box_metrics(&d->meta[id(d,"mb")],398); assert(top(d,"mb")==30);
+    margins(d); assert(bottom(d,"ma")==0 && top(d,"mb")==30); engine_document_free(d);
+    d=parse("<div style='border:1px solid black'><p id=ma style='height:10px;margin:0 0 30px'>A</p><p id=mb style='height:10px;margin:-10px 0 0'>B</p></div>");
+    margins(d); assert(bottom(d,"ma")==0 && top(d,"mb")==20); engine_document_free(d);
+    d=parse("<div style='border:1px solid black'><p id=ma style='height:10px;margin:0 0 -30px'>A</p><p id=mb style='height:10px;margin:-10px 0 0'>B</p></div>");
+    margins(d); assert(bottom(d,"ma")==0 && top(d,"mb")==-30); engine_document_free(d);
+    d=parse("<div style='border:1px solid black'><p id=ma style='height:10px;margin:0 0 30px'>A</p><div id=empty style='margin:10px 0 20px'></div><p id=mb style='height:10px;margin:15px 0 0'>B</p></div>");
+    margins(d); assert(bottom(d,"ma")+top(d,"empty")+bottom(d,"empty")+top(d,"mb")==30 && ((uint64_t *)&d->meta[id(d,"empty")])[2040/8]); engine_document_free(d);
+    d=parse("<div style='border:1px solid black'><div id=parent style='margin:20px 0 30px'><p id=inner style='height:10px;margin:40px 0 50px'>inside</p></div></div>");
+    margins(d); assert(top(d,"parent")==40 && bottom(d,"parent")==50 && top(d,"inner")==0 && bottom(d,"inner")==0); engine_document_free(d);
+    d=parse("<div style='border:1px solid black'><div id=parent style='padding:1px;margin:20px 0 30px'><p id=inner style='height:10px;margin:40px 0 50px'>inside</p></div></div>");
+    margins(d); assert(top(d,"parent")==20 && bottom(d,"parent")==30 && top(d,"inner")==40 && bottom(d,"inner")==50); engine_document_free(d);
+    d=parse("<div style='display:flex'><p id=ma style='height:10px;margin:0 0 30px'>A</p><p id=mb style='height:10px;margin:20px 0 0'>B</p></div>");
+    margins(d); assert(bottom(d,"ma")==30 && top(d,"mb")==20); engine_document_free(d);
     // Every declaration prefix ends at a protected boundary.
     size_t page=(size_t)sysconf(_SC_PAGESIZE);
     char *guard=mmap(NULL,page*2,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0); assert(guard!=MAP_FAILED); assert(!mprotect(guard+page,page,PROT_NONE));
@@ -205,6 +268,43 @@ int main(void) {
     for(size_t k=0;k<=strlen(font);k++) { char *p=guard+page-k; memcpy(p,font,k); uint64_t decl[66]={0}; css_declarations(p,p+k,decl); }
     munmap(guard,page*2);
     char *encoded=engine_form_encode("café +&=🌐"); assert(encoded && !strcmp(encoded,"caf%C3%A9+%2B%26%3D%F0%9F%8C%90")); free(encoded);
+    d=parse("<div id=ov1 style='overflow:hidden auto;overflow-x:clip'>a</div><div id=ov2 style='overflow-x:hidden;overflow:visible clip'>b</div><div id=ov3 style='overflow:hidden!important;overflow-y:visible'>c</div><div style='overflow:clip'><div id=ov4 style='overflow:inherit'>d</div></div>");
+    uint64_t *ov=(uint64_t *)&d->meta[id(d,"ov1")];assert(ov[1952/8]==1&&ov[1960/8]==2);
+    ov=(uint64_t *)&d->meta[id(d,"ov2")];assert(ov[1952/8]==0&&ov[1960/8]==3);
+    ov=(uint64_t *)&d->meta[id(d,"ov3")];assert(ov[1952/8]==1&&ov[1960/8]==1);
+    ov=(uint64_t *)&d->meta[id(d,"ov4")];assert(ov[1952/8]==3&&ov[1960/8]==3);
+    engine_document_free(d);
+    const char *imports="/* before */ @charset \"UTF-8\"; @import url(\"nested/a.css\") screen and (min-width: 300px); @import 'b.css'; div{color:red}@import 'too-late.css';";
+    Import imp={0};
+    assert(engine_css_import_next(imports,strlen(imports),0,&imp));
+    assert(!strcmp(imp.url,"nested/a.css")&&!strcmp(imp.media,"screen and (min-width: 300px)"));
+    size_t offset=imp.next;assert(imp.start<imp.end&&imp.end==imp.next);free(imp.url);free(imp.media);
+    assert(engine_css_import_next(imports,strlen(imports),offset,&imp));
+    assert(!strcmp(imp.url,"b.css")&&!strcmp(imp.media,""));offset=imp.next;free(imp.url);free(imp.media);
+    assert(!engine_css_import_next(imports,strlen(imports),offset,&imp));
+    const char *badimports[]={"@import url(x.css", "@import '' ;", "@import url(x y);", "@import \"x\" screen and (;", "@importurl(x);", "@import 'x' {color:red}","@import 'x\\y';"};
+    for(size_t j=0;j<sizeof(badimports)/sizeof(*badimports);j++)assert(!engine_css_import_next(badimports[j],strlen(badimports[j]),0,&imp));
+    guard=mmap(NULL,page*2,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0);assert(guard!=MAP_FAILED&&!mprotect(guard+page,page,PROT_NONE));
+    for(size_t k=0;k<=strlen(imports);k++){char *p=guard+page-k;memcpy(p,imports,k);if(engine_css_import_next(p,k,0,&imp)){free(imp.url);free(imp.media);}}
+    munmap(guard,page*2);
+    // Percent heights use a definite parent content height, never its width.
+    d=parse("<div id=auto style='min-height:200px'><div id=indefinite style='height:50%;min-height:20%'>x</div></div><div id=parent style='height:200px;padding:10px;border:5px solid;box-sizing:border-box'><div id=half style='height:50%'><div id=quarter style='height:50%'>q</div></div><div id=minimum style='height:10px;min-height:30%'>m</div></div>");
+    engine_box_tree(d,800);
+    assert(((int64_t *)&d->meta[id(d,"auto")])[1776/8]==-1);
+    assert(((int64_t *)&d->meta[id(d,"auto")])[1784/8]==200);
+    assert(((int64_t *)&d->meta[id(d,"indefinite")])[1776/8]==-1);
+    assert(((int64_t *)&d->meta[id(d,"indefinite")])[1784/8]==0);
+    assert(((int64_t *)&d->meta[id(d,"parent")])[1776/8]==170);
+    assert(((int64_t *)&d->meta[id(d,"half")])[1776/8]==85);
+    assert(((int64_t *)&d->meta[id(d,"quarter")])[1776/8]==43);
+    assert(((int64_t *)&d->meta[id(d,"minimum")])[1776/8]==51);
+    engine_box_tree(d,300); // resizing width cannot change these heights
+    assert(((int64_t *)&d->meta[id(d,"half")])[1776/8]==85);
+    engine_document_free(d);
+    d=parse("<div id=small style='height:10px;min-height:12px;box-sizing:border-box;padding:20px'>x</div>");
+    engine_box_tree(d,400);
+    assert(((int64_t *)&d->meta[id(d,"small")])[1776/8]==0);
+    engine_document_free(d);
     // Malformed sheets, unsupported at-rules and declaration data must remain bounded.
     const char *bad[]={"<style>p{color:red", "<style>/*", "<style>@import url('x;y');p{color:blue}", "<style>@media screen{{\"}\"}}p{color:green}", "<style>p{background:url('x}');color:red}</style><p>x</p>"};
     for(size_t i=0;i<sizeof(bad)/sizeof(*bad);i++) { d=parse(bad[i]); engine_document_free(d); }

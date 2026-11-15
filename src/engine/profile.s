@@ -43,6 +43,7 @@ PROFILE_WRAP _engine_css_apply, _engine_css_apply_impl, 1
 PROFILE_WRAP _engine_box_tree, _engine_box_tree_impl, 2
 PROFILE_WRAP _engine_flow_tree, _engine_flow_tree_impl, 2
 PROFILE_WRAP _engine_float_tree, _engine_float_tree_impl, 2
+PROFILE_WRAP _engine_position_tree, _engine_position_tree_impl, 2
 .section __DATA,__bss
 .p2align 3
 .globl _engine_profile_enabled, _engine_profile_totals, _engine_profile_counts

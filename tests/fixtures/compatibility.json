@@ -1,0 +1,379 @@
+[
+  {
+    "name": "boxes",
+    "file": "tests/fixtures/compat-boxes.html",
+    "width": 400,
+    "height": 240,
+    "budget_ms": 25,
+    "reference": [
+      {
+        "rect": [
+          0,
+          0,
+          100,
+          40
+        ],
+        "rgb": [
+          0,
+          0,
+          255
+        ]
+      }
+    ],
+    "pixels": [
+      {
+        "name": "blue interior",
+        "x": 5,
+        "y": 5,
+        "rgb": [
+          0,
+          0,
+          255
+        ]
+      }
+    ]
+  },
+  {
+    "name": "flex",
+    "file": "tests/fixtures/compat-flex.html",
+    "width": 400,
+    "height": 240,
+    "budget_ms": 25,
+    "reference": [
+      {
+        "rect": [
+          0,
+          0,
+          100,
+          40
+        ],
+        "rgb": [
+          0,
+          0,
+          255
+        ]
+      },
+      {
+        "rect": [
+          110,
+          0,
+          100,
+          40
+        ],
+        "rgb": [
+          0,
+          128,
+          0
+        ]
+      }
+    ],
+    "pixels": [
+      {
+        "name": "blue interior",
+        "x": 5,
+        "y": 5,
+        "rgb": [
+          0,
+          0,
+          255
+        ]
+      }
+    ]
+  },
+  {
+    "name": "grid",
+    "file": "tests/fixtures/compat-grid.html",
+    "width": 400,
+    "height": 240,
+    "budget_ms": 25,
+    "reference": [
+      {
+        "rect": [
+          0,
+          0,
+          100,
+          40
+        ],
+        "rgb": [
+          0,
+          0,
+          255
+        ]
+      },
+      {
+        "rect": [
+          110,
+          0,
+          100,
+          40
+        ],
+        "rgb": [
+          0,
+          128,
+          0
+        ]
+      }
+    ],
+    "pixels": [
+      {
+        "name": "blue interior",
+        "x": 5,
+        "y": 5,
+        "rgb": [
+          0,
+          0,
+          255
+        ]
+      }
+    ]
+  },
+  {
+    "name": "margins",
+    "file": "tests/fixtures/compat-margins.html",
+    "width": 400,
+    "height": 240,
+    "budget_ms": 25,
+    "reference": [
+      {
+        "rect": [
+          0,
+          0,
+          100,
+          10
+        ],
+        "rgb": [
+          0,
+          0,
+          255
+        ]
+      },
+      {
+        "rect": [
+          0,
+          40,
+          100,
+          10
+        ],
+        "rgb": [
+          0,
+          128,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "name": "negative-margins",
+    "file": "tests/fixtures/compat-negative-margins.html",
+    "width": 400,
+    "height": 240,
+    "budget_ms": 25,
+    "reference": [
+      {
+        "rect": [
+          0,
+          0,
+          100,
+          10
+        ],
+        "rgb": [
+          0,
+          0,
+          255
+        ]
+      },
+      {
+        "rect": [
+          0,
+          30,
+          100,
+          10
+        ],
+        "rgb": [
+          0,
+          128,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "name": "percentage-heights",
+    "file": "tests/fixtures/compat-heights.html",
+    "width": 400,
+    "height": 240,
+    "budget_ms": 25,
+    "reference": [
+      {
+        "rect": [
+          0,
+          0,
+          100,
+          100
+        ],
+        "rgb": [
+          0,
+          128,
+          0
+        ]
+      },
+      {
+        "rect": [
+          0,
+          0,
+          100,
+          50
+        ],
+        "rgb": [
+          0,
+          0,
+          255
+        ]
+      }
+    ]
+  },
+  {
+    "name": "scene-relative-clips",
+    "file": "tests/fixtures/compat-scene.html",
+    "width": 400,
+    "height": 240,
+    "budget_ms": 25,
+    "reference": [
+      {
+        "rect": [
+          0,
+          40,
+          100,
+          10
+        ],
+        "rgb": [
+          255,
+          0,
+          0
+        ]
+      },
+      {
+        "rect": [
+          20,
+          10,
+          100,
+          40
+        ],
+        "rgb": [
+          0,
+          0,
+          255
+        ]
+      },
+      {
+        "rect": [
+          70,
+          20,
+          50,
+          20
+        ],
+        "rgb": [
+          0,
+          128,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "name": "group-opacity",
+    "file": "tests/fixtures/compat-opacity.html",
+    "width": 400,
+    "height": 240,
+    "budget_ms": 25,
+    "reference": [
+      {
+        "rect": [
+          0,
+          0,
+          100,
+          40
+        ],
+        "rgb": [
+          128,
+          128,
+          255
+        ]
+      },
+      {
+        "rect": [
+          0,
+          0,
+          50,
+          20
+        ],
+        "rgb": [
+          128,
+          192,
+          128
+        ]
+      }
+    ]
+  },
+  {
+    "name": "absolute-fixed",
+    "file": "tests/fixtures/compat-positioned.html",
+    "width": 400,
+    "height": 240,
+    "budget_ms": 25,
+    "reference": [
+      {
+        "rect": [
+          0,
+          0,
+          200,
+          100
+        ],
+        "rgb": [
+          0,
+          0,
+          255
+        ]
+      },
+      {
+        "rect": [
+          150,
+          70,
+          40,
+          10
+        ],
+        "rgb": [
+          0,
+          128,
+          0
+        ]
+      },
+      {
+        "rect": [
+          0,
+          100,
+          100,
+          10
+        ],
+        "rgb": [
+          255,
+          0,
+          0
+        ]
+      },
+      {
+        "rect": [
+          250,
+          20,
+          30,
+          20
+        ],
+        "rgb": [
+          255,
+          255,
+          0
+        ]
+      }
+    ]
+  }
+]

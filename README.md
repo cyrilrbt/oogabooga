@@ -104,6 +104,9 @@ Editing commands act on the focused field/page and depend on that widget's editi
 
 ## Experimental assembly renderer (macOS)
 
+See [the engine roadmap](ENGINE_TODO.md) for the audited feature backlog,
+recommended implementation order, and prerequisites for starting JavaScript.
+
 Choose **Navigate → Use Assembly Engine (Experimental)** or press **⌘E** to switch the current page between the assembly renderer and WebKit. The assembly engine is the macOS default. To launch with WebKit instead:
 
 ```sh
@@ -112,7 +115,7 @@ OOGABOOGA_ENGINE=webkit build/Oogabooga.app/Contents/MacOS/oogabooga https://exa
 
 The ARM64 engine tokenizes static HTML into a bounded flow tree, supplies implied `html`/`body` elements, decodes named/numeric entities, collapses whitespace, and maps UTF-8 byte offsets to native UTF-16 ranges. CSS parsing, selector matching, inheritance, and the cascade are handwritten assembly; native text layout measures styled glyphs and wraps them inside assembly-created, nested content boxes. It supports paragraphs, headings, lists, preformatted text, titles, legacy `<center>` alignment, and relative HTTP(S) links. Inline span/emphasis tags and simple CSS inline/inline-block containers stay in text flow. Native AppKit text services supply glyph shaping, drawing, text selection, link hit testing, and scrolling; WebKit is not used to parse or render this mode. Back/forward/reload and SQLite history work in both modes, with independent in-window navigation stacks. Clickable links show the pointing-hand cursor; authored link colors remain authoritative, including sites that intentionally use purple for unvisited links.
 
-This first engine is macOS-only. Linux continues to use WebKitGTK. It does **not** implement full HTML5 tree-construction rules, JavaScript, fragment anchors, file uploads, or modern login flows. Comments and script bodies are excluded; style blocks are parsed as CSS and never displayed. Layout supports normal text flow, nested boxes, a bounded flexbox subset, and HTML tables. Grid and positioning remain unsupported. Unsupported pages can be opened in WebKit with ⌘E.
+This first engine is macOS-only. Linux continues to use WebKitGTK. It does **not** implement full HTML5 tree-construction rules, JavaScript, fragment anchors, file uploads, or modern login flows. Comments and inert script bodies are retained in a separate mutable document tree and excluded from rendering; style blocks are parsed as CSS and never displayed. Layout supports normal text flow, nested boxes, bounded flexbox/Grid subsets, and HTML tables. Relative/absolute/fixed positioning, stacking contexts, group opacity, clipping, and contained wheel scrolling have regression coverage; sticky positioning and full CSS box behavior remain incomplete. Unsupported pages can be opened in WebKit with ⌘E.
 
 Fetching uses `NSURLSession` with normal system TLS validation and an independent ephemeral cookie jar; it does not share WebKit logins or persist experimental-engine cookies across app restarts. Successful HTML responses are decoded using their HTTP charset header and normalized to UTF-8 before parsing. Foundation supplies the codecs; HTML Latin-1/ASCII labels use Windows-1252. Missing charset headers currently default to UTF-8; HTML meta-charset sniffing is not implemented. Unknown encodings or invalid byte sequences are rejected. Limits: 1 MiB for both the response and normalized UTF-8, 4,096 tree nodes, 64 open elements, 1,024 title bytes, and 2,048 bytes per link target. Late callbacks from canceled requests are ignored, and failed/unsupported responses are not recorded as visits.
 
@@ -120,7 +123,7 @@ Fetching uses `NSURLSession` with normal system TLS validation and an independen
 
 ### Supported CSS subset
 
-Embedded `<style>` blocks, linked HTTP(S) stylesheets, and decoded `style` attributes are supported. Selectors cover retained flow elements: type, `*`, `.class`, `#id`, compounds such as `p.notice`, comma groups, child combinators such as `.card > p`, and descendant chains such as `body .notice a`. Identifiers are ASCII with simple punctuation escapes (for example `.md\:block` and `.w-1\/2`); class/id matching is case-sensitive. Hex escapes remain unsupported. `:root` targets the document element. Links support `:link` and `:visited`; visited state uses exact resolved HTTP(S) URLs in SQLite history, and visited rules affect foreground color only. The cascade honors specificity, source order, inline styles, `!important`, and `inherit`/`initial`/`unset`, with inherited text properties computed before painting.
+Embedded `<style>` blocks, linked HTTP(S) stylesheets, and decoded `style` attributes are supported. Selectors cover retained elements: type, `*`, `.class`, `#id`, compounds such as `p.notice`, comma groups, child combinators such as `.card > p`, and descendant chains such as `body .notice a`. Identifiers are ASCII with simple punctuation escapes (for example `.md\:block` and `.w-1\/2`); class/id matching is case-sensitive. Hex escapes remain unsupported. `:root` targets the document element. Links support `:link` and `:visited`; visited state uses exact resolved HTTP(S) URLs in SQLite history, and visited rules affect foreground color only. Attribute selectors, adjacent/general sibling combinators, simple `:not()`, and structural pseudo-classes are supported. `:first-child`, `:last-child`, `:only-child`, `:empty`, and forward/reverse `:nth-child()`/`:nth-of-type()` use the persistent document tree; hidden elements count as siblings and comments do not. The cascade honors specificity, source order, inline styles, `!important`, and `inherit`/`initial`/`unset`, with inherited text properties computed before painting.
 
 Supported properties:
 
@@ -140,8 +143,11 @@ or third-party CSS layout library in this path.
 The float path allows 128 floats per context. Empty block boxes retain a layout
 range, auto heights reconcile with shaped text and nested float extents, and
 placement follows intervening normal content. Padded containers constrain auto
-and percentage widths. Full CSS formatting-context rules (such as overflow-created
-contexts), margin collapsing, grid and positioned layout remain incomplete.
+and percentage widths. Assembly margin collapse covers adjacent blocks, eligible parent/child edges,
+empty chains, and mixed-sign margins. Padding, borders, floats, flex/Grid items,
+and supported formatting contexts establish barriers. Relative/absolute/fixed boxes use a retained assembly scene for painting and
+interaction. General inline formatting, sticky positioning, scrollbars inside
+CSS containers, and complete sizing/containing-block rules remain incomplete.
 
 Run `python3 tests/server.py --port 8766` and open `/engine/floats` for manual
 checks or `/engine/acid1` for the historical test. The test suite compares 140,302
@@ -152,8 +158,10 @@ is in [`tests/fixtures/ACID1-LICENSE.md`](tests/fixtures/ACID1-LICENSE.md).
 
 ### Retained rendering and profiling
 
-The ARM64 display list retains box fills/borders in source order, disjoint native
-glyph/image ranges, and per-line link hit regions. Redraws replay commands that
+The ARM64 display list retains box fills/borders, disjoint native glyph/image
+ranges, and per-line link hit regions. Positioned, clipped, or translucent pages
+use assembly stacking-context order and grouped compositing; ordinary pages keep
+the simple source-order replay path. Redraws replay commands that
 intersect the damaged graphics region; scrolling and cursor changes do not run
 HTML/CSS layout again. Native text services still shape glyphs and draw selections.
 The command buffer is bounded (at most 32,768 commands); overflow falls back to
@@ -167,11 +175,35 @@ separately from individual phases. Profiling is disabled in normal use and sends
 no telemetry. `./tools/benchmark-page.sh --reference` runs the Acid1 comparison
 and exports `build/acid1-assembly.png`.
 
+Run `sh tools/compatibility-report.sh` for the saved offline fixture dashboard at
+`build/compatibility/index.html`. `./build.sh test` generates it automatically;
+GitHub workflows retain the screenshots, independent references, JSON results,
+and HTML report as artifacts. See [ENGINE_TODO.md](ENGINE_TODO.md) for remaining
+engine work.
+
 Screen `@media` queries support `screen`/`all`, `only`, `and`, and pixel `min-width`/`max-width`, including fractional thresholds and up to eight nested queries. They update on window resize; unsupported conditions and comma query lists remain inactive. Link media still accepts absent/`all`/`screen` only.
 
-This is **not full CSS**. `@import`, other at-rules, other pseudo/attribute selectors, sibling combinators, grid layout, positioning, and background images are unsupported. The text viewport follows the window width and reflows while preserving form edits and scroll position. Fixed content that exceeds it may require horizontal scrolling.
+This is **not full CSS**. Bounded Grid and stylesheet imports are supported; sticky positioning, background images, `:is()`/`:where()`, and many other at-rules/selectors remain incomplete. The text viewport follows the window width and reflows while preserving form edits and scroll position. Fixed content that exceeds it may require horizontal scrolling.
 
 Combined embedded and linked CSS is limited to 1 MiB of complete blocks, 4,096 rules, 256 bytes per selector group, and eight descendant components. Over-limit blocks/rules and unsupported declarations are ignored. Selector matching has a 134,217,728-step document budget; inline attributes retain the HTML parser's 2 KiB limit. Hidden text is excluded before UTF-16 range mapping, preserving links after hidden Unicode content.
+
+### Web fonts and scene limits
+
+Top-level `@font-face` supports HTTP(S) TrueType/OpenType URL sources, quoted
+family names, declared weight/style variants, and ordered source fallbacks.
+Assembly checks SFNT table bounds before CoreText decodes and shapes glyphs.
+Fonts remain scoped to the page; arrival recomputes styles/layout while retaining
+live controls. Limits: 16 faces, 2 MiB per font, 128 SFNT tables, 8,192 glyphs,
+and the shared 32-request/8-MiB page budget. WOFF/WOFF2, collections, `local()`,
+variable axes, font synthesis, and nested conditional font-face rules are deferred.
+
+Scene coordinates cover box/glyph painting, link hit testing, cursor regions,
+mouse selection, native widget clips, and contained wheel scrolling. Contained
+scroll offsets survive reflow by stable DOM identity. Native controls still use
+platform views: arbitrary sibling overlap/compositing with glyphs and controls,
+full keyboard scroll routing, and general inline/inline-block formatting remain
+in the [engine backlog](ENGINE_TODO.md). These are bounded static-page features,
+not complete CSS conformance.
 
 ### Variables, flexbox, and tables
 
@@ -233,7 +265,7 @@ unsupported; definitions and script/resource containers are skipped.
 
 Forms support GET and URL-encoded POST, native text/search/email/url/tel inputs, checkboxes, form-scoped radio groups, single/multiple selects, multiline textareas, hidden values, submit inputs, and buttons with nested text markup or `aria-label` icon fallbacks. Non-submit button/reset controls are displayed disabled because their JavaScript/reset behavior is not implemented. Default button widths fit their titles; explicit CSS widths remain authoritative. Multiple selects use a menu with independent checkmarks. Click Submit or press Return in a text field; Return inserts a line in a textarea. Submissions preserve document order and repeated names, exclude disabled/unchecked controls and unclicked submitters, and encode UTF-8 with CRLF-normalized line breaks. GET replaces the action's query; POST retains that query and sends `application/x-www-form-urlencoded` in the request body. Other methods/encodings, password inputs, and uploads are unsupported. Each field is limited to 2048 UTF-8 bytes. History traversal and Reload use saved URLs with GET; POST bodies are not automatically replayed.
 
-HTML displays and records its visit immediately after parsing. Subresources then load sequentially; each result updates the displayed page without duplicating history or resetting controls. Available stylesheets are always combined in document order. The session uses a 16 MiB memory-only HTTP cache with normal HTTP freshness rules; Reload bypasses it. Limits: 32 HTTP(S) requests, ten seconds per request, 1 MiB per stylesheet, 2 MiB per image, and 8 MiB of accepted resource data per page. Raster metadata is checked before decoding (8192 pixels per dimension and 16 megapixels). Resource errors leave the HTML usable; navigation and engine switching cancel pending work. Stylesheets accept `text/css` and absent/`all`/`screen` link media; nested `@import` is not followed.
+HTML displays and records its visit immediately after parsing. Subresources then load sequentially; each result updates the displayed page without duplicating history or resetting controls. Available stylesheets are always combined in document order. The session uses a 16 MiB memory-only HTTP cache with normal HTTP freshness rules; Reload bypasses it. Limits: 32 HTTP(S) requests, ten seconds per request, 1 MiB per stylesheet, 2 MiB per image/font, and 8 MiB of accepted resource data per page. Raster metadata is checked before decoding (8192 pixels per dimension and 16 megapixels). Resource errors leave the HTML usable; navigation and engine switching cancel pending work. Stylesheets accept `text/css` and absent/`all`/`screen` link media; nested `@import` follows HTTP(S) relative URLs using the final stylesheet response URL as its base. Import expansion preserves source order and width media queries, rejects ancestor URL cycles (including fragments), and shares the request/byte/cancellation limits. The private import tree is limited to 64 sheets and eight import levels. Escaped import URLs, cascade layers, and import `supports()` conditions are not supported.
 
 ## Assembly and architecture
 

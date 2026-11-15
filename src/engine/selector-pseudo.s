@@ -52,75 +52,67 @@ _css_pseudo_match:
     ADDR x2, p_not
     bl _css_eq
     cbnz x0, Lpseudo_not
+    mov x24, #0
+    ADDR x25, nth_names
+Lpseudo_nth_name:
+    mov x0, x21
+    mov x1, x22
+    ldr x2, [x25, x24, lsl #3]
+    bl _css_eq
+    cbnz x0, Lpseudo_nth
+    add x24, x24, #1
+    cmp x24, #4
+    b.lo Lpseudo_nth_name
     mov x0, #-1
     LEAVE
-Lpseudo_first:
+Lpseudo_nth:
+    cmp x22, x23
+    b.hs Lpseudo_no
+    ldrb w9, [x22]
+    cmp w9, #40
+    b.ne Lpseudo_no
+    add x25, x22, #1
+    mov x26, x25
+Lpseudo_nth_end:
+    cmp x26, x23
+    b.hs Lpseudo_no
+    ldrb w9, [x26]
+    cmp w9, #41
+    b.eq Lpseudo_nth_test
+    add x26, x26, #1
+    b Lpseudo_nth_end
+Lpseudo_nth_test:
     mov x0, x19
     mov x1, x20
-    bl _css_previous_sibling
-    cbnz x0, Lpseudo_no
+    mov x2, x25
+    mov x3, x26
+    mov x4, x24
+    bl _css_nth_match
+    cbz x0, Lpseudo_no
+    add x22, x26, #1
+    b Lpseudo_yes
+Lpseudo_first:
+    mov x4, #0
+    bl pseudo_first_or_last
+    cbz x0, Lpseudo_no
     b Lpseudo_yes
 Lpseudo_only:
+    mov x4, #0
+    bl pseudo_first_or_last
+    cbz x0, Lpseudo_no
+Lpseudo_last:
+    mov x4, #1
+    bl pseudo_first_or_last
+    cbz x0, Lpseudo_no
+    b Lpseudo_yes
+// Persistent DOM is authoritative for structural tests, including hidden and
+// stylesheet elements that the render snapshot may omit or flatten.
+Lpseudo_empty:
     mov x0, x19
     mov x1, x20
-    bl _css_previous_sibling
-    cbnz x0, Lpseudo_no
-Lpseudo_last:
-    ldr x24, [x19, #16]
-    mov x9, #40
-    madd x9, x20, x9, x24
-    ldr x25, [x9, #8]
-    add x26, x20, #1
-    ldr x27, [x19, #24]
-Lpseudo_after:
-    cmp x26, x27
-    b.hs Lpseudo_yes
-    ldr x9, [x19, #88]
-    cbz x9, Lpseudo_no
-    sub x9, x9, #1
-    str x9, [x19, #88]
-    mov x9, #40
-    madd x9, x26, x9, x24
-    ldr x10, [x9, #8]
-    cmp x10, x25
-    b.lo Lpseudo_yes
-    b.ne Lpseudo_after_next
-    ldr x10, [x9]
-    cmp x10, #NODE_TEXT
-    b.eq Lpseudo_after_next
-    cmp x10, #NODE_SHEET
-    b.eq Lpseudo_after_next
-    cmp x10, #NODE_LINK
-    b.ne Lpseudo_no
-Lpseudo_after_next:
-    add x26, x26, #1
-    b Lpseudo_after
-Lpseudo_empty:
-    ldr x24, [x19, #16]
-    ldr x25, [x19, #24]
-    add x26, x20, #1
-Lpseudo_empty_child:
-    cmp x26, x25
-    b.hs Lpseudo_yes
-    mov x9, #40
-    madd x9, x26, x9, x24
-    ldr x10, [x9, #8]
-    cmp x10, x20
-    b.lo Lpseudo_yes
-    b.ne Lpseudo_empty_next
-    ldr x10, [x9]
-    cmp x10, #NODE_SHEET
-    b.eq Lpseudo_empty_next
-    cmp x10, #NODE_LINK
-    b.eq Lpseudo_empty_next
-    cmp x10, #NODE_TEXT
-    b.ne Lpseudo_no
-    ldp x10, x11, [x9, #16]
-    cmp x10, x11
-    b.ne Lpseudo_no
-Lpseudo_empty_next:
-    add x26, x26, #1
-    b Lpseudo_empty_child
+    bl _css_dom_empty
+    cbz x0, Lpseudo_no
+    b Lpseudo_yes
 Lpseudo_disabled:
     ldr x9, [x19, #72]
     add x9, x9, x20, lsl #11
@@ -207,6 +199,13 @@ Lpseudo_no:
     mov x1, x22
     mov x2, #0
     LEAVE
+// x4 reverse flag; saved matcher registers supply the target.
+pseudo_first_or_last:
+    mov x0, x19
+    mov x1, x20
+    ADDR x2, nth_one
+    add x3, x2, #1
+    b _css_nth_match
 .section __TEXT,__cstring,cstring_literals
 p_first: .asciz "first-child"
 p_last: .asciz "last-child"
@@ -216,3 +215,11 @@ p_disabled: .asciz "disabled"
 p_enabled: .asciz "enabled"
 p_checked: .asciz "checked"
 p_not: .asciz "not"
+p_nth: .asciz "nth-child"
+p_nth_last: .asciz "nth-last-child"
+p_nth_type: .asciz "nth-of-type"
+p_nth_last_type: .asciz "nth-last-of-type"
+nth_one: .asciz "1"
+.section __DATA,__const
+.p2align 3
+nth_names: .quad p_nth,p_nth_last,p_nth_type,p_nth_last_type

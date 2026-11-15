@@ -12,6 +12,8 @@ _engine_parse_impl:
     ENTER
     sub sp, sp, #1024
     mov x20, x0
+    str x0, [sp, #248]
+    str x1, [sp, #240]
     cbz x0, Lparse_nil
     mov x9, #ENGINE_MAX_INPUT
     cmp x1, x9
@@ -19,7 +21,7 @@ _engine_parse_impl:
     add x21, x0, x1
     add x22, x1, #16
     mov x0, #1
-    mov x1, #96
+    mov x1, #112
     bl _calloc
     cbz x0, Lparse_nil
     mov x19, x0
@@ -50,6 +52,10 @@ _engine_parse_impl:
     bl _calloc
     str x0, [x19, #72]
     cbz x0, Lparse_error
+    mov x9, #-1
+    str x9, [x0, #SOURCE_OFFSET]
+    mov x9, #1
+    str x9, [x0, #NODE_INDEX_PLUS_ONE]
     mov x0, #1
     mov x1, x22
     bl _calloc
@@ -60,6 +66,9 @@ _engine_parse_impl:
     str x10, [x9, #8]
     mov x10, #1
     str x10, [x19, #24]
+    ldr x9, [x19, #72]
+    mov x10, #-1
+    str x10, [x9, #BOX_HEIGHT]   // viewport height absent in platform-free snapshots
     // Keep implied html/body elements even when their start tags are omitted.
     // Explicit start tags attach attributes to these same nodes; this is not a full
     // HTML5 tree builder, but gives ordinary body/type CSS the expected ancestry.
@@ -99,6 +108,7 @@ Lparse_next:
     cmp w9, #60                      // '<'
     b.eq Lparse_tag
     // One text node per uninterrupted text run; entity decoding preserves ranges.
+    str x20, [sp, #232]
     ldr x22, [x19, #8]
 Lparse_text:
     cmp x20, x21
@@ -137,6 +147,12 @@ Lparse_text_end:
     mov x4, #0
     bl _engine_node
     tbnz x0, #63, Lparse_error
+    ldr x9, [x19, #72]
+    add x9, x9, x0, lsl #11
+    ldr x10, [sp, #232]
+    ldr x11, [sp, #248]
+    sub x10, x10, x11
+    str x10, [x9, #SOURCE_OFFSET]
     ldr x9, [x19, #16]
     mov x10, #40
     madd x9, x0, x10, x9
@@ -177,6 +193,7 @@ Lparse_tag_name:
     b Lparse_name_start
 Lparse_declaration:
     str xzr, [sp, #168]
+    str xzr, [sp, #224]
     str x22, [sp, #160]
     mov x23, x22
     mov w10, #0
@@ -193,6 +210,14 @@ Lparse_name_scan:
     cmp w10, #122
     b.ls Lparse_name_advance
 Lparse_name_digit:
+    cmp w9, #45
+    b.eq Lparse_name_advance
+    cmp w9, #95
+    b.eq Lparse_name_advance
+    cmp w9, #58
+    b.eq Lparse_name_advance
+    cmp w9, #46
+    b.eq Lparse_name_advance
     cmp w9, #48
     b.lo Lparse_name_end
     cmp w9, #57
@@ -204,6 +229,9 @@ Lparse_name_end:
     cmp x23, x22
     b.eq Lparse_less_than
     str x23, [sp, #160]              // attributes start
+    str x22, [sp, #216]              // source spelling for generic elements
+    sub x9, x23, x22
+    str x9, [sp, #224]
     mov x0, x22
     sub x1, x23, x22
     bl _engine_tag
@@ -246,7 +274,11 @@ Lparse_tag_ready:
     b.eq Lparse_document_element
     cmp x22, #NODE_BODY
     b.eq Lparse_document_element
-    cbz x22, Lparse_next
+    cbnz x22, Lparse_known_tag
+    ldr x9, [sp, #224]
+    cbz x9, Lparse_next
+    mov x22, #NODE_GENERIC
+Lparse_known_tag:
     cmp x22, #TAG_BR
     b.eq Lparse_explicit_br
     cmp x22, #TAG_HR
@@ -293,6 +325,8 @@ Lparse_dispatch_open:
     b.eq Lparse_open
     cmp x22, #NODE_SPAN
     b.eq Lparse_open
+    cmp x22, #NODE_GENERIC
+    b.eq Lparse_open
     cmp x22, #NODE_STRONG
     b.eq Lparse_open
     cmp x22, #NODE_EM
@@ -324,12 +358,57 @@ Lparse_node_open:
     bl _engine_node
     tbnz x0, #63, Lparse_error
     mov x24, x0
+    cmp x22, #NODE_GENERIC
+    b.ne Lparse_capture_open
+    ldr x1, [sp, #224]
+    cmp x1, #128
+    b.hi Lparse_error
+    ldr x0, [sp, #216]
+    bl _strndup
+    cbz x0, Lparse_error
+    ldr x9, [x19, #72]
+    add x9, x9, x24, lsl #11
+    str x0, [x9, #ATTR_OWNED_TAG]
+    str x0, [sp, #184]
+    mov x10, #0
+Lparse_generic_lower:
+    ldrb w11, [x0, x10]
+    cbz w11, Lparse_capture_open
+    sub w12, w11, #65
+    cmp w12, #25
+    b.hi Lparse_generic_lower_next
+    orr w11, w11, #32
+    strb w11, [x0, x10]
+Lparse_generic_lower_next:
+    add x10, x10, #1
+    b Lparse_generic_lower
+Lparse_capture_open:
+    mov x0, x24
     mov x1, x0
     mov x0, x19
     ldr x2, [sp, #160]
     ldr x3, [sp, #176]
     ldr x4, [sp, #184]
+    ldr x5, [sp, #216]
+    ldr x9, [sp, #248]
+    sub x5, x5, x9
+    sub x5, x5, #1
     bl _engine_css_capture
+    cmp x22, #NODE_GENERIC
+    b.ne Lparse_push_open
+    ldr x9, [x19, #72]
+    add x9, x9, x24, lsl #11
+    ldr x0, [x9, #24]
+    bl _dom_is_void
+    cbz x0, Lparse_push_open
+    ldr x9, [x19, #16]
+    mov x10, #40
+    madd x9, x24, x10, x9
+    ldr x10, [x19, #8]
+    str x10, [x9, #24]
+    ldr x24, [x9, #8]
+    b Lparse_next
+Lparse_push_open:
     mov x0, x24
     str x0, [x28, x25, lsl #3]
     add x25, x25, #1
@@ -379,6 +458,10 @@ Lparse_leaf:
     ldr x2, [sp, #160]
     ldr x3, [sp, #176]
     ldr x4, [sp, #184]
+    ldr x5, [sp, #216]
+    ldr x9, [sp, #248]
+    sub x5, x5, x9
+    sub x5, x5, #1
     bl _engine_css_capture
     cmp x22, #NODE_LINK
     b.ne Lparse_object
@@ -509,6 +592,21 @@ Lparse_close_find:
     ldr x11, [x10]
     cmp x11, x22
     b.ne Lparse_close_find
+    cmp x22, #NODE_GENERIC
+    b.ne Lparse_close_unwind
+    ldr x10, [x19, #72]
+    add x10, x10, x9, lsl #11
+    ldr x0, [x10, #24]
+    str x0, [sp, #232]
+    bl _strlen
+    ldr x9, [sp, #224]
+    cmp x0, x9
+    b.ne Lparse_close_find
+    ldr x0, [sp, #232]
+    ldr x1, [sp, #216]
+    mov x2, x9
+    bl _strncasecmp
+    cbnz w0, Lparse_close_find
 Lparse_close_unwind:
     sub x25, x25, #1
     mov x0, x19
@@ -536,6 +634,8 @@ Lparse_unwind_next:
     cmp x22, #NODE_A
     b.eq Lparse_next
     cmp x22, #NODE_SPAN
+    b.eq Lparse_next
+    cmp x22, #NODE_GENERIC
     b.eq Lparse_next
     cmp x22, #NODE_STRONG
     b.eq Lparse_next
@@ -579,6 +679,10 @@ Lparse_document_attributes:
     ldr x2, [sp, #160]
     ldr x3, [sp, #176]
     ldr x4, [sp, #184]
+    ldr x5, [sp, #216]
+    ldr x9, [sp, #248]
+    sub x5, x5, x9
+    sub x5, x5, #1
     bl _engine_css_capture
     b Lparse_next
 Lparse_title:
@@ -625,6 +729,13 @@ Lparse_skip:
     ldr x3, [x19, #8]
     bl _engine_node
     tbnz x0, #63, Lparse_error
+    ldr x9, [x19, #72]
+    add x9, x9, x0, lsl #11
+    ldr x10, [sp, #216]
+    ldr x11, [sp, #248]
+    sub x10, x10, x11
+    sub x10, x10, #1
+    str x10, [x9, #SOURCE_OFFSET]
     b Lparse_next
 Lparse_less_than:
     mov x0, x19
@@ -653,6 +764,14 @@ Lparse_finalize_nodes:
 Lparse_success:
     mov x0, x19
     bl _engine_trim_title
+    ldr x0, [sp, #248]
+    ldr x1, [sp, #240]
+    bl _engine_dom_parse
+    str x0, [x19, #96]
+    cbz x0, Lparse_dom_unavailable
+    mov x1, x19
+    bl _engine_dom_bind_flow
+Lparse_dom_unavailable:
     mov x0, x19
     bl _engine_css_apply
     mov x0, x19
@@ -779,6 +898,12 @@ _engine_node:
     stp x1, x2, [x6]
     stp x3, x3, [x6, #16]
     str x4, [x6, #32]
+    ldr x7, [x0, #72]
+    add x7, x7, x5, lsl #11
+    mov x8, #-1
+    str x8, [x7, #SOURCE_OFFSET]
+    add x8, x5, #1
+    str x8, [x7, #NODE_INDEX_PLUS_ONE]
     add x7, x5, #1
     str x7, [x0, #24]
     mov x0, x5
@@ -806,6 +931,8 @@ Lfree_nodes:
     sub x21, x21, #1
     b Lfree_nodes
 Lfree_buffers:
+    ldr x0, [x19, #96]
+    bl _engine_dom_free
     ldr x0, [x19]
     bl _free
     ldr x0, [x19, #16]
@@ -1040,6 +1167,8 @@ _engine_empty_block:
     b.eq Lempty_done
     b Lempty_candidate
 Lempty_more_blocks:
+    cmp x4, #NODE_GENERIC
+    b.eq Lempty_candidate
     cmp x4, #NODE_SECTION
     b.lo Lempty_done
     cmp x4, #NODE_NAV
@@ -1061,6 +1190,10 @@ Lempty_candidate:
     ldr x5, [x0, #8]
     cmp x4, x5
     b.ne Lempty_done
+    ldr x4, [x0, #72]
+    add x4, x4, x1, lsl #11
+    mov x6, #1
+    str x6, [x4, #NATIVE_EMPTY]
     ldr x4, [x0, #40]
     add x6, x5, #3
     cmp x6, x4

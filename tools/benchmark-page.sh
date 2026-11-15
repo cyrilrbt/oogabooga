@@ -7,5 +7,5 @@ objects=build/obj/core.o
 for source in src/mac/*.s src/engine/*.s; do
     [ "$source" = src/mac/start.s ] || objects="$objects build/obj/$(basename "$(dirname "$source")")_$(basename "$source" .s).o"
 done
-xcrun clang -arch arm64 -O2 -Wall -Wextra -Werror -fobjc-arc tests/bench-page.m $objects -framework Cocoa -framework ImageIO -framework WebKit -lsqlite3 -o build/bench-page
+xcrun clang -arch arm64 -O2 -Wall -Wextra -Werror -fobjc-arc tests/bench-page.m $objects -framework Cocoa -framework CoreText -framework ImageIO -framework WebKit -lsqlite3 -o build/bench-page
 exec build/bench-page "$@"

@@ -224,6 +224,29 @@ Lplacement_slash:
     add x26, x26, #1
     b Lplacement_slash
 Lplacement_first:
+    // A standalone span has an auto start, e.g. grid-column:span 2.
+    sub x9, x26, x19
+    cmp x9, #5
+    b.lo Lplacement_start_line
+    mov x0, x19
+    ADDR x1, span_word
+    mov x2, #4
+    bl _strncasecmp
+    cbnz x0, Lplacement_start_line
+    ldrb w9, [x19, #4]
+    cmp w9, #32
+    b.hi Lplacement_start_line
+    cmp x26, x20
+    b.ne Lplacement_done          // span/span combinations need full line grammar
+    add x0, x19, #4
+    mov x1, x20
+    mov x2, #64
+    bl _css_positive_integer
+    cbz x1, Lplacement_done
+    cbz x0, Lplacement_done
+    mov x25, x0
+    b Lplacement_commit
+Lplacement_start_line:
     mov x0, x23
     mov x1, x19
     mov x2, x26
@@ -249,6 +272,7 @@ Lplacement_first:
     mov x2, #64
     bl _css_positive_integer
     cbz x1, Lplacement_done
+    cbz x0, Lplacement_done
     mov x25, x0
     b Lplacement_commit
 Lplacement_end_line:

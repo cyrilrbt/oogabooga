@@ -25,6 +25,17 @@ Lbox_zero:
     mov x0, #0
     ret
 
+.globl _engine_box_signed_length
+_engine_box_signed_length:
+    ENTER
+    mov x19, x0
+    bic x0, x0, #0x10000000000
+    bl _engine_box_length
+    tbz x19, #40, Lsigned_length_done
+    neg x0, x0
+Lsigned_length_done:
+    LEAVE
+
 // metrics(meta, containing_width) -> content_width. Scratch +768..848.
 .globl _engine_box_metrics
 _engine_box_metrics:
@@ -39,7 +50,13 @@ Lmetric_next:
     add x9, x19, x9, lsl #3
     ldr x0, [x9, #32]
     mov x1, x20
+    cmp x21, #4
+    b.hs Lmetric_unsigned
+    bl _engine_box_signed_length
+    b Lmetric_value
+Lmetric_unsigned:
     bl _engine_box_length
+Lmetric_value:
     add x9, x19, #776
     str x0, [x9, x21, lsl #3]
     add x21, x21, #1
@@ -118,6 +135,17 @@ Lmetric_right_auto:
     b.ne Lmetric_done
     str x25, [x19, #784]
 Lmetric_done:
+    ldr x9, [x19, #FLOW_OWNER]
+    cbnz x9, Lmetric_return
+    ldr x9, [x19, #792]
+    ldr x10, [x19, #FLOW_BEFORE]
+    add x9, x9, x10
+    str x9, [x19, #792]
+    ldr x9, [x19, #800]
+    ldr x10, [x19, #FLOW_AFTER]
+    add x9, x9, x10
+    str x9, [x19, #800]
+Lmetric_return:
     mov x0, x24
     LEAVE
 .section __DATA,__const
@@ -148,6 +176,14 @@ Lbox_tree_next:
     ldr x1, [x9, #768]
     add x0, x20, x21, lsl #11
     bl _engine_box_metrics
+    ldr x9, [x19, #16]
+    mov x10, #40
+    madd x9, x21, x10, x9
+    ldr x9, [x9, #8]
+    add x9, x20, x9, lsl #11
+    ldr x1, [x9, #BOX_HEIGHT]
+    add x0, x20, x21, lsl #11
+    bl _engine_box_height
     add x21, x21, #1
     b Lbox_tree_next
 Lbox_tree_done:

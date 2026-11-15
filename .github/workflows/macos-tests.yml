@@ -25,5 +25,7 @@ jobs:
         if: always()
         with:
           name: macos-layout-diagnostics
-          path: build/acid1-assembly.png
+          path: |
+            build/acid1-assembly.png
+            build/compatibility/
           if-no-files-found: ignore

@@ -6,12 +6,25 @@
 #import <sqlite3.h>
 #import <QuartzCore/QuartzCore.h>
 #include <assert.h>
+#include <stdatomic.h>
+typedef struct { uint64_t type,parent,first,last,previous,next; char *name,*value; void *attributes; uint64_t height,source_offset,snapshot_version; } MutableNode;
+extern MutableNode *engine_dom_node(void *,uint64_t);
+extern uint64_t engine_dom_get_element_by_id(void *,const char *);
+extern uint64_t engine_dom_create_element(void *,const char *,size_t);
+extern uint64_t engine_dom_create_text(void *,const char *,size_t);
+extern int engine_dom_insert_before(void *,uint64_t,uint64_t,uint64_t);
+extern int engine_dom_remove(void *,uint64_t);
+extern int engine_dom_set_text(void *,uint64_t,const char *,size_t);
+extern int engine_dom_set_attribute(void *,uint64_t,const char *,const char *,size_t);
+static atomic_uint mutationCSSRequests,imageRequests,importRequests,fontRequests;
+static atomic_bool fontStarted;
 extern Class mac_register_class(void);
 extern void mac_engine_toggle(id,SEL,id);
 extern void mac_engine_navigate(void);
 extern void mac_engine_resize(id,SEL,id);
 extern void mac_engine_reload(void);
 extern __unsafe_unretained NSDictionary *engine_controls;
+extern id mac_control_key(uint64_t);
 extern __unsafe_unretained NSURLSession *engine_session;
 extern void *engine_document;
 typedef struct {char *text; uint64_t length,*map,lines;} TestLayout;
@@ -24,6 +37,8 @@ extern void mac_form_submit(id,SEL,id);
 extern void mac_engine_complete(id,SEL,id,id,NSError *);
 extern int history_add(sqlite3 *,const char *,const char *);
 extern void mac_engine_refresh(void);
+extern NSURL *mac_scene_link_at_point(double,double);
+extern int mac_scene_scroll_at_point(double,double,double,double);
 extern int history_open(const char *, sqlite3 **);
 extern __unsafe_unretained id mac_app,mac_delegate;
 extern __unsafe_unretained NSWindow *mac_window;
@@ -48,6 +63,19 @@ static BOOL slowStarted;
 + (NSURLRequest *)canonicalRequestForRequest:(NSURLRequest *)request { return request; }
 - (void)startLoading {
     NSString *path=self.request.URL.path;
+    if([path hasPrefix:@"/styles/"]||[path isEqual:@"/assets/two.css"]||[path isEqual:@"/assets/embedded.css"]) atomic_fetch_add(&importRequests,1);
+    if([path isEqual:@"/assets/mutation.css"]) atomic_fetch_add(&mutationCSSRequests,1);
+    if([path isEqual:@"/assets/image.png"]) atomic_fetch_add(&imageRequests,1);
+    if([path isEqual:@"/assets/ooga-test.ttf"]) {
+        atomic_fetch_add(&fontRequests,1);atomic_store(&fontStarted,true);
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,200*NSEC_PER_MSEC),dispatch_get_main_queue(),^{
+            if(self.stopped)return;
+            NSHTTPURLResponse *r=[[NSHTTPURLResponse alloc] initWithURL:self.request.URL statusCode:200 HTTPVersion:@"HTTP/1.1" headerFields:@{@"Content-Type":@"font/ttf"}];
+            [self.client URLProtocol:self didReceiveResponse:r cacheStoragePolicy:NSURLCacheStorageNotAllowed];
+            [self.client URLProtocol:self didLoadData:[NSData dataWithContentsOfFile:@"tests/fixtures/ooga-test.ttf"]];
+            [self.client URLProtocolDidFinishLoading:self];
+        });return;
+    }
     if ([path isEqual:@"/assets/delayed.css"]) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW,200*NSEC_PER_MSEC),dispatch_get_main_queue(),^{
             if(self.stopped) return;
@@ -62,6 +90,19 @@ static BOOL slowStarted;
     NSDictionary *headers=@{@"Content-Type":@"text/html; charset=utf-8"};
     NSInteger status=200;
     NSString *html=@"<title>First</title><h1>Hello 🌐</h1><p><a href='/second?a=1&amp;b=2'>next café</a> <a href='javascript:alert(1)'>bad link</a></p><script>SHOULD NOT RENDER</script>";
+    if([path isEqual:@"/mutation"]) html=@"<title>Mutable tree</title><link rel=stylesheet href='/assets/mutation.css'><style>.hot{font-weight:700}</style><div id=container><p id=message>Before mutation</p><p id=proof>External CSS survives</p><form action=/posted method=post><input id=keep name=q value=start><input id=remove name=removed value=old><input id=mutatesend type=submit value=Submit></form><img id=photo src=/assets/image.png width=80></div>";
+    if([path isEqual:@"/assets/mutation.css"]) { html=@"#message{color:red}#proof{color:green}";headers=@{@"Content-Type":@"text/css"}; }
+    if([path isEqual:@"/imports"]) html=@"<title>Imported styles</title><link rel=stylesheet id=importroot href=/styles/root.css><style>@import '/assets/embedded.css';#importtarget{color:green}</style><p id=importtarget>Import cascade</p><p id=importnested>Nested import</p><p id=importcondition>Conditional import</p>";
+    if([path isEqual:@"/styles/root.css"]) {html=@"@import 'nested/one.css' screen;@import '../assets/two.css' screen and (min-width:900px);#importtarget{color:red}";headers=@{@"Content-Type":@"text/css"};}
+    if([path isEqual:@"/styles/nested/one.css"]) {html=@"@import '../root.css';#importtarget{font-weight:700}#importnested{color:blue}";headers=@{@"Content-Type":@"text/css"};}
+    if([path isEqual:@"/assets/two.css"]) {html=@"#importcondition{color:purple}";headers=@{@"Content-Type":@"text/css"};}
+    if([path isEqual:@"/assets/embedded.css"]) {html=@"#importnested{font-style:italic}";headers=@{@"Content-Type":@"text/css"};}
+    if([path isEqual:@"/scene"]) html=@"<title>Scene interaction</title><style>body{margin:0;font:16px/1 monospace}#moving{position:relative;left:120px;top:20px;width:200px;height:40px;background:#eef}#selecting{position:relative;left:120px;top:20px;width:250px}#overlay{position:absolute;left:120px;top:20px;width:30px;height:20px;background:red;z-index:5}</style><div id=moving><a href=/second>Moved link</a></div><p id=selecting>Selectable text</p><div id=overlay></div>";
+    if([path isEqual:@"/scene-controls"]) html=@"<title>Scene controls</title><style>body{margin:0;font:16px/1 monospace}#clipper{position:relative;left:50px;top:10px;width:100px;height:40px;overflow:hidden}</style><div id=clipper><input id=clipped style='width:150px;height:24px' value=original></div>";
+    if([path isEqual:@"/scene-scroll"]) html=@"<title>Scene scrolling</title><style>body{margin:0;font:16px/1 monospace}div,p{margin:0}#port{overflow:auto;width:200px;height:40px}#inside{height:200px;width:200px;background:#eef}</style><div id=port><div id=inside><p>Scroll top</p><div style='height:120px'></div><a href=/second>Scroll link</a></div></div><p>After container</p>";
+    if([path isEqual:@"/webfont"]) html=@"<title>Web fonts</title><link rel=stylesheet href=/font-css/root.css><p id=fonttarget style=\"font:20px 'Ooga Web',monospace\">WWWW</p><input id=fontedit value=original>";
+    if([path isEqual:@"/font-css/root.css"]) {html=@"@font-face{font-family:'Ooga Web';src:url(skip.woff2) format('woff2'),url(missing.ttf) format('truetype'),url('../assets/ooga-test.ttf') format('truetype');font-weight:400;font-style:normal}";headers=@{@"Content-Type":@"text/css"};}
+    if([path isEqual:@"/font-css/missing.ttf"]) {atomic_fetch_add(&fontRequests,1);status=404;}
     if ([path isEqual:@"/paint-order"]) html=@"<title>Paint order</title><style>body{margin:0;font:10px/1 monospace}.parent{float:left;width:120px;height:100px;background:blue}.child{margin:10px;width:50px;height:30px;background:yellow}</style><div class=parent><p class=child>Child</p></div><p style='clear:both'><a href=/second>Hit target</a></p>";
     if ([path isEqual:@"/float-hardening"]) html=@"<title>Float hardening</title><style>body{width:300px;margin:0;font:10px/1 monospace}p{margin:0}</style><p>Intro paragraph</p><div id=empty style='float:left;width:50px;height:40px;background:red'></div><p>Some ordinary content follows the empty float and wraps across several lines before the next float starts in source order. More content makes this paragraph long enough.</p><div id=autofloat style='float:left;width:80px;padding:2px;background:blue'>Alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango.</div><div id=afterauto style='float:left;clear:both;width:60px;height:20px'>After auto</div><p style='clear:both'>Bottom</p><div style='width:200px;padding:20px'><div id=innerfloat style='float:right;width:50px;height:20px'>Inner</div><p>Padded content wraps around its float.</p><div id=percentfloat style='float:left;width:50%;height:10px'>Half</div><div id=widthauto style='float:left;clear:both'>A rather long unbroken-float text that must fit the padded containing width instead of the full body.</div></div><p style='clear:both'>End</p><div id=nestedauto style='float:left;width:100px;padding:4px'><div style='float:left;width:60px;height:80px'>Nested</div></div><div id=afternested style='float:left;clear:both;width:50px;height:10px'>After nested</div><p style='clear:both'>New row</p><div id=bigfirst style='float:left;width:250px;height:60px'>First</div><div id=nextrow style='float:left;width:100px;height:20px'>Next row</div><div id=lastrow style='float:left;width:40px;height:10px'>Last</div>";
     if ([path isEqual:@"/tallfloat"]) html=@"<title>Tall float</title><div style='float:left;width:90px;height:1000px;background:blue'>Tall</div>";
@@ -142,7 +183,7 @@ static uint64_t *metadata(NSString *identifier) {
 }
 static id control(NSString *identifier) {
     uint64_t *doc=engine_document; unsigned char *meta=(void *)(uintptr_t)doc[9];
-    for(uint64_t i=0;i<doc[3];i++) { char *name=*(char **)(meta+i*2048); if(name && [identifier isEqualToString:[NSString stringWithUTF8String:name]]) return engine_controls[@(i)]; }
+    for(uint64_t i=0;i<doc[3];i++) { char *name=*(char **)(meta+i*2048); if(name && [identifier isEqualToString:[NSString stringWithUTF8String:name]]) return engine_controls[mac_control_key(i)]; }
     return nil;
 }
 // TextKit can report one containing line fragment for an entire table row.
@@ -163,6 +204,9 @@ static NSRect blockRect(NSTextView *text,NSRange characters) {
     if(NSIsEmptyRect(rect)) NSLog(@"Missing cell layout for %@: characters %@, glyphs %@, block %@",[text.string substringWithRange:characters],NSStringFromRange(characters),NSStringFromRange(glyphs),style.textBlocks.lastObject);
     assert(!NSIsEmptyRect(rect));
     return rect;
+}
+static NSEvent *sceneMouse(NSTextView *text,NSEventType type,NSPoint viewPoint) {
+    return [NSEvent mouseEventWithType:type location:[text convertPoint:viewPoint toView:nil] modifierFlags:0 timestamp:0 windowNumber:text.window.windowNumber context:nil eventNumber:1 clickCount:1 pressure:1];
 }
 static int denyInsert(void *ctx,int action,const char *a,const char *b,const char *c,const char *d) { (void)ctx;(void)a;(void)b;(void)c;(void)d;return action==SQLITE_INSERT ? SQLITE_DENY : SQLITE_OK; }
 int main(void) {
@@ -246,9 +290,13 @@ int main(void) {
         assert(foreground.redComponent<.001 && fabs(foreground.greenComponent-128.0/255)<.001);
         NSRange paragraph=[text.string rangeOfString:@"Colored"];
         NSParagraphStyle *ps=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:paragraph.location effectiveRange:NULL];
-        assert(ps.alignment==NSTextAlignmentCenter && ps.textBlocks.count==1 && ps.headIndent==0 && ps.tailIndent==0);
+        assert(ps.alignment==NSTextAlignmentCenter && ps.textBlocks.count>=1 && ps.headIndent==0 && ps.tailIndent==0);
         NSTextBlock *noticeBox=ps.textBlocks.lastObject;
-        assert([noticeBox widthForLayer:NSTextBlockMargin edge:NSMinXEdge]==18 && [noticeBox widthForLayer:NSTextBlockMargin edge:NSMaxXEdge]==14 && [noticeBox widthForLayer:NSTextBlockMargin edge:NSMinYEdge]==12 && [noticeBox widthForLayer:NSTextBlockMargin edge:NSMaxYEdge]==16);
+        CGFloat noticeTop=[noticeBox widthForLayer:NSTextBlockMargin edge:NSMinYEdge],noticeBottom=0;
+        for(NSTextBlock *box in ps.textBlocks) noticeBottom+=[box widthForLayer:NSTextBlockMargin edge:NSMaxYEdge];
+        // Vertical margins can escape into a borderless containing block.
+        if(noticeTop!=12 || noticeBottom!=16) for(NSTextBlock *box in ps.textBlocks) NSLog(@"Notice margin box %@: %.2f %.2f %.2f %.2f",box,[box widthForLayer:NSTextBlockMargin edge:NSMinXEdge],[box widthForLayer:NSTextBlockMargin edge:NSMinYEdge],[box widthForLayer:NSTextBlockMargin edge:NSMaxXEdge],[box widthForLayer:NSTextBlockMargin edge:NSMaxYEdge]);
+        assert([noticeBox widthForLayer:NSTextBlockMargin edge:NSMinXEdge]==18 && [noticeBox widthForLayer:NSTextBlockMargin edge:NSMaxXEdge]==14 && noticeTop==12 && noticeBottom==16);
         navigate(@"/second"); waitFor(^BOOL { return [window.title hasPrefix:@"Second — Assembly"]; });
         assert([text.backgroundColor isEqual:NSColor.textBackgroundColor]);
         NSFont *reset=[text.textStorage attribute:NSFontAttributeName atIndex:0 effectiveRange:NULL];
@@ -259,17 +307,18 @@ int main(void) {
         NSColor *boxColor=[[text.textStorage attribute:NSForegroundColorAttributeName atIndex:boxRange.location effectiveRange:NULL] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
         assert(fabs(boxColor.redComponent-18.0/255)<.001); // last linked sheet wins
         NSParagraphStyle *boxStyle=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:boxRange.location effectiveRange:NULL];
-        assert(boxStyle.textBlocks.count==1);
+        assert(boxStyle.textBlocks.count>=1); // collapsed ancestor margins may add a containing block
         assert(((NSFont *)[text.textStorage attribute:NSFontAttributeName atIndex:boxRange.location effectiveRange:NULL]).pointSize==19);
         assert([text.effectiveAppearance.name isEqual:NSAppearanceNameAqua]);
         NSRange measured=[text.string rangeOfString:@"Box content with wrapping text to measure inside a fixed width and padding."];
         NSRect measuredRect=[text.layoutManager boundingRectForGlyphRange:[text.layoutManager glyphRangeForCharacterRange:measured actualCharacterRange:NULL] inTextContainer:text.textContainer];
         assert(measuredRect.size.width<=301 && measuredRect.origin.x>=25 && measuredRect.size.height>20);
-        NSTextBlock *box=boxStyle.textBlocks[0];
+        NSTextBlock *box=boxStyle.textBlocks.lastObject;
         assert(box.contentWidth==300 && [box widthForLayer:NSTextBlockPadding edge:NSMinXEdge]==16 && [box widthForLayer:NSTextBlockPadding edge:NSMinYEdge]==12);
         assert([box widthForLayer:NSTextBlockBorder edge:NSMinXEdge]==2 && [box widthForLayer:NSTextBlockMargin edge:NSMinXEdge]==10);
         NSRange nestedBoxRange=[text.string rangeOfString:@"Nested box"];
-        assert(((NSParagraphStyle *)[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:nestedBoxRange.location effectiveRange:NULL]).textBlocks.count==2);
+        NSArray<NSTextBlock *> *nestedBoxes=((NSParagraphStyle *)[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:nestedBoxRange.location effectiveRange:NULL]).textBlocks;
+        assert(nestedBoxes.count==boxStyle.textBlocks.count+1 && nestedBoxes.lastObject.contentWidth==120 && [nestedBoxes.lastObject widthForLayer:NSTextBlockPadding edge:NSMinXEdge]==4);
         __block NSUInteger imageCount=0; __block BOOL sawAlt=NO;
         [text.textStorage enumerateAttribute:NSAttachmentAttributeName inRange:NSMakeRange(0,text.string.length) options:0 usingBlock:^(NSTextAttachment *attachment,NSRange range,BOOL *stop) {
             (void)range;(void)stop;
@@ -452,6 +501,101 @@ int main(void) {
         NSTextTableBlock *lb=(id)((NSParagraphStyle *)[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:lower.location effectiveRange:NULL]).textBlocks.lastObject;
         NSTextTableBlock *wb=(id)((NSParagraphStyle *)[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:wide.location effectiveRange:NULL]).textBlocks.lastObject;
         assert(ub.table==lb.table && lb.table==wb.table && ub.startingColumn==1 && lb.startingRow==1 && wb.columnSpan==2);
+        navigate(@"/imports");waitFor(^BOOL{return [window.title hasPrefix:@"Imported styles — Assembly"]&&[status.stringValue containsString:@"ready."];});
+        assert(atomic_load(&importRequests)==4); // ancestor cycle never makes a request
+        NSRange importTarget=[text.string rangeOfString:@"Import cascade"],importNested=[text.string rangeOfString:@"Nested import"],importCondition=[text.string rangeOfString:@"Conditional import"];
+        NSColor *importColor=[[text.textStorage attribute:NSForegroundColorAttributeName atIndex:importTarget.location effectiveRange:NULL] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+        NSColor *nestedImportColor=[[text.textStorage attribute:NSForegroundColorAttributeName atIndex:importNested.location effectiveRange:NULL] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+        NSFont *importFont=[text.textStorage attribute:NSFontAttributeName atIndex:importTarget.location effectiveRange:NULL],*importNestedFont=[text.textStorage attribute:NSFontAttributeName atIndex:importNested.location effectiveRange:NULL];
+        assert(importColor.greenComponent>.49&&importColor.redComponent<.01&&nestedImportColor.blueComponent>.99);
+        assert((importFont.fontDescriptor.symbolicTraits&NSFontBoldTrait)&&(importNestedFont.fontDescriptor.symbolicTraits&NSFontItalicTrait));
+        assert(![[[text.textStorage attribute:NSForegroundColorAttributeName atIndex:importCondition.location effectiveRange:NULL] colorUsingColorSpace:NSColorSpace.sRGBColorSpace] isEqual:NSColor.purpleColor]);
+        [window setContentSize:NSMakeSize(1100,780)];mac_engine_resize(nil,NULL,nil);
+        importCondition=[text.string rangeOfString:@"Conditional import"];
+        NSColor *conditionColor=[[text.textStorage attribute:NSForegroundColorAttributeName atIndex:importCondition.location effectiveRange:NULL] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+        assert(conditionColor.redComponent>.49&&conditionColor.blueComponent>.49&&conditionColor.greenComponent<.01&&atomic_load(&importRequests)==4);
+        [window setContentSize:NSMakeSize(650,780)];mac_engine_resize(nil,NULL,nil);
+        void *importModel=(void *)(uintptr_t)((uint64_t *)engine_document)[12];
+        uint64_t importRootNode=engine_dom_get_element_by_id(importModel,"importroot"),insertedMeta=engine_dom_create_element(importModel,"meta",4);
+        assert(importRootNode&&insertedMeta&&!engine_dom_insert_before(importModel,engine_dom_node(importModel,importRootNode)->parent,insertedMeta,importRootNode));
+        mac_engine_refresh();waitFor(^BOOL{return [status.stringValue containsString:@"ready."];});
+        importNested=[text.string rangeOfString:@"Nested import"];
+        nestedImportColor=[[text.textStorage attribute:NSForegroundColorAttributeName atIndex:importNested.location effectiveRange:NULL] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+        assert(nestedImportColor.blueComponent>.99&&atomic_load(&importRequests)==4);
+        navigate(@"/scene");waitFor(^BOOL{return [window.title hasPrefix:@"Scene interaction — Assembly"]&&[status.stringValue containsString:@"ready."];});
+        NSRange sceneLink=[text.string rangeOfString:@"Moved link"],sceneSelect=[text.string rangeOfString:@"Selectable text"];
+        NSRect sceneLinkGlyph=[text.layoutManager boundingRectForGlyphRange:[text.layoutManager glyphRangeForCharacterRange:NSMakeRange(sceneLink.location+7,1) actualCharacterRange:NULL] inTextContainer:text.textContainer];
+        NSPoint sceneLinkPoint=NSMakePoint(NSMidX(sceneLinkGlyph)+120,NSMidY(sceneLinkGlyph)+20);
+        assert([mac_scene_link_at_point(sceneLinkPoint.x,sceneLinkPoint.y).path isEqual:@"/second"]);
+        assert(!mac_scene_link_at_point(125,25)); // opaque overlay blocks the link
+        assert(!mac_scene_link_at_point(NSMidX(sceneLinkGlyph),NSMidY(sceneLinkGlyph))); // old visual location is inactive
+        NSRect sceneStartGlyph=[text.layoutManager boundingRectForGlyphRange:[text.layoutManager glyphRangeForCharacterRange:NSMakeRange(sceneSelect.location,1) actualCharacterRange:NULL] inTextContainer:text.textContainer];
+        NSRect sceneEndGlyph=[text.layoutManager boundingRectForGlyphRange:[text.layoutManager glyphRangeForCharacterRange:NSMakeRange(sceneSelect.location+6,1) actualCharacterRange:NULL] inTextContainer:text.textContainer];
+        NSPoint sceneStart=NSMakePoint(NSMinX(sceneStartGlyph)+120,NSMidY(sceneStartGlyph)+20),sceneEnd=NSMakePoint(NSMaxX(sceneEndGlyph)+120,NSMidY(sceneEndGlyph)+20);
+        [text mouseDown:sceneMouse(text,NSEventTypeLeftMouseDown,sceneStart)];
+        [text mouseDragged:sceneMouse(text,NSEventTypeLeftMouseDragged,sceneEnd)];
+        [text mouseUp:sceneMouse(text,NSEventTypeLeftMouseUp,sceneEnd)];
+        assert(text.selectedRange.length>=5&&text.selectedRange.location>=sceneSelect.location&&NSMaxRange(text.selectedRange)<=NSMaxRange(sceneSelect));
+        [text cursorUpdate:sceneMouse(text,NSEventTypeMouseMoved,sceneLinkPoint)];assert(NSCursor.currentCursor==NSCursor.pointingHandCursor);
+        [text cursorUpdate:sceneMouse(text,NSEventTypeMouseMoved,NSMakePoint(125,25))];assert(NSCursor.currentCursor==NSCursor.arrowCursor);
+        [text mouseDown:sceneMouse(text,NSEventTypeLeftMouseDown,sceneLinkPoint)];waitFor(^BOOL{return [window.title hasPrefix:@"Second — Assembly"];});
+        navigate(@"/scene-controls");waitFor(^BOOL{return [window.title hasPrefix:@"Scene controls — Assembly"]&&[status.stringValue containsString:@"ready."];});
+        NSTextField *sceneField=control(@"clipped");NSView *sceneHost=sceneField.superview;
+        assert(sceneField&&sceneHost!=text&&sceneHost.isFlipped&&fabs(sceneField.frame.size.width-150)<1&&sceneHost.frame.size.width<=101);
+        sceneField.stringValue=@"kept editor value";
+        assert([window makeFirstResponder:sceneField]);NSText *sceneEditor=sceneField.currentEditor;assert(sceneEditor);sceneEditor.selectedRange=NSMakeRange(2,3);
+        [window setContentSize:NSMakeSize(700,780)];mac_engine_resize(nil,NULL,nil);
+        assert(control(@"clipped")==sceneField&&sceneField.superview==sceneHost&&sceneField.currentEditor==sceneEditor&&NSEqualRanges(sceneEditor.selectedRange,NSMakeRange(2,3)));
+        void *controlModel=(void *)(uintptr_t)((uint64_t *)engine_document)[12];uint64_t clipperNode=engine_dom_get_element_by_id(controlModel,"clipper");
+        const char *movedClip="position:relative;left:80px;top:10px;width:100px;height:40px;overflow:hidden";
+        assert(!engine_dom_set_attribute(controlModel,clipperNode,"style",movedClip,strlen(movedClip)));mac_engine_refresh();
+        assert(sceneField.superview==sceneHost&&sceneField.currentEditor==sceneEditor&&NSEqualRanges(sceneEditor.selectedRange,NSMakeRange(2,3))&&[sceneField.stringValue isEqual:@"kept editor value"]);
+        assert(fabs(sceneHost.frame.origin.x-80)<1&&fabs(sceneField.frame.size.width-150)<1&&sceneHost.frame.size.width<=101);
+        navigate(@"/scene-scroll");waitFor(^BOOL{return [window.title hasPrefix:@"Scene scrolling — Assembly"]&&[status.stringValue containsString:@"ready."];});
+        NSRange scrollLink=[text.string rangeOfString:@"Scroll link"];NSRect scrollGlyph=[text.layoutManager boundingRectForGlyphRange:[text.layoutManager glyphRangeForCharacterRange:scrollLink actualCharacterRange:NULL] inTextContainer:text.textContainer];
+        assert(!mac_scene_link_at_point(NSMidX(scrollGlyph),NSMidY(scrollGlyph)));
+        assert(mac_scene_scroll_at_point(5,5,0,120));
+        assert([mac_scene_link_at_point(NSMidX(scrollGlyph),NSMidY(scrollGlyph)-120).path isEqual:@"/second"]);
+        [window setContentSize:NSMakeSize(720,780)];mac_engine_resize(nil,NULL,nil);
+        scrollLink=[text.string rangeOfString:@"Scroll link"];scrollGlyph=[text.layoutManager boundingRectForGlyphRange:[text.layoutManager glyphRangeForCharacterRange:scrollLink actualCharacterRange:NULL] inTextContainer:text.textContainer];
+        assert([mac_scene_link_at_point(NSMidX(scrollGlyph),NSMidY(scrollGlyph)-120).path isEqual:@"/second"]); // contained scroll survives reflow
+        assert(mac_scene_scroll_at_point(5,5,0,-120));
+        assert(!mac_scene_link_at_point(NSMidX(scrollGlyph),NSMidY(scrollGlyph)-120));
+        navigate(@"/webfont");waitFor(^BOOL{return [window.title hasPrefix:@"Web fonts — Assembly"]&&atomic_load(&fontStarted);});
+        NSRange fontText=[text.string rangeOfString:@"WWWW"];NSFont *fallbackFont=[text.textStorage attribute:NSFontAttributeName atIndex:fontText.location effectiveRange:NULL];
+        assert(![fallbackFont.fontName isEqual:@"OogaFixture-Regular"]);
+        NSTextField *fontEditor=control(@"fontedit");assert(fontEditor);fontEditor.stringValue=@"kept during font load";
+        waitFor(^BOOL{return [status.stringValue containsString:@"ready."];});
+        fontText=[text.string rangeOfString:@"WWWW"];NSFont *loadedFont=[text.textStorage attribute:NSFontAttributeName atIndex:fontText.location effectiveRange:NULL];
+        assert([loadedFont.fontName isEqual:@"OogaFixture-Regular"]&&loadedFont.pointSize==20&&atomic_load(&fontRequests)==2);
+        assert(fabs([@"WWWW" sizeWithAttributes:@{NSFontAttributeName:loadedFont}].width-33.6)<1);
+        assert(control(@"fontedit")==fontEditor&&[fontEditor.stringValue isEqual:@"kept during font load"]);
+        [window setContentSize:NSMakeSize(700,780)];mac_engine_resize(nil,NULL,nil);
+        fontText=[text.string rangeOfString:@"WWWW"];loadedFont=[text.textStorage attribute:NSFontAttributeName atIndex:fontText.location effectiveRange:NULL];assert([loadedFont.fontName isEqual:@"OogaFixture-Regular"]&&atomic_load(&fontRequests)==2);
+        navigate(@"/mutation"); waitFor(^BOOL { return [window.title hasPrefix:@"Mutable tree — Assembly"] && [status.stringValue containsString:@"ready."]; });
+        int mutationVisits=count(); unsigned cssRequests=atomic_load(&mutationCSSRequests),pictureRequests=atomic_load(&imageRequests);
+        NSTextField *keptField=control(@"keep"),*removedField=control(@"remove"); NSButton *mutationSend=control(@"mutatesend");
+        assert(keptField && removedField && mutationSend);
+        keptField.stringValue=@"kept live value 🌐";
+        uint64_t *oldFlow=engine_document; void *model=(void *)(uintptr_t)oldFlow[12]; assert(model);
+        uint64_t containerNode=engine_dom_get_element_by_id(model,"container"),messageNode=engine_dom_get_element_by_id(model,"message"),removeNode=engine_dom_get_element_by_id(model,"remove");
+        uint64_t inserted=engine_dom_create_element(model,"p",1),insertedText=engine_dom_create_text(model,"Inserted 🌐",strlen("Inserted 🌐"));
+        assert(inserted && insertedText && !engine_dom_insert_before(model,inserted,insertedText,0) && !engine_dom_insert_before(model,containerNode,inserted,messageNode));
+        assert(!engine_dom_set_text(model,engine_dom_node(model,messageNode)->first,"After mutation",14));
+        assert(!engine_dom_set_attribute(model,messageNode,"class","hot",3) && !engine_dom_set_attribute(model,messageNode,"style","color:blue",10));
+        assert(!engine_dom_remove(model,removeNode));
+        mac_engine_refresh();
+        waitFor(^BOOL { return [text.string containsString:@"After mutation"] && [status.stringValue containsString:@"ready."]; });
+        assert(engine_document!=oldFlow && ((uint64_t *)engine_document)[12]==(uintptr_t)model && engine_dom_get_element_by_id(model,"message")==messageNode);
+        assert([text.string containsString:@"Inserted 🌐"] && control(@"keep")==keptField && control(@"mutatesend")==mutationSend && [keptField.stringValue isEqual:@"kept live value 🌐"]);
+        assert(removedField.hidden && !control(@"remove") && count()==mutationVisits);
+        assert(atomic_load(&mutationCSSRequests)==cssRequests && atomic_load(&imageRequests)==pictureRequests);
+        NSRange mutatedRange=[text.string rangeOfString:@"After mutation"],proofRange=[text.string rangeOfString:@"External CSS survives"];
+        NSColor *mutatedColor=[[text.textStorage attribute:NSForegroundColorAttributeName atIndex:mutatedRange.location effectiveRange:NULL] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+        NSColor *proofColor=[[text.textStorage attribute:NSForegroundColorAttributeName atIndex:proofRange.location effectiveRange:NULL] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+        assert(mutatedColor.blueComponent>.99 && proofColor.greenComponent>.49 && proofColor.redComponent<.01);
+        [mutationSend performClick:nil]; waitFor(^BOOL { return [window.title hasPrefix:@"Posted — Assembly"]; });
+        assert([postedBody containsString:@"q=kept+live+value+%F0%9F%8C%90"] && ![postedBody containsString:@"removed="]);
         navigate(@"/vectors"); waitFor(^BOOL { return [window.title hasPrefix:@"SVG integration — Assembly"] && [status.stringValue containsString:@"ready."]; });
         NSMutableArray<NSTextAttachment *> *vectors=[NSMutableArray new];
         [text.textStorage enumerateAttribute:NSAttachmentAttributeName inRange:NSMakeRange(0,text.string.length) options:0 usingBlock:^(id a,NSRange r,BOOL *stop){(void)r;(void)stop;if(a)[vectors addObject:a];}];
@@ -509,6 +653,7 @@ int main(void) {
         NSRect footerLine=[text.layoutManager lineFragmentRectForGlyphAtIndex:footerGlyph effectiveRange:NULL];
         NSUInteger toggleGlyph=[text.layoutManager glyphIndexForCharacterAtIndex:toggle.location];
         NSRect toggleLine=[text.layoutManager lineFragmentRectForGlyphAtIndex:toggleGlyph effectiveRange:NULL];
+        if(!(fabs(toggleLine.origin.x-40)<.01 && fabs(toggleLine.size.height-10)<.01 && fabs(footerLine.origin.y-335)<.01 && fabs(fg.origin.y-335)<3 && tg.size.width>0)) NSLog(@"Acid1 toggle %@ footer %@ glyph %@ text %@",NSStringFromRect(toggleLine),NSStringFromRect(footerLine),NSStringFromRect(fg),text.string);
         assert(fabs(toggleLine.origin.x-40)<.01 && fabs(toggleLine.size.height-10)<.01 && fabs(footerLine.origin.y-335)<.01 && fabs(fg.origin.y-335)<3 && tg.size.width>0);
         NSRect capture=NSMakeRect(0,0,600,500);
         NSBitmapImageRep *acidBitmap=[text bitmapImageRepForCachingDisplayInRect:capture];

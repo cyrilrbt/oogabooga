@@ -142,9 +142,8 @@ _mac_control_create:
     mov x21, x2
     LOAD x9, _engine_reflowing
     cbz x9, Lcontrol_new
-    CLASS NSNumber
-    mov x2, x21
-    MSG numberLongLong
+    mov x0, x21
+    bl _mac_control_key
     mov x2, x0
     LOAD x0, _engine_controls
     MSG objectKey
@@ -278,9 +277,8 @@ Lcontrol_action:
     mov x0, x23
     MSG setEnabled
 Lcontrol_dictionary:
-    CLASS NSNumber
-    mov x2, x21
-    MSG numberLongLong
+    mov x0, x21
+    bl _mac_control_key
     mov x3, x0
     mov x2, x23
     LOAD x0, _engine_controls
@@ -298,6 +296,12 @@ Lcontrol_release:
     mov x0, x23
     LEAVE
 Lcontrol_reused:
+    mov x23, x0
+    cmp x20, #NODE_TEXTAREA
+    b.eq Lcontrol_reused_done       // scroll wrapper has no control action/tag
+    mov x2, x21
+    MSG setTag                      // flow indices can change after DOM insertion
+    mov x0, x23
     cmp x20, #NODE_A
     b.ne Lcontrol_reused_done
     mov x1, x19
@@ -315,19 +319,24 @@ _mac_controls_position:
     ENTER
     mov x19, x0
     mov x20, x1
+    bl _mac_control_epoch
+    mov x28, x0
     mov x21, #0
 Lposition_next:
     ldr x9, [x19, #24]
     cmp x21, x9
     b.hs Lposition_done
-    CLASS NSNumber
-    mov x2, x21
-    MSG numberLongLong
+    mov x0, x21
+    bl _mac_control_key
     mov x2, x0
     LOAD x0, _engine_controls
     MSG objectKey
     cbz x0, Lposition_advance
     mov x22, x0
+    ADDR x1, _mac_control_active_key
+    mov x2, x28
+    mov x3, #1
+    bl _objc_setAssociatedObject
     ldr x9, [x19, #16]
     mov x10, #40
     madd x9, x21, x10, x9
@@ -416,6 +425,17 @@ Lposition_visible_range:
     ldp d2, d3, [sp, #160]
     mov x0, x22
     MSG setFrame
+    LOAD x9, _mac_scene
+    cbz x9, Lposition_plain_control
+    mov x0, x22
+    mov x1, x21
+    ldp d0, d1, [sp, #144]
+    ldp d2, d3, [sp, #160]
+    bl _mac_scene_control_place
+    b Lposition_advance
+Lposition_plain_control:
+    mov x0, x22
+    bl _mac_scene_control_detach
     ldr x0, [x19, #72]
     add x0, x0, x21, lsl #11
     mov x1, #NODE_INPUT
@@ -461,6 +481,8 @@ Lposition_advance:
     add x21, x21, #1
     b Lposition_next
 Lposition_done:
+    mov x0, x28
+    bl _mac_controls_prune
     LOAD x0, _engine_scroll
     mov x2, #0
     MSG setAccessibilityChildren
@@ -488,9 +510,8 @@ Lposition_ax_control:
     ldr x9, [x19, #24]
     cmp x21, x9
     b.hs Lposition_ax_install
-    CLASS NSNumber
-    mov x2, x21
-    MSG numberLongLong
+    mov x0, x21
+    bl _mac_control_key
     mov x2, x0
     LOAD x0, _engine_controls
     MSG objectKey
@@ -653,9 +674,8 @@ Lsubmit_value:
     b.ne Lsubmit_next
 Lsubmit_get_value:
     mov x28, x0
-    CLASS NSNumber
-    mov x2, x27
-    MSG numberLongLong
+    mov x0, x27
+    bl _mac_control_key
     mov x2, x0
     LOAD x0, _engine_controls
     MSG objectKey

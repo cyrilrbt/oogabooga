@@ -118,7 +118,7 @@ _engine_grid_owner:
 Lgrid_item:
     ldr x9, [x19, #24]
     cmp x25, x9
-    b.hs Lgrid_size_rows
+    b.hs Lgrid_phase_done
     cmp x23, #256
     b.hs Lgrid_size_rows
     ldr x9, [x19, #16]
@@ -126,7 +126,7 @@ Lgrid_item:
     madd x9, x25, x10, x9
     ldr x9, [x9, #8]
     cmp x9, x20
-    b.lo Lgrid_size_rows
+    b.lo Lgrid_phase_done
     b.ne Lgrid_next_item
     mov x0, x19
     mov x1, x25
@@ -136,6 +136,22 @@ Lgrid_item:
     add x26, x9, x25, lsl #11
     ldr x9, [x26, #(1840+(CSS_GRID_COLUMN-48)*8)]
     ldr x10, [x26, #(1840+(CSS_GRID_ROW-48)*8)]
+    // Place definite positions before auto rows, independent of source order.
+    // Scratch 3872=phase, 3880=cursor column, 3888=cursor row.
+    ldr x11, [sp, #3872]
+    cbnz x11, Lgrid_phase_later
+    cbz x9, Lgrid_next_item
+    cbz x10, Lgrid_next_item
+    b Lgrid_phase_selected
+Lgrid_phase_later:
+    cmp x11, #1
+    b.ne Lgrid_phase_auto
+    cbnz x9, Lgrid_next_item
+    cbz x10, Lgrid_next_item
+    b Lgrid_phase_selected
+Lgrid_phase_auto:
+    cbnz x10, Lgrid_next_item
+Lgrid_phase_selected:
     ldr x27, [x26, #(1840+(CSS_GRID_COLSPAN-48)*8)]
     ldr x28, [x26, #(1840+(CSS_GRID_ROWSPAN-48)*8)]
     mov x11, #1
@@ -154,6 +170,19 @@ Lgrid_item:
     csel x9, xzr, x9, lt
     cmp x10, #0
     csel x10, xzr, x10, lt
+    ldr x11, [sp, #3872]
+    cmp x11, #2
+    b.ne Lgrid_find_slot
+    ldr x10, [sp, #3888]
+    ldr x11, [sp, #3880]
+    ldr x12, [x26, #(1840+(CSS_GRID_COLUMN-48)*8)]
+    cbz x12, Lgrid_cursor_auto_column
+    cmp x9, x11
+    b.ge Lgrid_find_slot
+    add x10, x10, #1
+    b Lgrid_find_slot
+Lgrid_cursor_auto_column:
+    mov x9, x11
 Lgrid_find_slot:
     add x11, x9, x27
     cmp x11, x22
@@ -170,6 +199,8 @@ Lgrid_slot_rows:
     lsl x12, x12, x9
     mov x13, x10
     add x14, sp, #2048
+    ldr x15, [sp, #3872]
+    cbz x15, Lgrid_slot_found      // definite items may intentionally overlap
 Lgrid_slot_test:
     cmp x13, x11
     b.hs Lgrid_slot_found
@@ -197,6 +228,13 @@ Lgrid_slot_mark:
     add x13, x13, #1
     b Lgrid_slot_mark
 Lgrid_slot_store:
+    ldr x12, [sp, #3872]
+    cmp x12, #2
+    b.ne Lgrid_cursor_saved
+    add x12, x9, x27
+    str x12, [sp, #3880]
+    str x10, [sp, #3888]
+Lgrid_cursor_saved:
     str x9, [x26, #FLOW_COLUMN]
     str x10, [x26, #FLOW_ROW]
     str x27, [x26, #FLOW_COLSPAN]
@@ -222,6 +260,14 @@ Lgrid_slot_store:
     str x11, [x9, x10, lsl #3]
 Lgrid_next_item:
     add x25, x25, #1
+    b Lgrid_item
+Lgrid_phase_done:
+    ldr x9, [sp, #3872]
+    add x9, x9, #1
+    str x9, [sp, #3872]
+    cmp x9, #3
+    b.hs Lgrid_size_rows
+    add x25, x20, #1
     b Lgrid_item
 Lgrid_size_rows:
     mov x25, #0

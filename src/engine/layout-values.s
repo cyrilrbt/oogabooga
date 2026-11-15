@@ -78,7 +78,7 @@ Llayout_z_bias:
     add x0, x0, #32768
     b Llayout_good
 Llayout_z_auto:
-    mov x0, #32768
+    mov x0, #-1
     b Llayout_good
 Llayout_integer:
     mov x0, x20
@@ -135,17 +135,17 @@ layout_keywords:
 .quad CSS_POSITION, kw_fixed, 3
 .quad CSS_OVERFLOW, kw_visible, 0
 .quad CSS_OVERFLOW, kw_hidden, 1
-.quad CSS_OVERFLOW, kw_clip, 1
+.quad CSS_OVERFLOW, kw_clip, 3
 .quad CSS_OVERFLOW, kw_auto, 2
 .quad CSS_OVERFLOW, kw_scroll, 2
 .quad CSS_OVERFLOW_X, kw_visible, 0
 .quad CSS_OVERFLOW_X, kw_hidden, 1
-.quad CSS_OVERFLOW_X, kw_clip, 1
+.quad CSS_OVERFLOW_X, kw_clip, 3
 .quad CSS_OVERFLOW_X, kw_auto, 2
 .quad CSS_OVERFLOW_X, kw_scroll, 2
 .quad CSS_OVERFLOW_Y, kw_visible, 0
 .quad CSS_OVERFLOW_Y, kw_hidden, 1
-.quad CSS_OVERFLOW_Y, kw_clip, 1
+.quad CSS_OVERFLOW_Y, kw_clip, 3
 .quad CSS_OVERFLOW_Y, kw_auto, 2
 .quad CSS_OVERFLOW_Y, kw_scroll, 2
 .quad -1,0,0

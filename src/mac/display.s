@@ -5,6 +5,13 @@
 .include "src/engine/engine.inc"
 .text
 .p2align 2
+.globl _mac_display_descriptor
+_mac_display_descriptor:
+    ENTER
+    ADDR x1, paint_descriptor_key
+    bl _objc_getAssociatedObject
+    MSG bytes
+    LEAVE
 .globl _mac_display_begin
 _mac_display_begin:
     ENTER
@@ -42,6 +49,8 @@ Ldisplay_slots:
     add x25, x25, #1
     b Ldisplay_slots
 Ldisplay_attach:
+    mov x0, x19
+    bl _mac_scene_begin
     mov x0, x20
     ADDR x1, _mac_display_key
     mov x2, x23
@@ -78,6 +87,26 @@ _mac_display_bind:
     str x9, [sp, #72]
     ldr x9, [x20, #800]
     str x9, [sp, #80]
+    // Flow gaps and alignment offsets are native cell margins, not background.
+    ldr x9, [x20, #FLOW_OWNER]
+    cbz x9, Lbind_flow_margins_done
+    ldr x9, [sp, #56]
+    ldr x10, [x20, #FLOW_LEAD]
+    add x9, x9, x10
+    str x9, [sp, #56]
+    ldr x9, [sp, #64]
+    ldr x10, [x20, #FLOW_BEFORE]
+    add x9, x9, x10
+    str x9, [sp, #64]
+    ldr x9, [sp, #72]
+    ldr x10, [x20, #FLOW_TRAIL]
+    add x9, x9, x10
+    str x9, [sp, #72]
+    ldr x9, [sp, #80]
+    ldr x10, [x20, #FLOW_AFTER]
+    add x9, x9, x10
+    str x9, [sp, #80]
+Lbind_flow_margins_done:
     ldr x9, [x20, #FLOAT_ACTIVE]
     str x9, [sp, #88]
     CLASS NSData
@@ -435,6 +464,11 @@ Lcompile_next:
     add x24, x24, #1
     b Lcompile_node
 Lcompile_done:
+    mov x0, x19
+    mov x1, x20
+    mov x2, x21
+    mov x3, x22
+    bl _mac_scene_measure
     LOAD x0, _engine_text
     MSG window
     LOAD x2, _engine_text

@@ -346,6 +346,26 @@ _css_value:
     cbnz w0, Lvalue_unset
     cmp x19, #CSS_POSITION
     b.hs Lvalue_layout
+    cmp x19, #CSS_TOP
+    b.eq Lvalue_margin_sign
+    cmp x19, #CSS_BOTTOM
+    b.eq Lvalue_margin_sign
+    cmp x19, #CSS_LEFT
+    b.eq Lvalue_margin_sign
+    cmp x19, #CSS_RIGHT
+    b.ne Lvalue_nonnegative_length
+Lvalue_margin_sign:
+    cmp x20, x21
+    b.hs Lvalue_nonnegative_length
+    ldrb w9, [x20]
+    cmp w9, #45
+    b.ne Lvalue_nonnegative_length
+    mov x0, #CSS_INSET_LEFT
+    mov x1, x20
+    mov x2, x21
+    bl _css_layout_value
+    LEAVE
+Lvalue_nonnegative_length:
     cmp x19, #CSS_BORDER_RIGHT
     b.hs Lvalue_length
     cmp x19, #CSS_GROW
@@ -541,8 +561,6 @@ Lvalue_length_units:
     b.ne Lvalue_encode
     cmp x19, #CSS_BORDER
     b.eq Lvalue_bad
-    cmp x19, #CSS_HEIGHT
-    b.eq Lvalue_bad
 Lvalue_encode:
     lsl x1, x1, #32
     orr x0, x0, x1
@@ -584,6 +602,10 @@ Lfamily_unquote:
     add x24, x24, #1
     mov x25, x10
 Lfamily_lookup:
+    mov x0, x24
+    mov x1, x25
+    bl _engine_font_family_lookup
+    cbnz x0, Lvalue_good
     ADDR x26, family_table
 Lfamily_name:
     ldr x2, [x26]
@@ -750,6 +772,8 @@ Ldecl_property_next:
     b Ldecl_property_next
 Ldecl_property_found:
     ldr x28, [x27, #8]
+    cmp x28, #CSS_OVERFLOW
+    b.eq Ldecl_overflow
     cmp x28, #108
     b.hs Ldecl_grid_placement
     cmp x28, #107
@@ -789,6 +813,13 @@ Ldecl_grid_placement:
     mov x9, #CSS_GRID_ROW
     csel x4, x9, x4, eq
     bl _css_grid_placement
+    b Ldecl_advance
+Ldecl_overflow:
+    mov x0, x24
+    mov x1, x25
+    mov x2, x21
+    mov x3, x26
+    bl _css_overflow_declarations
     b Ldecl_advance
 Ldecl_border_style:
     mov x0, x24

@@ -14,7 +14,7 @@ for source in src/mac/*.s src/engine/*.s; do
     xcrun clang $flags -g -c "$source" -o "$object"
     objects="$objects $object"
 done
-xcrun clang $flags $objects -framework Cocoa -framework ImageIO -framework WebKit -lsqlite3 -o build/oogabooga
+xcrun clang $flags $objects -framework Cocoa -framework CoreText -framework ImageIO -framework WebKit -lsqlite3 -o build/oogabooga
 [ "$mode" != release ] || strip -x build/oogabooga
 cp build/oogabooga build/Oogabooga.app/Contents/MacOS/oogabooga.new
 mv -f build/Oogabooga.app/Contents/MacOS/oogabooga.new build/Oogabooga.app/Contents/MacOS/oogabooga
@@ -28,27 +28,36 @@ if [ "$mode" = test ]; then
     build/history-test
     xcrun clang $flags -Wall -Wextra -Werror tests/engine.c build/obj/engine_*.o -o build/engine-test
     build/engine-test
+    xcrun clang $flags -Wall -Wextra -Werror tests/dom.c build/obj/engine_*.o -o build/dom-test
+    build/dom-test
     xcrun clang $flags -Wall -Wextra -Werror tests/css.c build/obj/engine_*.o -o build/css-test
     build/css-test
+    xcrun clang $flags -Wall -Wextra -Werror tests/imports.c build/obj/engine_*.o -o build/imports-test
+    build/imports-test
+    xcrun clang $flags -Wall -Wextra -Werror tests/fonts.c build/obj/engine_*.o -o build/fonts-test
+    build/fonts-test
     xcrun clang $flags -Wall -Wextra -Werror tests/display-list.c build/obj/engine_*.o -o build/display-list-test
     build/display-list-test
+    xcrun clang $flags -Wall -Wextra -Werror tests/scene.c build/obj/engine_*.o -o build/scene-test
+    build/scene-test
     test_objects="build/obj/core.o"
     for source in src/mac/*.s src/engine/*.s; do
         [ "$source" = src/mac/start.s ] || test_objects="$test_objects build/obj/$(basename "$(dirname "$source")")_$(basename "$source" .s).o"
     done
-    xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-url.m $test_objects -framework Cocoa -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-url-test
+    xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-url.m $test_objects -framework Cocoa -framework CoreText -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-url-test
     build/mac-url-test
-    xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-charset.m $test_objects -framework Cocoa -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-charset-test
+    xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-charset.m $test_objects -framework Cocoa -framework CoreText -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-charset-test
     build/mac-charset-test
-    xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-delegates.m $test_objects -framework Cocoa -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-delegates-test
+    xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-delegates.m $test_objects -framework Cocoa -framework CoreText -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-delegates-test
     build/mac-delegates-test
-    xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-shortcuts.m $test_objects -framework Cocoa -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-shortcuts-test
+    xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-shortcuts.m $test_objects -framework Cocoa -framework CoreText -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-shortcuts-test
     build/mac-shortcuts-test
     sh ./tools/probe-mac-layout.sh
-    xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-engine.m $test_objects -framework Cocoa -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-engine-test
+    xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-engine.m $test_objects -framework Cocoa -framework CoreText -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-engine-test
     build/mac-engine-test
-    xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-svg.m $test_objects -framework Cocoa -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-svg-test
+    xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-svg.m $test_objects -framework Cocoa -framework CoreText -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-svg-test
     build/mac-svg-test
     ./tools/benchmark-page.sh --reference
+    sh ./tools/compatibility-report.sh
 fi
 printf 'Built %s/build/Oogabooga.app\n' "$PWD"

@@ -88,9 +88,61 @@ Lflow_break_next:
     cmp x7, x4
     b.hs Lflow_break_done
     add x8, x2, x7, lsl #11
-    ldr x8, [x8, #FLOW_OWNER]
-    cbz x8, Lflow_break_advance
-    sub x8, x8, #1
+    ldr x9, [x8, #FLOW_OWNER]
+    cbnz x9, Lflow_break_owned
+    ldr x9, [x8, #88]
+    cmp x9, #1
+    b.eq Lflow_break_advance
+    cmp x9, #2
+    b.eq Lflow_break_advance
+    mov x9, #40
+    madd x10, x7, x9, x3
+    ldr x11, [x10]
+    cmp x11, #NODE_TEXT
+    b.eq Lflow_break_advance
+    cmp x11, #NODE_ROOT
+    b.eq Lflow_break_advance
+    cmp x11, #NODE_HTML
+    b.eq Lflow_break_advance
+    cmp x11, #NODE_BODY
+    b.eq Lflow_break_advance
+    cmp x11, #NODE_SHEET
+    b.eq Lflow_break_advance
+    cmp x11, #NODE_LINK
+    b.eq Lflow_break_advance
+    cmp x11, #NODE_BR
+    b.eq Lflow_break_advance
+    // Preserve the prototype's default paragraph/list spacing when no author
+    // margin is supplied. Ordinary boxes have no synthetic blank-line margin.
+    cmp x11, #NODE_P
+    b.eq Lflow_break_margin_authored
+    cmp x11, #NODE_H1
+    b.eq Lflow_break_margin_authored
+    cmp x11, #NODE_H2
+    b.eq Lflow_break_margin_authored
+    cmp x11, #NODE_H3
+    b.eq Lflow_break_margin_authored
+    cmp x11, #NODE_PRE
+    b.eq Lflow_break_margin_authored
+    cmp x11, #NODE_UL
+    b.eq Lflow_break_margin_authored
+    cmp x11, #NODE_OL
+    b.eq Lflow_break_margin_authored
+    cmp x11, #NODE_QUOTE
+    b.eq Lflow_break_margin_authored
+    cmp x11, #NODE_DL
+    b.ne Lflow_break_normal
+Lflow_break_margin_authored:
+    ldr x11, [x8, #1088]
+    ldr x12, [x8, #1096]
+    orr x11, x11, x12
+    cbz x11, Lflow_break_advance
+Lflow_break_normal:
+    ldr x8, [x10, #8]
+    b Lflow_break_context
+Lflow_break_owned:
+    sub x8, x9, #1
+Lflow_break_context:
     mov x9, #40
     madd x10, x7, x9, x3
     madd x8, x8, x9, x3

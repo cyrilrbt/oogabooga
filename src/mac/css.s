@@ -52,6 +52,13 @@ _mac_css_font:
     ldr x20, [x19, #48]
     ldr x21, [x19, #56]
     ldr x22, [x19, #120]
+    cmp x22, #256
+    b.lo Lfont_native_family
+    mov x0, x19
+    bl _mac_webfont_font
+    cbnz x0, Lfont_return
+    mov x22, #0
+Lfont_native_family:
     CLASS NSFont
     scvtf d0, x20
     fmov d1, xzr

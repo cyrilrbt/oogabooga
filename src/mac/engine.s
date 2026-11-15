@@ -657,6 +657,8 @@ Ldisplay_update_styles:
     bl _engine_css_apply
 Ldisplay_viewport_ready:
     mov x0, x19
+    bl _engine_margin_reset
+    mov x0, x19
     LOAD x1, _engine_viewport
     bl _engine_box_tree
     mov x0, x19
@@ -665,6 +667,10 @@ Ldisplay_viewport_ready:
     bl _engine_flow_tree
     mov x0, x19
     bl _engine_float_tree
+    mov x0, x19
+    bl _engine_position_tree
+    mov x0, x19
+    bl _engine_margin_tree
     mov x0, x19
     bl _engine_inline_boxes
     mov x0, x19

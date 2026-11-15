@@ -9,6 +9,7 @@ _engine_css_capture:
     ENTER
     ldr x19, [x0, #72]
     add x19, x19, x1, lsl #11
+    str x5, [x19, #SOURCE_OFFSET]
     str x4, [x19, #24]              // borrowed canonical tag name
     mov x20, x2
     mov x21, x3
@@ -120,6 +121,8 @@ _engine_css_free:
     cbz x20, Lcss_free_buffers
 Lcss_free_meta:
     cbz x21, Lcss_free_buffers
+    ldr x0, [x20, #ATTR_OWNED_TAG]
+    bl _free
     ldr x0, [x20, #ATTR_RAW]
     bl _free
     mov x0, x20
@@ -151,6 +154,7 @@ Lcss_free_buffers:
     LEAVE
 
 // Find the matching block close while honoring strings/comments and nested braces.
+.globl _css_block_end
 _css_block_end:
     ENTER
     mov x19, x0
@@ -614,6 +618,56 @@ Lapply_ua:
     bl _engine_table_hints
     b Lapply_rules
 Lapply_no_table_ua:
+    cmp x9, #NODE_GENERIC
+    b.ne Lapply_not_generic
+    mov x10, #2
+    str x10, [x23, #88]
+    ldr x0, [x23, #24]
+    ADDR x1, css_head_tag
+    bl _strcmp
+    cbnz w0, Lapply_rules
+    mov x10, #1                   // head is retained, not rendered by default
+    str x10, [x23, #88]
+    b Lapply_rules
+Lapply_not_generic:
+    cmp x9, #NODE_SPAN
+    b.eq Lapply_inline_ua
+    cmp x9, #NODE_A
+    b.eq Lapply_inline_link_ua
+    cmp x9, #NODE_STRONG
+    b.eq Lapply_inline_bold_ua
+    cmp x9, #NODE_EM
+    b.eq Lapply_inline_italic_ua
+    cmp x9, #NODE_INPUT
+    b.eq Lapply_inline_ua
+    cmp x9, #NODE_IMG
+    b.eq Lapply_inline_ua
+    cmp x9, #NODE_BUTTON
+    b.eq Lapply_inline_ua
+    cmp x9, #NODE_SELECT
+    b.eq Lapply_inline_ua
+    cmp x9, #NODE_TEXTAREA
+    b.eq Lapply_inline_ua
+    cmp x9, #NODE_SVG
+    b.eq Lapply_inline_ua
+    b Lapply_block_ua
+Lapply_inline_ua:
+    mov x10, #2
+    str x10, [x23, #88]
+    b Lapply_rules
+Lapply_inline_link_ua:
+    mov x10, #2
+    str x10, [x23, #88]
+    b Lapply_link_ua
+Lapply_inline_bold_ua:
+    mov x10, #2
+    str x10, [x23, #88]
+    b Lapply_bold_ua
+Lapply_inline_italic_ua:
+    mov x10, #2
+    str x10, [x23, #88]
+    b Lapply_italic_ua
+Lapply_block_ua:
     cmp x9, #NODE_CENTER
     b.eq Lapply_center_ua
     cmp x9, #NODE_TEXT
@@ -840,10 +894,19 @@ Lapply_length:
     mov x3, x23
     ldr x4, [x19, #72]
     bl _css_length
+    cmp x26, #CSS_TOP
+    b.eq Lapply_signed_length
+    cmp x26, #CSS_BOTTOM
+    b.eq Lapply_signed_length
+    cmp x26, #CSS_LEFT
+    b.eq Lapply_signed_length
+    cmp x26, #CSS_RIGHT
+    b.eq Lapply_signed_length
     cmp x26, #CSS_INSET_TOP
     b.lo Lapply_resolved_store
     cmp x26, #CSS_INSET_LEFT
     b.hi Lapply_resolved_store
+Lapply_signed_length:
     cmn x0, #1
     b.eq Lapply_resolved_store
     tbz x5, #62, Lapply_resolved_store
@@ -860,6 +923,8 @@ Lapply_text_node:
     // The default pass already copied inherited text properties. Box geometry
     // is not inherited by anonymous flex text items.
 Lapply_inherited_hidden:
+    mov x0, x23
+    bl _engine_overflow_compute
     cbz x22, Lapply_canvas
     ldr x9, [x24, #88]
     cmp x9, #1
@@ -961,7 +1026,7 @@ css_inherited_mask: .quad (3197 | (7 << 39))
 css_defaults:
 .quad -1, -1, 14, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0
 .quad 0, 0, 0, 0, 0, 0, 1000, -1, -1, -1, -1, -6, -1, 1, 1000, 0, 0, 0, 0, 0
-.quad 0,-1,-1,-1,-1,32768,0,0,0,0,1,0,1,0,0,0
+.quad 0,-1,-1,-1,-1,-1,0,0,0,0,1,0,1,0,0,0
 .section __TEXT,__cstring,cstring_literals
 id_name: .asciz "id"
 class_name: .asciz "class"
@@ -1008,3 +1073,4 @@ visited_selector: .asciz ":visited"
 .section __TEXT,__cstring,cstring_literals
 custom_marker: .asciz "--"
 var_marker: .asciz "var("
+css_head_tag: .asciz "head"

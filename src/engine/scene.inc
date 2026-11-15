@@ -1,0 +1,56 @@
+// Retained positioned/clip scene. One allocation owns header, records, paint
+// order and sorting scratch. No platform objects or pointers into DOM strings.
+.set SCENE_NODE_SIZE, 512
+.set SCENE_ORDER_CAPACITY, 40960
+.set SCENE_COMMAND_CAPACITY, 32768
+.set SC_PARENT, 0
+.set SC_POSITION, 8
+.set SC_Z, 16
+.set SC_FLAGS, 24
+.set SC_LEFT, 32
+.set SC_TOP, 40
+.set SC_RIGHT, 48
+.set SC_BOTTOM, 56
+.set SC_OVERFLOW_X, 64
+.set SC_OVERFLOW_Y, 72
+.set SC_PADDING, 80
+.set SC_BORDER, 88
+.set SC_X, 96
+.set SC_Y, 104
+.set SC_W, 112
+.set SC_H, 120
+.set SC_TX, 128
+.set SC_TY, 136
+.set SC_CLIP_X, 144
+.set SC_CLIP_Y, 152
+.set SC_CLIP_W, 160
+.set SC_CLIP_H, 168
+.set SC_CLIP_AXES, 176
+.set SC_CONTEXT_PARENT, 184
+.set SC_CONTEXT_FIRST, 192
+.set SC_CONTEXT_NEXT, 200
+.set SC_RANK, 208
+.set SC_HEIGHT, 216
+.set SC_DOM, 224
+.set SC_SCROLL_X, 232
+.set SC_SCROLL_Y, 240
+.set SC_SCROLL_MAX_X, 248
+.set SC_SCROLL_MAX_Y, 256
+.set SC_CONTENT_W, 264
+.set SC_CONTENT_H, 272
+.set SC_WIDTH, 288
+.set SC_OPACITY, 304
+.set SC_CONTAINING, 312
+.set SC_KIND, 320
+.set SC_END_RANK, 328
+.set SC_PAINT_PHASE, 336
+.set SC_CONTROL, 344
+.set SC_CONTROL_RECT, 352
+.set SC_CONTROL_HOST, 384
+.set SC_MODEL, 392
+.set SC_IS_CONTEXT, 1
+.set SC_HAS_BOX, 2
+.set SC_FIXED, 4
+.set SC_BORDER_BOX, 8
+// Header 96 bytes: count,nodes*,order*,order count,viewport width,height,
+// scroll x/y doubles,rank counter,buckets*,rank-to-node*,command scratch*.

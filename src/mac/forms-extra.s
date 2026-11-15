@@ -188,9 +188,8 @@ Lradio_next:
     b.ne Lradio_restore
     str xzr, [x26, #704]
 Lradio_restore:
-    CLASS NSNumber
-    mov x2, x25
-    MSG numberLongLong
+    mov x0, x25
+    bl _mac_control_key
     mov x2, x0
     LOAD x0, _engine_controls
     MSG objectKey

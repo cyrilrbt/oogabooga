@@ -21,8 +21,11 @@ extern sqlite3 *mac_db;
 extern NSImage *mac_svg_image(const char *,size_t,void *) __attribute__((ns_returns_retained));
 static double now(void) { struct timespec t;clock_gettime(CLOCK_MONOTONIC_RAW,&t);return t.tv_sec+t.tv_nsec/1e9; }
 static NSBitmapImageRep *capture(NSRect rect) {
-    NSBitmapImageRep *r=[engine_text bitmapImageRepForCachingDisplayInRect:rect];assert(r);
-    [engine_text cacheDisplayInRect:rect toBitmapImageRep:r];return r;
+    // Explicit sRGB avoids display-profile-dependent color values in snapshots.
+    NSBitmapImageRep *r=[[NSBitmapImageRep alloc] initWithBitmapDataPlanes:NULL pixelsWide:(NSInteger)rect.size.width pixelsHigh:(NSInteger)rect.size.height bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSCalibratedRGBColorSpace bytesPerRow:0 bitsPerPixel:0];
+    r=[r bitmapImageRepByRetaggingWithColorSpace:NSColorSpace.sRGBColorSpace];assert(r);
+    NSGraphicsContext *context=[NSGraphicsContext graphicsContextWithBitmapImageRep:r];assert(context);
+    [engine_text displayRectIgnoringOpacity:rect inContext:context];return r;
 }
 static int palette(NSColor *color) {
     NSColor *c=[color colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
@@ -66,12 +69,102 @@ static void bench(NSString *name,NSString *html,int rounds,BOOL reference) {
     printf("\n%s: %.3f ms/page (%d offline iterations; 600x500 painted viewport)\n",name.UTF8String,wall,rounds);
     for(int i=0;i<8;i++)printf("  %-32s %8.3f ms/page  [%llu calls]\n",stages[i],engine_profile_totals[i]/1e6/rounds,engine_profile_counts[i]);
 }
+static int report(NSString *directory,NSString *manifest) {
+    NSError *error=nil;
+    NSArray *cases=[NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:manifest] options:0 error:&error];
+    if(![cases isKindOfClass:NSArray.class]) { NSLog(@"Invalid compatibility manifest: %@",error); return 1; }
+    if(![NSFileManager.defaultManager createDirectoryAtPath:directory withIntermediateDirectories:YES attributes:nil error:&error]) return 1;
+    NSMutableArray *results=[NSMutableArray new];
+    BOOL failed=NO;
+    for(NSDictionary *test in cases) { @autoreleasepool {
+        NSString *name=test[@"name"],*file=test[@"file"];
+        NSString *html=[NSString stringWithContentsOfFile:file encoding:NSUTF8StringEncoding error:&error];
+        if(!html || !name.length || [name rangeOfCharacterFromSet:[[NSCharacterSet characterSetWithCharactersInString:@"abcdefghijklmnopqrstuvwxyz0123456789-"] invertedSet]].location!=NSNotFound) { NSLog(@"Invalid fixture %@",test); return 1; }
+        NSInteger width=[test[@"width"] integerValue],height=[test[@"height"] integerValue];
+        if(width<100 || width>2000 || height<100 || height>2000) return 1;
+        [engine_scroll setFrameSize:NSMakeSize(width,height)];
+        engine_scroll.scrollerStyle=NSScrollerStyleOverlay;
+        NSData *source=[html dataUsingEncoding:NSUTF8StringEncoding];
+        NSMutableArray *times=[NSMutableArray new],*checks=[NSMutableArray new];
+        NSBitmapImageRep *image=nil;
+        engine_profile_reset();
+        for(int round=-2;round<5;round++) {
+            engine_profile_enabled=round>=0;
+            double start=now();
+            void *document=engine_parse(source.bytes,source.length);
+            if(!document) return 1;
+            mac_resources_reset();
+            if(!mac_engine_display(document,[NSURL URLWithString:@"https://fixture.invalid/"])) { engine_document_free(document); return 1; }
+            image=capture(NSMakeRect(0,0,width,height));
+            if(round>=0) [times addObject:@((now()-start)*1000)];
+            engine_document_free(document);
+        }
+        engine_profile_enabled=0;
+        NSArray *sorted=[times sortedArrayUsingSelector:@selector(compare:)];
+        double median=[sorted[sorted.count/2] doubleValue],budget=[test[@"budget_ms"] doubleValue];
+        BOOL passed=budget<=0 || median<=budget;
+        for(NSDictionary *sample in test[@"pixels"]) {
+            NSInteger x=[sample[@"x"] integerValue],y=[sample[@"y"] integerValue];
+            if(x<0 || y<0 || x>=width || y>=height) return 1;
+            NSUInteger pixel[4]={0}; [image getPixel:pixel atX:x*image.pixelsWide/width y:y*image.pixelsHigh/height];
+            NSArray *rgb=sample[@"rgb"];
+            BOOL match=rgb.count==3 && fabs((double)pixel[0]-[rgb[0] doubleValue])<6 && fabs((double)pixel[1]-[rgb[1] doubleValue])<6 && fabs((double)pixel[2]-[rgb[2] doubleValue])<6;
+            [checks addObject:@{@"name":sample[@"name"]?:@"pixel",@"pass":@(match),@"x":@(x),@"y":@(y),@"actual":@[@(pixel[0]),@(pixel[1]),@(pixel[2])]}];
+            passed &= match;
+        }
+        NSString *referencePNG=@"";
+        if(test[@"reference"]) {
+            NSBitmapImageRep *expected=[[NSBitmapImageRep alloc] initWithBitmapDataPlanes:NULL pixelsWide:width pixelsHigh:height bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSDeviceRGBColorSpace bytesPerRow:width*4 bitsPerPixel:32];
+            expected=[expected bitmapImageRepByRetaggingWithColorSpace:NSColorSpace.sRGBColorSpace];
+            memset(expected.bitmapData,255,expected.bytesPerRow*height);
+            for(NSDictionary *rectangle in test[@"reference"]) {
+                NSArray *rect=rectangle[@"rect"],*rgb=rectangle[@"rgb"];
+                if(rect.count!=4 || rgb.count!=3) return 1;
+                NSInteger left=[rect[0] integerValue],top=[rect[1] integerValue],right=left+[rect[2] integerValue],bottom=top+[rect[3] integerValue];
+                if(left<0 || top<0 || right>width || bottom>height || right<left || bottom<top) return 1;
+                for(NSInteger y=top;y<bottom;y++) for(NSInteger x=left;x<right;x++) {
+                    unsigned char *p=expected.bitmapData+y*expected.bytesPerRow+x*4;
+                    for(int c=0;c<3;c++) p[c]=[rgb[c] unsignedCharValue];
+                }
+            }
+            NSUInteger mismatch=0;
+            for(NSInteger y=0;y<height;y++) for(NSInteger x=0;x<width;x++) {
+                NSUInteger pixel[4]={0}; [image getPixel:pixel atX:x*image.pixelsWide/width y:y*image.pixelsHigh/height];
+                BOOL match=NO;
+                for(NSInteger dy=-1;dy<=1 && !match;dy++) for(NSInteger dx=-1;dx<=1;dx++) {
+                    NSInteger xx=x+dx,yy=y+dy;
+                    if(xx<0 || yy<0 || xx>=width || yy>=height) continue;
+                    const unsigned char *p=expected.bitmapData+yy*expected.bytesPerRow+xx*4;
+                    if(labs((long)pixel[0]-p[0])<6 && labs((long)pixel[1]-p[1])<6 && labs((long)pixel[2]-p[2])<6) { match=YES; break; }
+                }
+                mismatch+=!match;
+            }
+            referencePNG=[name stringByAppendingString:@"-reference.png"];
+            if(![[expected representationUsingType:NSBitmapImageFileTypePNG properties:@{}] writeToFile:[directory stringByAppendingPathComponent:referencePNG] atomically:YES]) return 1;
+            [checks addObject:@{@"name":@"reference geometry (1px edge tolerance)",@"pass":@(mismatch==0),@"mismatched_pixels":@(mismatch),@"compared_pixels":@(width*height)}];
+            passed &= mismatch==0;
+        }
+        NSString *png=[name stringByAppendingPathExtension:@"png"];
+        if(![[image representationUsingType:NSBitmapImageFileTypePNG properties:@{}] writeToFile:[directory stringByAppendingPathComponent:png] atomically:YES]) return 1;
+        NSMutableArray *stages=[NSMutableArray new];
+        for(int stage=0;stage<8;stage++) [stages addObject:@(engine_profile_totals[stage]/1e6/5)];
+        [results addObject:@{@"name":name,@"file":file,@"screenshot":png,@"reference":referencePNG,@"pass":@(passed),@"median_ms":@(median),@"budget_ms":@(budget),@"stage_ms":stages,@"checks":checks,@"width":@(width),@"height":@(height),@"viewport_width":@(engine_text.textContainer.size.width)}];
+        printf("%s: %s (median %.2f ms, budget %.2f ms)\n",passed?"PASS":"FAIL",name.UTF8String,median,budget);
+        failed |= !passed;
+    }}
+    NSString *version=[[NSString stringWithContentsOfFile:@"VERSION" encoding:NSUTF8StringEncoding error:NULL] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    NSDictionary *result=@{@"version":version?:@"unknown",@"os":NSProcessInfo.processInfo.operatingSystemVersionString,@"results":results,@"pass":@(!failed)};
+    NSData *json=[NSJSONSerialization dataWithJSONObject:result options:NSJSONWritingPrettyPrinted|NSJSONWritingSortedKeys error:&error];
+    if(![json writeToFile:[directory stringByAppendingPathComponent:@"results.json"] atomically:YES]) return 1;
+    return failed?1:0;
+}
 int main(int argc,const char **argv) {@autoreleasepool{
     [NSApplication sharedApplication];id delegate=[[mac_register_class() alloc]init];mac_delegate=delegate;
     NSScrollView *scroll=[[NSScrollView alloc]initWithFrame:NSMakeRect(0,0,1000,700)];
     NSTextView *text=[[NSTextView alloc]initWithFrame:NSMakeRect(0,0,1000,700)];text.editable=NO;text.richText=YES;text.verticallyResizable=YES;text.horizontallyResizable=YES;scroll.documentView=text;
     [text.textContainer replaceLayoutManager:mac_display_manager_create()];
     engine_text=text;engine_scroll=scroll;assert(history_open(":memory:",&mac_db)==SQLITE_OK);
+    if(argc>3&&!strcmp(argv[1],"--report")) return report([NSString stringWithUTF8String:argv[2]],[NSString stringWithUTF8String:argv[3]]);
     NSString *acid=[NSString stringWithContentsOfFile:@"tests/fixtures/acid1.html" encoding:NSUTF8StringEncoding error:NULL];assert(acid);
     if(argc>1&&!strcmp(argv[1],"--reference")){bench(@"Acid1",acid,1,YES);return 0;}
     bench(@"Acid1",acid,30,NO);

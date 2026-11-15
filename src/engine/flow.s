@@ -166,8 +166,8 @@ Lboundary_next:
 Lboundary_done:
     ret
 
-// Parser paragraph separators are not CSS margins. An explicit zero paragraph
-// margin removes their synthetic blank line while keeping one block boundary.
+// Parser separators are not CSS margins. When a block has authored vertical
+// margins, remove synthetic extra blank lines while preserving explicit <br>.
 .globl _engine_zero_margin_flow
 _engine_zero_margin_flow:
     ldr x1, [x0, #16]
@@ -183,13 +183,20 @@ Lzero_margin_node:
     mov x7, #40
     madd x7, x6, x7, x1
     ldr x8, [x7]
-    cmp x8, #2
-    b.ne Lzero_margin_next
+    cmp x8, #1
+    b.eq Lzero_margin_next
+    cmp x8, #29
+    b.eq Lzero_margin_next
+    cmp x8, #30
+    b.eq Lzero_margin_next
+    cmp x8, #39
+    b.eq Lzero_margin_next
     add x8, x3, x6, lsl #11
-    ldr x9, [x8, #96]
-    ldr x10, [x8, #104]
-    orr x9, x9, x10
-    cbnz x9, Lzero_margin_next
+    ldr x9, [x8, #88]
+    cmp x9, #1
+    b.eq Lzero_margin_next
+    cmp x9, #2
+    b.eq Lzero_margin_next
     ldr x9, [x8, #1088]
     ldr x10, [x8, #1096]
     orr x9, x9, x10
@@ -205,15 +212,36 @@ Lzero_margin_after:
     ldrb w10, [x5, x9]
     cmp w10, #3
     b.eq Lzero_margin_before_start
+    cmp w10, #1
+    b.eq Lzero_margin_after_advance
     cbz x11, Lzero_margin_after_keep
     mov w10, #1
     strb w10, [x5, x9]
 Lzero_margin_after_keep:
     mov x11, #1
+Lzero_margin_after_advance:
     add x9, x9, #1
     b Lzero_margin_after
 Lzero_margin_before_start:
-    b Lzero_margin_next
+    ldr x9, [x7, #16]
+    mov x11, #0
+Lzero_margin_before:
+    cbz x9, Lzero_margin_next
+    sub x9, x9, #1
+    ldrb w10, [x4, x9]
+    cmp w10, #10
+    b.ne Lzero_margin_next
+    ldrb w10, [x5, x9]
+    cmp w10, #3
+    b.eq Lzero_margin_next
+    cmp w10, #1
+    b.eq Lzero_margin_before
+    cbz x11, Lzero_margin_before_keep
+    mov w10, #1
+    strb w10, [x5, x9]
+Lzero_margin_before_keep:
+    mov x11, #1
+    b Lzero_margin_before
 Lzero_margin_next:
     add x6, x6, #1
     b Lzero_margin_node

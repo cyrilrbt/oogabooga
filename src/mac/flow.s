@@ -324,6 +324,11 @@ Lgrid_content_width:
     ldr x10, [x22, #FLOW_HEIGHT]
     ldr x11, [x22, #FLOW_INTRINSIC_H]
     ldr w12, [x22, #112]
+    // TextKit honors authored line-height even when font ink is taller.
+    // Replaced elements can enlarge the line, ordinary text cannot.
+    ldr x13, [x22, #NATIVE_HAS_REPLACED]
+    cmp x13, #0
+    csel x11, x12, x11, eq
     cmp x11, x12
     csel x11, x12, x11, lt
     sub x10, x10, x11

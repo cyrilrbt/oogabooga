@@ -8,6 +8,11 @@
 .globl _mac_resources_reset
 _mac_resources_reset:
     ENTER
+    bl _mac_imports_reset
+    bl _mac_fonts_reset
+    LOAD x0, resource_base_url
+    MSG release
+    STORE xzr, resource_base_url
     STORE xzr, _engine_resource_doc
     STORE xzr, _engine_phase
     STORE xzr, resource_index
@@ -36,10 +41,36 @@ Lresource_begin_done:
     LEAVE
 
 .globl _mac_resources_next
+.globl _mac_resources_rebind
+_mac_resources_rebind:
+    ENTER
+    STORE x0, _engine_resource_doc
+    STORE xzr, resource_index
+    bl _mac_imports_rebind
+    bl _mac_resources_styles
+    LEAVE
+
 _mac_resources_next:
     ENTER
     LOAD x19, _engine_resource_doc
     cbz x19, Lresources_done
+Lresources_imports:
+    bl _mac_imports_next
+    cbz x0, Lresource_next
+    mov x24, x0
+    LOAD x20, _mac_import_owner
+    mov x23, #1
+    LOAD x9, resource_count
+    cmp x9, #32
+    b.hs Lresource_import_limit
+    add x9, x9, #1
+    STORE x9, resource_count
+    b Lresource_request
+Lresource_import_limit:
+    mov x0, #0
+    mov x1, #0
+    bl _mac_imports_complete
+    b Lresources_imports
 Lresource_next:
     LOAD x20, resource_index
     ldr x9, [x19, #24]
@@ -59,10 +90,19 @@ Lresource_next:
     b.eq Lresource_css
     cmp x9, #NODE_IMG
     b.ne Lresource_next
+    CLASS NSNumber
+    mov x2, x20
+    MSG numberLongLong
+    mov x2, x0
+    LOAD x0, _engine_images
+    MSG objectKey
+    cbnz x0, Lresource_next
     mov x23, #2
     ldr x0, [x22, #ATTR_SRC]
     b Lresource_url
 Lresource_css:
+    ldr x9, [x22, #ATTR_CSS_DATA]
+    cbnz x9, Lresource_next
     ldr x0, [x22, #ATTR_REL]
     cbz x0, Lresource_next
     bl _mac_string
@@ -112,6 +152,7 @@ Lresource_url:
     MSG scheme
     bl _mac_allowed_scheme
     cbz w0, Lresource_next
+Lresource_request:
     STORE x23, _engine_phase
     STORE x20, _engine_resource_node
     CLASS NSMutableData
@@ -130,9 +171,37 @@ Lresource_url:
     MSG resume
     b Lresources_done
 Lresource_embedded:
-    b Lresource_next
+    ldr x23, [x21, #32]
+    mov x0, x23
+    bl _strlen
+    mov x1, x0
+    mov x0, x23
+    LOAD x2, _engine_pending_url
+    bl _mac_fonts_add_sheet
+    ldr x0, [x21, #32]
+    mov x1, x20
+    LOAD x2, _engine_pending_url
+    bl _mac_imports_add
+    b Lresources_imports
 Lresources_finish:
     bl _mac_resources_styles
+    bl _mac_fonts_next
+    cbz x0, Lresources_fonts_done
+    mov x24, x0
+    mov x23, #3
+    LOAD x20, _mac_font_pending
+    sub x20, x20, #1
+    LOAD x9, resource_count
+    cmp x9, #32
+    b.hs Lresource_font_limit
+    add x9, x9, #1
+    STORE x9, resource_count
+    b Lresource_request
+Lresource_font_limit:
+    mov x0, #0
+    bl _mac_fonts_complete
+    b Lresources_finish
+Lresources_fonts_done:
     bl _mac_engine_refresh
     STORE xzr, _engine_resource_doc
     STORE xzr, _engine_phase
@@ -170,8 +239,20 @@ Lresource_mime:
     MSG lowercase
     mov x20, x0
     LOAD x9, _engine_phase
+    cmp x9, #3
+    b.eq Lresource_font_mime
     cmp x9, #1
     b.ne Lresource_image_mime
+    mov x0, x19
+    MSG URL
+    MSG retain
+    mov x21, x0
+    LOAD x0, resource_base_url
+    MSG release
+    STORE x21, resource_base_url
+    mov x0, x21
+    bl _mac_imports_accept_url
+    cbz x0, Lresource_reject
     STR css_mime
     mov x2, x0
     mov x0, x20
@@ -184,6 +265,25 @@ Lresource_mime:
     MSG retain
     STORE x0, _engine_charset
     mov w0, #1
+    LEAVE
+Lresource_font_mime:
+    STR font_mime
+    mov x2, x0
+    mov x0, x20
+    MSG hasPrefix
+    cbnz x0, Lresource_font_allow
+    STR font_binary_mime
+    mov x2, x0
+    mov x0, x20
+    MSG equal
+    cbnz x0, Lresource_font_allow
+    STR font_legacy_mime
+    mov x2, x0
+    mov x0, x20
+    MSG equal
+    cbz x0, Lresource_reject
+Lresource_font_allow:
+    mov x0, #1
     LEAVE
 Lresource_image_mime:
     STR svg_mime
@@ -224,6 +324,8 @@ _mac_resource_complete:
     cmp x9, x10
     b.hi Lresource_consumed
     LOAD x9, _engine_phase
+    cmp x9, #3
+    b.eq Lresource_decode_font
     cmp x9, #1
     b.ne Lresource_decode_image
     LOAD x0, _engine_data
@@ -235,6 +337,8 @@ _mac_resource_complete:
     mov x20, x0
     mov x0, x19
     MSG bytes
+    LOAD x9, _mac_import_pending
+    cbnz x9, Lresource_import_complete
     mov x1, x20
     bl _strndup
     mov x21, x0
@@ -245,8 +349,30 @@ _mac_resource_complete:
     ldr x0, [x22, #ATTR_CSS_DATA]
     bl _free
     str x21, [x22, #ATTR_CSS_DATA]
+    mov x0, x21
+    mov x1, x20
+    LOAD x2, resource_base_url
+    bl _mac_fonts_add_sheet
+    mov x0, x21
+    LOAD x1, _engine_resource_node
+    LOAD x2, resource_base_url
+    bl _mac_imports_add
+    b Lresource_css_decoded
+Lresource_import_complete:
+    mov x1, x20
+    LOAD x2, resource_base_url
+    bl _mac_fonts_add_sheet
+    mov x0, x19
+    MSG bytes
+    mov x1, x20
+    bl _mac_imports_complete
+Lresource_css_decoded:
     mov x0, x19
     MSG release
+    b Lresource_consumed
+Lresource_decode_font:
+    LOAD x0, _engine_data
+    bl _mac_fonts_complete
     b Lresource_consumed
 Lresource_decode_image:
     LOAD x0, _engine_data
@@ -263,9 +389,24 @@ Lresource_decode_image:
     mov x0, x19
     MSG release
 Lresource_consumed:
+    // Rejected responses and network errors still finish the pending import.
+    LOAD x9, _mac_import_pending
+    cbz x9, Lresource_import_finished
+    mov x0, #0
+    mov x1, #0
+    bl _mac_imports_complete
+Lresource_import_finished:
+    LOAD x9, _mac_font_pending
+    cbz x9, Lresource_font_finished
+    mov x0, #0
+    bl _mac_fonts_complete
+Lresource_font_finished:
     LOAD x9, _engine_phase
     cmp x9, #1
+    b.eq Lresource_reapply_styles
+    cmp x9, #3
     b.ne Lresource_refresh
+Lresource_reapply_styles:
     bl _mac_resources_styles
 Lresource_refresh:
     bl _mac_engine_refresh
@@ -275,6 +416,9 @@ Lresource_refresh:
 .section __TEXT,__cstring,cstring_literals
 sheet_rel: .asciz "stylesheet"
 css_mime: .asciz "text/css"
+font_mime: .asciz "font/"
+font_binary_mime: .asciz "application/octet-stream"
+font_legacy_mime: .asciz "application/x-font-ttf"
 image_mime: .asciz "image/"
 screen_media: .asciz "screen"
 all_media: .asciz "all"
@@ -374,6 +518,7 @@ Lraster_none:
 // that occur after a pending fetch. Repeated refreshes never reorder the cascade.
 _mac_resources_styles:
     ENTER
+    bl _mac_imports_styles
     LOAD x19, _engine_resource_doc
     cbz x19, Lstyles_done
     str xzr, [x19, #64]
@@ -398,6 +543,11 @@ Lstyles_next:
     b Lstyles_source
 Lstyles_inline:
     ldr x21, [x9, #32]
+    ldr x10, [x19, #72]
+    add x10, x10, x20, lsl #11
+    ldr x10, [x10, #ATTR_CSS_DATA]
+    cmp x10, #0
+    csel x21, x21, x10, eq
 Lstyles_source:
     cbz x21, Lstyles_advance
     mov x0, x21
@@ -415,7 +565,7 @@ Lstyles_apply:
 Lstyles_done:
     LEAVE
 .section __TEXT,__cstring,cstring_literals
-resources_loading: .asciz "Assembly engine: HTML ready; loading styles and images…"
+resources_loading: .asciz "Assembly engine: HTML ready; loading styles, images and fonts…"
 resources_ready: .asciz "Assembly engine: ready. JavaScript is not supported. ⌘E switches to WebKit."
 
 resources_history_error: .asciz "Assembly engine: page ready, but history could not be saved."
@@ -429,3 +579,6 @@ _engine_history_failed: .space 8
 resource_is_svg: .quad 0
 .section __TEXT,__cstring,cstring_literals
 svg_mime: .asciz "image/svg+xml"
+.section __DATA,__bss
+.p2align 3
+resource_base_url: .space 8

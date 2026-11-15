@@ -23,6 +23,15 @@ Lmeasure_inset_ready:
     STORE x19, _engine_inset
     LOAD x0, _engine_scroll
     MSG contentSize
+    LOAD x10, _engine_render_document
+    cbz x10, Lmeasure_height_ready
+    ldr x10, [x10, #72]
+    fcvtzs x11, d1
+    sub x11, x11, x19, lsl #1
+    cmp x11, #0
+    csel x11, xzr, x11, lt
+    str x11, [x10, #1776]          // initial containing block content height
+Lmeasure_height_ready:
     fcvtzs x9, d0
     sub x9, x9, x19, lsl #1
     mov x10, #80
@@ -45,6 +54,16 @@ _mac_engine_refresh:
     ENTER
     LOAD x19, _engine_document
     cbz x19, Lrefresh_done
+    ldr x9, [x19, #96]
+    cbz x9, Lrefresh_layout
+    ldr x9, [x9, #24]
+    ldr x10, [x19, #104]
+    cmp x9, x10
+    b.eq Lrefresh_layout
+    mov x0, x19
+    bl _mac_dom_rebuild
+    b Lrefresh_done
+Lrefresh_layout:
     mov x9, #1
     STORE x9, _engine_reflowing
     mov x0, x19

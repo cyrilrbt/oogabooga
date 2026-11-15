@@ -26,6 +26,19 @@ _mac_display_cursor_install:
     ADDR x2, display_cursors
     ADDR x3, display_cursor_encoding
     bl _class_addMethod
+    ADDR x21, scene_mouse_methods
+Lcursor_scene_method:
+    ldr x0, [x21]
+    cbz x0, Lcursor_scene_methods_done
+    bl _sel_registerName
+    mov x1, x0
+    mov x0, x20
+    ldr x2, [x21, #8]
+    ADDR x3, scene_mouse_encoding
+    bl _class_addMethod
+    add x21, x21, #16
+    b Lcursor_scene_method
+Lcursor_scene_methods_done:
     mov x0, x20
     bl _objc_registerClassPair
     mov x0, x20
@@ -44,6 +57,12 @@ display_cursors:
     mov x0, sp
     mov x1, x20
     bl _objc_msgSendSuper
+    LOAD x9, _mac_scene
+    cbz x9, Lcursor_legacy_rects
+    mov x0, x19
+    bl _mac_scene_cursors
+    b Lcursor_done
+Lcursor_legacy_rects:
     mov x0, x19
     MSG visibleRect
     stp d0, d1, [sp, #144]
@@ -85,3 +104,18 @@ Lcursor_done:
 display_text_name: .asciz "OogaDisplayTextView"
 display_cursor_name: .asciz "resetCursorRects"
 display_cursor_encoding: .asciz "v@:"
+scene_down_name: .asciz "mouseDown:"
+scene_drag_name: .asciz "mouseDragged:"
+scene_up_name: .asciz "mouseUp:"
+scene_cursor_name: .asciz "cursorUpdate:"
+scene_scroll_name: .asciz "scrollWheel:"
+scene_mouse_encoding: .asciz "v@:@"
+.section __DATA,__const
+.p2align 3
+scene_mouse_methods:
+.quad scene_down_name,_mac_scene_mouse_down
+.quad scene_drag_name,_mac_scene_mouse_dragged
+.quad scene_up_name,_mac_scene_mouse_up
+.quad scene_cursor_name,_mac_scene_cursor_update
+.quad scene_scroll_name,_mac_scene_scroll_wheel
+.quad 0,0

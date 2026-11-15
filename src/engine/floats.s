@@ -19,8 +19,26 @@ Lfloat_context_parent:
     cmp x6, #NODE_BODY
     b.eq Lfloat_context_done
     add x6, x3, x1, lsl #11
-    ldr x6, [x6, #(32+CSS_FLOAT*8)]
-    cbnz x6, Lfloat_context_done
+    ldr x7, [x6, #(32+CSS_FLOAT*8)]
+    cbnz x7, Lfloat_context_done
+    ldr x7, [x6, #FLOW_OWNER]
+    cbnz x7, Lfloat_context_done
+    ldr x7, [x6, #88]
+    cmp x7, #3
+    b.hs Lfloat_context_done
+    ldr x7, [x6, #(1840+(CSS_POSITION-48)*8)]
+    cmp x7, #2
+    b.hs Lfloat_context_done
+    ldr x7, [x6, #(1840+(CSS_OVERFLOW_X-48)*8)]
+    cmp x7, #1
+    b.eq Lfloat_context_done
+    cmp x7, #2
+    b.eq Lfloat_context_done
+    ldr x7, [x6, #(1840+(CSS_OVERFLOW_Y-48)*8)]
+    cmp x7, #1
+    b.eq Lfloat_context_done
+    cmp x7, #2
+    b.eq Lfloat_context_done
     ldr x1, [x5, #8]
     b Lfloat_context_parent
 Lfloat_context_done:
@@ -55,6 +73,9 @@ Lfloat_find:
     ldr x9, [x23, #88]
     cmp x9, #1
     b.eq Lfloat_find_next
+    ldr x9, [x23, #(1840+(CSS_POSITION-48)*8)]
+    cmp x9, #2
+    b.hs Lfloat_find_next
     ldr x9, [x23, #(32+CSS_FLOAT*8)]
     cbz x9, Lfloat_find_next
     // Flex/grid items do not float.
@@ -159,7 +180,10 @@ Lfloat_hint_ready:
     add x9, x20, x0, lsl #11
     ldr x9, [x9, #FLOAT_GROUP]
     cbz x9, Lfloat_clear_node_next
+    ldr x10, [x23, #FLOAT_FIRST]
+    cbnz x10, Lfloat_clear_group_ready
     str x9, [x23, #FLOAT_GROUP]
+Lfloat_clear_group_ready:
     ldr x10, [x23, #(32+CSS_CLEAR*8)]
     cbz x10, Lfloat_clear_node_next
     mov x25, #0
@@ -237,10 +261,8 @@ Lfloat_collect:
 Lfloat_size_height:
     str x28, [x27, #FLOW_WIDTH]
     str x28, [x27, #768]
-    ldr x0, [x27, #152]
+    ldr x0, [x27, #BOX_HEIGHT]
     tbnz x0, #63, Lfloat_auto_height
-    mov x1, x24
-    bl _engine_box_length
     b Lfloat_height_ready
 Lfloat_auto_height:
     ldr x0, [x27, #FLOW_INTRINSIC_H]
@@ -378,6 +400,24 @@ float_container_hint:
     add x3, x2, x1, lsl #11
     ldr x4, [x3, #(32+CSS_FLOAT*8)]
     cbnz x4, Lcontainer_hint_done
+    ldr x4, [x3, #FLOW_OWNER]
+    cbnz x4, Lcontainer_hint_done
+    ldr x4, [x3, #88]
+    cmp x4, #3
+    b.hs Lcontainer_hint_done
+    ldr x4, [x3, #(1840+(CSS_POSITION-48)*8)]
+    cmp x4, #2
+    b.hs Lcontainer_hint_done
+    ldr x4, [x3, #(1840+(CSS_OVERFLOW_X-48)*8)]
+    cmp x4, #1
+    b.eq Lcontainer_hint_done
+    cmp x4, #2
+    b.eq Lcontainer_hint_done
+    ldr x4, [x3, #(1840+(CSS_OVERFLOW_Y-48)*8)]
+    cmp x4, #1
+    b.eq Lcontainer_hint_done
+    cmp x4, #2
+    b.eq Lcontainer_hint_done
     mov x4, #1
     str x4, [x3, #FLOAT_CONTAINER_ONLY]
     ldr x4, [x0, #16]

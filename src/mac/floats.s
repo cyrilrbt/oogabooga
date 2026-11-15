@@ -188,6 +188,9 @@ Lfloat_width_ready:
     bl _objc_getAssociatedObject
     MSG bytes
     ldr x1, [sp, #192]
+    ldr x9, [x20, #(1840+(CSS_POSITION-48)*8)]
+    cmp x9, #2
+    b.hs Lfloat_positioned_origin
     ldr d0, [sp, #160]
     ldr d1, [x21, #16]
     ldr d2, [x21, #24]
@@ -197,6 +200,11 @@ Lfloat_width_ready:
     ldr d2, [sp, #176]
     ldr x2, [x20, #(32+CSS_CLEAR*8)]
     bl _engine_float_fit
+    b Lfloat_positioned_ready
+Lfloat_positioned_origin:
+    ldr d0, [sp, #144]
+    ldr d1, [sp, #152]
+Lfloat_positioned_ready:
     ldr x9, [sp, #192]
     stp d0, d1, [x9, #16]
     mov x10, #1
@@ -244,7 +252,7 @@ float_bounds:
     bl _objc_getAssociatedObject
     MSG bytes
     mov x19, x0
-    ldr x9, [x19, #152]
+    ldr x9, [x19, #BOX_HEIGHT]
     tbz x9, #63, Lfloat_bounds_size_ready
     ldr x9, [x19, #FLOAT_NATIVE_RECORD]
     cbz x9, Lfloat_bounds_size_ready
@@ -483,6 +491,8 @@ css_bounds:
     scvtf d2, x9
     ldr x9, [x19, #FLOAT_CONTAINER_ONLY]
     cbnz x9, Lcss_bounds_empty
+    ldr x9, [x19, #NATIVE_EMPTY]
+    cbnz x9, Lcss_bounds_empty
     ldr d3, [sp, #152]
     ldr d4, [sp, #168]
     fadd d3, d3, d4
@@ -493,10 +503,41 @@ css_bounds:
 Lcss_bounds_empty:
     fmov d3, xzr
 Lcss_bounds_height:
-    ldr x9, [x19, #152]
-    tbnz x9, #63, Lcss_bounds_edges
+    ldr x9, [x19, #BOX_HEIGHT]
+    tbnz x9, #63, Lcss_bounds_minimum
+    scvtf d3, x9
+Lcss_bounds_minimum:
+    ldr x9, [x19, #BOX_MIN_HEIGHT]
     scvtf d4, x9
     fmax d3, d3, d4
+Lcss_bounds_containment:
+    ldr x9, [x19, #BOX_HEIGHT]
+    tbz x9, #63, Lcss_bounds_edges
+    ldr x9, [x19, #FLOAT_FIRST]
+    cbz x9, Lcss_bounds_edges
+    stp d0, d1, [sp, #144]
+    stp d2, d3, [sp, #160]
+    mov x0, x19
+    mov x1, #0
+    bl _engine_formatting_context
+    cbz x0, Lcss_bounds_containment_restore
+    ldr x0, [sp, #176]
+    ADDR x1, _mac_float_records_key
+    bl _objc_getAssociatedObject
+    MSG bytes
+    cbz x0, Lcss_bounds_containment_restore
+    ldr x1, [x19, #NODE_INDEX_PLUS_ONE]
+    mov x2, #-1
+    mov x3, #3
+    bl _engine_float_clear_bottom
+    ldr d1, [sp, #152]
+    fsub d0, d0, d1
+    ldr d3, [sp, #168]
+    fmax d3, d3, d0
+    str d3, [sp, #168]
+Lcss_bounds_containment_restore:
+    ldp d0, d1, [sp, #144]
+    ldp d2, d3, [sp, #160]
 Lcss_bounds_edges:
     ldr x9, [x19, #776]
     ldr x10, [x19, #808]

@@ -60,10 +60,8 @@ flex_base:
     tbnz x0, #63, Lflex_base_height
     ldr x21, [x19, #768]
 Lflex_base_height:
-    ldr x0, [x19, #152]
+    ldr x0, [x19, #BOX_HEIGHT]
     tbnz x0, #63, Lflex_base_basis
-    ldr x1, [x19, #848]
-    bl _engine_box_length
     mov x22, x0
 Lflex_base_basis:
     ldr x0, [x19, #(32+CSS_BASIS*8)]
@@ -385,10 +383,8 @@ Lflex_gap_default:
     bl _engine_box_length
     mov x28, x0
     tbz x26, #0, Lflex_rows
-    ldr x0, [x21, #152]
+    ldr x0, [x21, #BOX_HEIGHT]
     tbnz x0, #63, Lflex_column_auto
-    mov x1, x27
-    bl _engine_box_length
     mov x27, x0
     b Lflex_column_line
 Lflex_column_auto:

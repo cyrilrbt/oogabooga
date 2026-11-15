@@ -4,10 +4,40 @@ Record user-visible changes here whenever `VERSION` changes. Keep the newest
 version first, use the same SemVer as `VERSION`, and distinguish added features,
 behavior changes, and fixes. Historical entries summarize the repository history.
 
-## Unreleased
+## 0.13.0 — 2026-11-15
+
+### Added
+
+- Retain a separate assembly document tree with stable handles, arbitrary
+  attributes, unknown elements, comments, inert script text, and bounded
+  insert/move/remove/text APIs. Rebuild native rendering after mutations while
+  preserving live controls, accepted styles/images, and history.
+- Generate an offline compatibility dashboard with saved renders, independent
+  geometry references, per-stage timings, viewport/OS/version metadata, and
+  CI artifacts. Add positive/negative margin and percentage-height fixtures.
+- Load bounded nested stylesheet imports with relative response bases, media
+  wrappers, source-order expansion, ancestor-cycle checks, cancellation, and
+  the existing page resource budgets.
+- Add assembly scene transforms, relative/absolute/fixed positioning, stacking
+  contexts, grouped opacity, per-axis clipping, contained wheel scrolling, and
+  consistent link/cursor/selection coordinates. Clip native controls without
+  squeezing their editors and preserve scroll/editor state through reflow.
+- Load bounded top-level `@font-face` TrueType/OpenType sources, retry supported
+  fallbacks, select declared style/weight variants, and reflow on font arrival.
+  Keep fonts page-scoped and share existing HTTP/byte/cancellation budgets.
+- Match structural selectors against retained document siblings, including
+  forward/reverse `:nth-child()` and `:nth-of-type()` formulas.
 
 ### Fixed
 
+- Resolve percentage heights only against definite parent content heights;
+  preserve auto height under indefinite parents and handle border-box minimums.
+- Collapse positive, negative, empty-chain, and eligible parent/child margins
+  in assembly, with padding, border and formatting-context barriers.
+- Place explicit Grid items before automatic items, preserve sparse row-major
+  gaps, and support standalone `grid-column: span N` placement.
+- Expand overflow shorthand in declaration order and compute paired overflow
+  axes while keeping `clip` distinct from scrolling containers.
 - Make native renderer tests use legacy scrollbars consistently and exercise
   both sides of the flex form's media breakpoint using actual page viewport
   widths, rather than assuming a window's outer width determines its layout.

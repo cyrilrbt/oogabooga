@@ -15,7 +15,8 @@ Run commands from the repository root:
 
 - `./build.sh`: build the native debug application.
 - `./build.sh release`: build the optimized release; supports Apple silicon macOS 12+ and x86-64 Linux.
-- `./build.sh test`: build and run SQLite storage tests.
+- `./build.sh test`: run storage, engine/DOM/CSS/scene, native browser, Acid1, and offline compatibility checks on macOS.
+- `sh tools/compatibility-report.sh`: regenerate `build/compatibility/index.html` from saved fixtures and independent geometry references.
 - `./tools/test-linux.sh`: run Linux browser integration checks after a test build; requires Xvfb, Xauth, D-Bus, and Python 3.
 - `open build/Oogabooga.app` or `./build/linux/oogabooga https://github.com`: launch locally.
 - `python3 tests/server.py`: serve manual cookie, authentication, navigation, and popup checks at `http://localhost:8765`.

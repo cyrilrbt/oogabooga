@@ -145,6 +145,12 @@ Llayout_visible:
     ldr x9, [sp, #200]
     cbz x9, Llayout_decode
     ldrb w9, [x21]
+    // Hidden leading content must not make subsequent collapsed whitespace
+    // produce an otherwise nonexistent first line (for example an inert head).
+    cbnz x24, Llayout_hidden_after_content
+    cmp w9, #32
+    b.ls Llayout_skip_break
+Llayout_hidden_after_content:
     cmp w9, #10
     b.eq Llayout_hidden_break
     cmp w9, #13

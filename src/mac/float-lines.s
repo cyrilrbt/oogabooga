@@ -46,6 +46,13 @@ Lrecords_fill:
     b.ne Lrecords_fill_next
     str x27, [x9, #FLOAT_NATIVE_RECORD]
     ldr x10, [x9, #(32+CSS_FLOAT*8)]
+    ldr x11, [x9, #(1840+(CSS_POSITION-48)*8)]
+    cmp x11, #2
+    csel x10, xzr, x10, hs
+    cmp x11, #3
+    b.ne Lrecords_position_flags
+    mov x10, #128                 // fixed: excluded from document scroll extent
+Lrecords_position_flags:
     orr x10, x10, x24, lsl #8
     str x10, [x27, #56]
     ldr x10, [x19, #16]
@@ -164,6 +171,9 @@ Lfragment_obstacle:
     cmp x9, x24
     b.hs Lfragment_available
     add x10, x25, x9, lsl #7
+    ldr x11, [x10, #56]
+    tst x11, #3
+    b.eq Lfragment_obstacle_next
     ldr x11, [x10, #48]
     cbz x11, Lfragment_obstacle_next
     ldr x11, [x10, #8]
@@ -249,6 +259,8 @@ _mac_float_extent:
     add x10, x0, #8
 Lfloat_extent_next:
     cbz x9, Lfloat_extent_done
+    ldr x11, [x10, #56]
+    tbnz x11, #7, Lfloat_extent_advance
     ldr x11, [x10, #48]
     cbz x11, Lfloat_extent_advance
     ldp d2, d3, [x10, #16]

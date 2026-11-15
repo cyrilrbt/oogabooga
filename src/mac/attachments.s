@@ -16,6 +16,12 @@ Ldimension_next:
     add x9, x19, #144
     ldr x21, [x9, x20, lsl #3]
     tbnz x21, #63, Ldimension_html
+    cbz x20, Ldimension_width
+    tbz x21, #32, Ldimension_width
+    ldr x21, [x19, #BOX_HEIGHT]
+    tbnz x21, #63, Ldimension_html
+    b Ldimension_save
+Ldimension_width:
     ldr x1, [x19, #848]
     mov x0, x21
     bl _engine_box_length
