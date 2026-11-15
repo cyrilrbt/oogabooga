@@ -289,6 +289,12 @@ int main(void) {
     assert(fixedbox[1464/8]==400&&fixedbox[1472/8]==20&&fixedbox[1720/8]==1);
     assert(!((uint64_t *)&d->meta[id(d,"hiddenabs")])[1720/8]);
     engine_document_free(d);
+    d=parse("<style>#bg{background-image:url('photo.png');background-size:50% auto;background-position:center;background-repeat:no-repeat}#bg{background-image:none}#yes{background:no-repeat center url('logo.png');background-size:contain}</style><div id=bg>empty</div><div id=yes>image</div>");
+    Meta *bg=&d->meta[id(d,"bg")],*yes=&d->meta[id(d,"yes")];
+    assert(bg->value[26]==0 && !strcmp((char *)(uintptr_t)yes->value[26],"logo.png"));
+    int64_t *background=(int64_t *)(uintptr_t)((uint64_t *)yes)[720/8];
+    assert(background && background[0]==-11 && background[1]==-1 && background[2]==0x10000c350 && background[3]==0x10000c350 && background[4]==1);
+    engine_css_apply(d); assert(!strcmp((char *)(uintptr_t)yes->value[26],"logo.png")); engine_document_free(d);
     // Every declaration prefix ends at a protected boundary.
     d=parse("<div style='border:1px solid black'><p id=ma style='height:10px;margin:0 0 30px'>A</p><p id=mb style='height:10px;margin:20px 0 0'>B</p></div>");
     margins(d); assert(bottom(d,"ma")==0 && top(d,"mb")==30);
@@ -310,18 +316,24 @@ int main(void) {
     size_t page=(size_t)sysconf(_SC_PAGESIZE);
     char *guard=mmap(NULL,page*2,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0); assert(guard!=MAP_FAILED); assert(!mprotect(guard+page,page,PROT_NONE));
     const char *css="/*c*/color:#abc!important; font-family:'Times New Roman',serif; margin:1.5em 0 2px 3px; broken:url('x;z}');font-size:120%";
-    for(size_t k=0;k<=strlen(css);k++) { char *p=guard+page-k; memcpy(p,css,k); uint64_t decl[72]={0}; css_declarations(p,p+k,decl); }
+    for(size_t k=0;k<=strlen(css);k++) { char *p=guard+page-k; memcpy(p,css,k); uint64_t decl[78]={0}; css_declarations(p,p+k,decl); }
+    const char *mediaLists[]={"handheld, all","print, screen","print, screen and (min-width:800px)","print, (min-width:800px)"};
+    for(size_t i=0;i<4;i++) assert(css_media_match(mediaLists[i],mediaLists[i]+strlen(mediaLists[i]),900));
+    const char *inactive="print, screen and (min-width:1000px)";
+    assert(!css_media_match(inactive,inactive+strlen(inactive),900));
     const char *media="only screen and (min-width:767.95px) and (max-width:1200px)";
     for(size_t k=0;k<=strlen(media);k++) { char *p=guard+page-k; memcpy(p,media,k); (void)css_media_match(p,p+k,900); }
     const char *sides="border-width:1em 1.5em 2em .5em;border-style:solid;float:right;clear:both";
-    for(size_t k=0;k<=strlen(sides);k++) { char *p=guard+page-k; memcpy(p,sides,k); uint64_t decl[72]={0}; css_declarations(p,p+k,decl); }
+    for(size_t k=0;k<=strlen(sides);k++) { char *p=guard+page-k; memcpy(p,sides,k); uint64_t decl[78]={0}; css_declarations(p,p+k,decl); }
     const char *font="font:italic 700 18px/1.5 'Arial',sans-serif";
-    for(size_t k=0;k<=strlen(font);k++) { char *p=guard+page-k; memcpy(p,font,k); uint64_t decl[72]={0}; css_declarations(p,p+k,decl); }
+    for(size_t k=0;k<=strlen(font);k++) { char *p=guard+page-k; memcpy(p,font,k); uint64_t decl[78]={0}; css_declarations(p,p+k,decl); }
     const char *extendedDecl="white-space:pre-wrap!important;letter-spacing:-2px;word-spacing:3px;vertical-align:25%;max-height:80px";
-    for(size_t k=0;k<=strlen(extendedDecl);k++) { char *p=guard+page-k;memcpy(p,extendedDecl,k);uint64_t decl[72]={0};css_declarations(p,p+k,decl); }
-    // Guard the output ABI as well as input truncation: 576 bytes exactly.
+    for(size_t k=0;k<=strlen(extendedDecl);k++) { char *p=guard+page-k;memcpy(p,extendedDecl,k);uint64_t decl[78]={0};css_declarations(p,p+k,decl); }
+    const char *backgroundDecl="background:no-repeat center url('tile.png');background-size:50% auto;background-position:right bottom;background-repeat:repeat-x";
+    for(size_t k=0;k<=strlen(backgroundDecl);k++){char *p=guard+page-k;memcpy(p,backgroundDecl,k);uint64_t decl[78]={0};css_declarations(p,p+k,decl);}
+    // Guard the output ABI as well as input truncation: 624 bytes exactly.
     char *outputGuard=mmap(NULL,page*2,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0);assert(outputGuard!=MAP_FAILED&&!mprotect(outputGuard+page,page,PROT_NONE));
-    uint64_t *boundedDecl=(void *)(outputGuard+page-576);memset(boundedDecl,0,576);
+    uint64_t *boundedDecl=(void *)(outputGuard+page-624);memset(boundedDecl,0,624);
     css_declarations(extendedDecl,extendedDecl+strlen(extendedDecl),boundedDecl);
     assert(boundedDecl[66]==15 && boundedDecl[67]==2);
     munmap(outputGuard,page*2);

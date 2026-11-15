@@ -25,6 +25,11 @@ _mac_button_cell_install:
     ADDR x3, button_size_encoding
     bl _class_addMethod
     mov x0, x20
+    SELECT x1, bgCellDraw
+    ADDR x2, button_background_draw
+    ADDR x3, button_draw_encoding
+    bl _class_addMethod
+    mov x0, x20
     bl _objc_registerClassPair
     mov x0, x20
 Lbutton_cell_allocate:
@@ -131,6 +136,8 @@ _mac_button_style:
     mov x20, x1
     mov x21, #0
     // Color/font inheritance alone does not suppress the platform bezel.
+    ldr x9, [x19, #(1024+CSS_BG_IMAGE*8)]
+    orr x21, x21, x9
     ldr x9, [x19, #(1024+CSS_BACKGROUND*8)]
     orr x21, x21, x9
     mov x22, #CSS_PAD_TOP
@@ -220,3 +227,24 @@ button_empty: .asciz ""
 button_insets_key: .asciz "OogaboogaButtonInsets"
 button_rect_encoding: .asciz "{CGRect={CGPoint=dd}{CGSize=dd}}@:{CGRect={CGPoint=dd}{CGSize=dd}}"
 button_size_encoding: .asciz "{CGSize=dd}@:"
+
+.text
+button_background_draw:
+    ENTER
+    mov x19, x0
+    mov x20, x2
+    stp d0, d1, [sp, #144]
+    stp d2, d3, [sp, #160]
+    mov x0, x20
+    bl _mac_background_control_paint
+    CLASS NSButtonCell
+    stp x19, x0, [sp]
+    mov x0, sp
+    SELECT x1, bgCellDraw
+    mov x2, x20
+    ldp d0, d1, [sp, #144]
+    ldp d2, d3, [sp, #160]
+    bl _objc_msgSendSuper
+    LEAVE
+.section __TEXT,__cstring,cstring_literals
+button_draw_encoding: .asciz "v@:{CGRect={CGPoint=dd}{CGSize=dd}}@"

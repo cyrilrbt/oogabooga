@@ -344,6 +344,10 @@ _css_value:
     ADDR x2, unset_text
     bl _css_eq
     cbnz w0, Lvalue_unset
+    cmp x19, #CSS_BG_IMAGE
+    b.eq Lvalue_background_image
+    cmp x19, #CSS_BG_WIDTH
+    b.hs Lvalue_background_dimension
     cmp x19, #CSS_POSITION
     b.hs Lvalue_layout
     cmp x19, #CSS_TOP
@@ -633,6 +637,15 @@ Lvalue_unset:
 Lvalue_good:
     mov x1, #1
     LEAVE
+Lvalue_background_image:
+    mov x0, x20
+    mov x1, x21
+    bl _css_background_image
+    LEAVE
+Lvalue_background_dimension:
+    cmp x19, #CSS_BG_REPEAT
+    b.eq Lvalue_bad
+    b Lvalue_length
 Lvalue_bad:
     mov x0, #0
     mov x1, #0
@@ -772,6 +785,8 @@ Ldecl_property_next:
     b Ldecl_property_next
 Ldecl_property_found:
     ldr x28, [x27, #8]
+    cmp x28, #1001
+    b.hs Ldecl_background
     cmp x28, #CSS_OVERFLOW
     b.eq Ldecl_overflow
     cmp x28, #108
@@ -802,6 +817,31 @@ Ldecl_property_found:
     mov x3, x0
     mov x0, x21
     bl _css_store_decl
+    b Ldecl_advance
+Ldecl_background:
+    cmp x28, #1001
+    b.ne Ldecl_background_image
+    mov x0, #CSS_BACKGROUND
+    mov x1, x24
+    mov x2, x25
+    bl _css_value
+    cbz x1, Ldecl_background_image
+    mov x3, x0
+    mov x0, x21
+    mov x1, #CSS_BACKGROUND
+    mov x2, x26
+    bl _css_store_decl
+    mov x0, x21
+    mov x1, x26
+    bl _css_background_reset
+    b Ldecl_advance
+Ldecl_background_image:
+    mov x0, x24
+    mov x1, x25
+    mov x2, x21
+    mov x3, x26
+    mov x4, x28
+    bl _css_background_declarations
     b Ldecl_advance
 Ldecl_grid_placement:
     mov x0, x24
@@ -1063,8 +1103,12 @@ property_table:
 .quad p_min_width, CSS_MIN_WIDTH
 .quad p_font, 103
 .quad p_color, CSS_COLOR
-.quad p_background, CSS_BACKGROUND
+.quad p_background, 1001
+.quad p_background_size, 1002
+.quad p_background_position, 1003
+.quad p_background_repeat, 1004
 .quad p_background_color, CSS_BACKGROUND
+.quad p_background_image, CSS_BG_IMAGE
 .quad p_size, CSS_SIZE
 .quad p_weight, CSS_WEIGHT
 .quad p_style, CSS_ITALIC
@@ -1380,3 +1424,9 @@ p_grid_row: .asciz "grid-row"
 p_grid_column_start: .asciz "grid-column-start"
 p_grid_row_start: .asciz "grid-row-start"
 p_grid_auto_rows: .asciz "grid-auto-rows"
+
+p_background_image: .asciz "background-image"
+
+p_background_size: .asciz "background-size"
+p_background_position: .asciz "background-position"
+p_background_repeat: .asciz "background-repeat"

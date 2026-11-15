@@ -4,6 +4,26 @@ Record user-visible changes here whenever `VERSION` changes. Keep the newest
 version first, use the same SemVer as `VERSION`, and distinguish added features,
 behavior changes, and fixes. Historical entries summarize the repository history.
 
+## 0.16.0 — 2026-11-15
+
+### Added
+
+- Assembly support for comma-separated screen media alternatives in stylesheets
+  and linked stylesheet media attributes, including `handheld, all`.
+- Single-layer CSS background images with stylesheet-relative URLs, raster/SVG
+  decoding, auto/explicit/percentage sizes, cover/contain, position keywords and
+  percentages, repeat modes and rounded clipping. Native buttons paint their
+  image backgrounds while retaining native interaction.
+- Background image gallery at `/engine/backgrounds`, linked from the test lab,
+  with rendering regressions for media matching, relative URLs, missing-image
+  fallback, placement, tiling and native button pixels.
+
+### Fixed
+
+- Load DuckDuckGo HTML's stylesheet and its logo/search-image resources. Google
+  remains the homepage; typed URLs are unchanged. Gradient/multiple-image
+  backgrounds and escaped CSS URLs remain unsupported.
+
 ## 0.15.1 — 2026-11-15
 
 ### Changed

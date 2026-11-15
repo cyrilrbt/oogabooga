@@ -93,6 +93,12 @@ static BOOL slowStarted;
     NSInteger status=200;
     NSString *html=@"<title>First</title><h1>Hello 🌐</h1><p><a href='/second?a=1&amp;b=2'>next café</a> <a href='javascript:alert(1)'>bad link</a></p><script>SHOULD NOT RENDER</script>";
     if([path isEqual:@"/atomic"]) html=[NSString stringWithContentsOfFile:@"tests/fixtures/compat-inline-boxes.html" encoding:NSUTF8StringEncoding error:NULL];
+    if([path isEqual:@"/backgrounds"]) html=@"<title>Background images</title><link rel=stylesheet media='handheld, all' href='/bg-assets/sheet.css'><link rel=stylesheet media='screen and (min-width:900px)' href='/bg-assets/wide.css'><link rel=stylesheet media='print, speech' href='/must-not-load.css'><div id=bgpaint></div><div id=bgtile></div><div id=bgmissing></div><input type=submit id=bgsubmit value='' style='width:60px;height:30px'>";
+    if([path isEqual:@"/bg-assets/sheet.css"]) {html=@"body{margin:0;background:white}#bgpaint{width:100px;height:60px;background-image:url(tile.svg);background-size:20px 10px;background-position:center;background-repeat:no-repeat}#bgtile{width:100px;height:60px;background:url(tile.svg);background-size:20px 10px;background-repeat:repeat}#bgmissing{width:100px;height:30px;background:green;background-image:url(missing.png)}#bgsubmit{background-image:url(tile.svg);background-size:20px 10px;background-position:center;background-repeat:no-repeat;border:none}";headers=@{@"Content-Type":@"text/css"};}
+    if([path isEqual:@"/bg-assets/tile.svg"]) {html=@"<svg width='40' height='20'><rect width='40' height='20' fill='blue'/></svg>";headers=@{@"Content-Type":@"image/svg+xml"};}
+    if([path isEqual:@"/bg-assets/wide.css"]) {html=@"#bgpaint{color:red}";headers=@{@"Content-Type":@"text/css"};}
+    if([path isEqual:@"/bg-assets/missing.png"]) status=404;
+    assert(![path isEqual:@"/must-not-load.css"]);
     if([path isEqual:@"/button-styles"]) html=@"<title>Button styles</title><form action='/form-result' method=get><input name=query value='CSS button'><input id=plainbutton type=submit value='Plain'><input id=flatbutton type=submit name=go value='Styled' style='background:#123456;color:white;border:2px solid red;border-radius:8px;padding:8px 20px;width:200px;height:50px'><input id=clearbutton type=submit value='Clear' style='border:none;background:transparent;padding:0'></form>";
     if([path isEqual:@"/input-borders"]) html=@"<title>Input borders</title><style>body{background:white}input{width:300px;height:30px}</style><input id=defaultborder value='Editable café'><input id=noborder style='border:none' value='No outline'><input id=customborder style='border:2px solid red;border-radius:0' value='Red outline'><input id=roundborder style='border:1px solid blue;border-radius:50%' value='Rounded'>";
     if([path isEqual:@"/typography"]) html=@"<title>Typography</title><style>body{margin:0;font:16px monospace}.track{letter-spacing:2px;word-spacing:5px}.pre{white-space:pre}.nowrap{white-space:nowrap;width:100px}#image{min-width:120px;max-width:160px;max-height:80px}</style><p class=track>A café 🌐 B</p><p>base <span style='vertical-align:super'>raised</span> <span style='vertical-align:-3px'>lowered</span></p><div class=pre> a  b\n c </div><div class=nowrap>Long unbroken text stays on a single line beyond the box</div><img id=image src=/assets/image.png>";
@@ -575,6 +581,24 @@ int main(void) {
         [window setContentSize:NSMakeSize(600,780)];mac_engine_resize(nil,NULL,nil);
         assert(control(@"defaultborder")==defaultBorder && defaultBorder.currentEditor==borderEditor && NSEqualRanges(borderEditor.selectedRange,NSMakeRange(2,3)) && [borderEditor.string isEqual:@"Still editable 🌐"]);
         assert(defaultBorder.layer.borderWidth==1 && noBorder.layer.borderWidth==0 && customBorder.layer.borderWidth==2);
+        navigate(@"/backgrounds");waitFor(^BOOL{return [window.title hasPrefix:@"Background images — Assembly"]&&[status.stringValue containsString:@"ready."];});
+        assert(!strcmp((char *)(uintptr_t)metadata(@"bgpaint")[30],"https://engine.test/bg-assets/tile.svg"));
+        NSRect bgCapture=NSMakeRect(0,0,200,200);NSBitmapImageRep *bgBitmap=[text bitmapImageRepForCachingDisplayInRect:bgCapture];[text cacheDisplayInRect:bgCapture toBitmapImageRep:bgBitmap];
+        NSRect bgPaint=paintRect(@"bgpaint"),bgTile=paintRect(@"bgtile");
+        NSColor *centerPixel=[[bgBitmap colorAtX:NSMidX(bgPaint) y:NSMidY(bgPaint)] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+        NSColor *edgePixel=[[bgBitmap colorAtX:NSMinX(bgPaint)+2 y:NSMinY(bgPaint)+2] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+        NSColor *tilePixel=[[bgBitmap colorAtX:NSMinX(bgTile)+25 y:NSMinY(bgTile)+15] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+        assert(centerPixel.blueComponent>.9 && centerPixel.redComponent<.1 && edgePixel.redComponent>.9);
+        assert(tilePixel.blueComponent>.9 && tilePixel.redComponent<.1);
+        assert(metadata(@"bgpaint")[4]!=0xff0000);
+        [window setContentSize:NSMakeSize(1000,780)];mac_engine_resize(nil,NULL,nil);assert(metadata(@"bgpaint")[4]==0xff0000);
+        [window setContentSize:NSMakeSize(650,780)];mac_engine_resize(nil,NULL,nil);assert(metadata(@"bgpaint")[4]!=0xff0000);
+        NSButton *bgSubmit=control(@"bgsubmit");assert(bgSubmit && !bgSubmit.bordered);
+        NSBitmapImageRep *buttonPixels=[[NSBitmapImageRep alloc]initWithBitmapDataPlanes:NULL pixelsWide:60 pixelsHigh:30 bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSCalibratedRGBColorSpace bytesPerRow:0 bitsPerPixel:0];
+        [NSGraphicsContext saveGraphicsState];[NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithBitmapImageRep:buttonPixels]];
+        [bgSubmit.cell drawWithFrame:NSMakeRect(0,0,60,30) inView:bgSubmit];[NSGraphicsContext restoreGraphicsState];
+        NSColor *buttonImagePixel=[[buttonPixels colorAtX:30 y:15] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];assert(buttonImagePixel.blueComponent>.9 && buttonImagePixel.redComponent<.1);
+
         navigate(@"/button-styles");waitFor(^BOOL{return [window.title hasPrefix:@"Button styles — Assembly"]&&[status.stringValue containsString:@"ready."];});
         NSButton *plainButton=control(@"plainbutton"),*flatButton=control(@"flatbutton"),*clearButton=control(@"clearbutton");
         assert(plainButton.bordered && !flatButton.bordered && !clearButton.bordered);

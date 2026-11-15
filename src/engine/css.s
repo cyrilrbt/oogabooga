@@ -116,11 +116,14 @@ Lsource_done:
 _engine_css_free:
     ENTER
     mov x19, x0
+    bl _css_background_pool_free
     ldr x20, [x19, #72]
     ldr x21, [x19, #24]
     cbz x20, Lcss_free_buffers
 Lcss_free_meta:
     cbz x21, Lcss_free_buffers
+    ldr x0, [x20, #CSS_BG_SIDECAR]
+    bl _free
     ldr x0, [x20, #ATTR_OWNED_TAG]
     bl _free
     ldr x0, [x20, #ATTR_RAW]
@@ -542,8 +545,10 @@ Llength_return:
 .globl _engine_css_apply_impl
 _engine_css_apply_impl:
     ENTER
-    sub sp, sp, #640                // temporary inline declaration block + locals
+    sub sp, sp, #688                // declaration block + pool context and priority
     mov x19, x0
+    bl _css_background_pool_begin
+    str x0, [sp, #672]
     ldr x20, [x19, #72]
     ldr x21, [x19, #24]
 Lapply_clear_variables:
@@ -592,6 +597,19 @@ Lapply_node:
     tbnz x9, #63, Lapply_default
     add x24, x24, x9, lsl #11
 Lapply_default:
+    ldr x0, [x23, #CSS_BG_SIDECAR]
+    cbnz x0, Lapply_background_storage
+    mov x0, #1
+    mov x1, #80
+    bl _calloc
+    str x0, [x23, #CSS_BG_SIDECAR]
+    cbnz x0, Lapply_background_storage
+    str xzr, [x23, #(32+CSS_BG_IMAGE*8)]
+    b Lapply_node_next
+Lapply_background_storage:
+    mov x1, #0
+    mov x2, #80
+    bl _memset
     add x0, x23, #1024
     mov x1, #0
     mov x2, #384
@@ -790,7 +808,7 @@ Lapply_rule:
     lsl x2, x0, #16
     add x9, x26, #1
     orr x2, x2, x9
-    str x2, [sp, #608]
+    str x2, [sp, #656]
     ldr x9, [x27, #CSS_RULE_FLAGS]
     tbz x9, #1, Lapply_static_declarations
     mov x0, sp
@@ -815,7 +833,7 @@ Lapply_static_declarations:
     add x1, x27, #16
 Lapply_declarations_ready:
     mov x0, x23
-    ldr x2, [sp, #608]
+    ldr x2, [sp, #656]
     bl _css_cascade
 Lapply_rule_next:
     add x26, x26, #1
@@ -923,6 +941,16 @@ Lapply_not_current_color:
     b.hi Lapply_resolved_store
     b Lapply_length
 Lapply_extension_length:
+    cmp x26, #CSS_BG_WIDTH
+    b.lo Lapply_background_length_done
+    cmp x26, #CSS_BG_Y
+    b.hi Lapply_background_length_done
+    cmn x0, #10
+    b.eq Lapply_resolved_store
+    cmn x0, #11
+    b.eq Lapply_resolved_store
+    b Lapply_length
+Lapply_background_length_done:
     cmp x26, #CSS_VERTICAL_ALIGN
     b.eq Lapply_vertical_length
     cmp x26, #CSS_WORD_SPACING
@@ -1078,7 +1106,9 @@ Lapply_done:
     bl _engine_zero_margin_flow
     mov x0, x20
     bl _free
-    add sp, sp, #640
+    ldr x0, [sp, #672]
+    bl _css_background_pool_end
+    add sp, sp, #688
     LEAVE
 
 .section __DATA,__const
@@ -1089,6 +1119,7 @@ css_defaults:
 .quad 0, 0, 0, 0, 0, 0, 1000, -1, -1, -1, -1, -6, -1, 1, 1000, 0, 0, 0, 0, 0
 .quad 0,-1,-1,-1,-1,-1,-1,0,0,0,1,0,1,0,0,0
 .quad -16,0,0,0
+.quad -1,-1,0,0,0
 .section __TEXT,__cstring,cstring_literals
 id_name: .asciz "id"
 class_name: .asciz "class"

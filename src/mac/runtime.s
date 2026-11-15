@@ -1511,6 +1511,14 @@ _sel_buttonTitleRect: .quad button_title_rect_name
 _sel_buttonCellSize: .quad button_cell_size_name
 .globl _sel_buttonBordered
 _sel_buttonBordered: .quad button_bordered_name
+.globl _sel_bgAppendBytes, _sel_bgNull, _sel_bgDrawImage
+_sel_bgAppendBytes: .quad bg_append_bytes_name
+_sel_bgNull: .quad bg_null_name
+_sel_bgDrawImage: .quad bg_draw_image_name
+.globl _sel_bgIsKind
+_sel_bgIsKind: .quad bg_is_kind_name
+.globl _sel_bgCellDraw
+_sel_bgCellDraw: .quad bg_cell_draw_name
 selector_end:
 selectors_ready: .quad 0
 .section __TEXT,__cstring,cstring_literals
@@ -1688,3 +1696,11 @@ button_title_rect_name: .asciz "titleRectForBounds:"
 button_cell_size_name: .asciz "cellSize"
 
 button_bordered_name: .asciz "isBordered"
+
+bg_append_bytes_name: .asciz "appendBytes:length:"
+bg_null_name: .asciz "null"
+bg_draw_image_name: .asciz "drawInRect:fromRect:operation:fraction:respectFlipped:hints:"
+
+bg_is_kind_name: .asciz "isKindOfClass:"
+
+bg_cell_draw_name: .asciz "drawWithFrame:inView:"

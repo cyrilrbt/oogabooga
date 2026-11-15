@@ -268,6 +268,12 @@ Lblock_margin_value:
     cbz x9, Lblock_background_color
     mov x0, #-1
 Lblock_background_color:
+    cmn x0, #1
+    b.ne Lblock_background_image_ready
+    ldr x9, [x24, #(32+CSS_BG_IMAGE*8)]
+    cbz x9, Lblock_background_image_ready
+    mov x0, #0x10000000000 // transparent paint still needs a geometry callback
+Lblock_background_image_ready:
     bl _mac_css_color
     mov x2, x0
     mov x0, x25

@@ -121,8 +121,16 @@ This first engine is macOS-only. Linux continues to use WebKitGTK. It does **not
 Website-styled submit buttons use assembly-configured native cells with CSS
 background/text colors, uniform borders, corner radii and title padding. Native
 tracking, keyboard focus and accessibility remain available; unstyled buttons
-keep their platform appearance. Per-side border colors and CSS background images
-on native controls are not implemented yet.
+keep their platform appearance. Native buttons also support single-layer CSS background images. Per-side border
+colors on native controls are not implemented yet.
+
+CSS backgrounds support one raster/SVG image layer, stylesheet-relative URLs,
+`background-size` (auto, lengths, percentages, cover/contain), basic positions,
+repeat modes and rounded clipping. Images use the existing HTTP, cancellation
+and decoding budgets; missing images preserve background colors. Comma-separated
+screen media alternatives work for linked sheets and `@media`. Gradients,
+multiple layers, escaped URLs and four-value edge-offset positions remain
+unsupported. Try `http://localhost:8766/engine/backgrounds` in the local test lab.
 
 Fetching uses `NSURLSession` with normal system TLS validation and an independent ephemeral cookie jar; it does not share WebKit logins or persist experimental-engine cookies across app restarts. Successful HTML responses are decoded using their HTTP charset header and normalized to UTF-8 before parsing. Foundation supplies the codecs; HTML Latin-1/ASCII labels use Windows-1252. Missing charset headers currently default to UTF-8; HTML meta-charset sniffing is not implemented. Unknown encodings or invalid byte sequences are rejected. Limits: 1 MiB for both the response and normalized UTF-8, 4,096 tree nodes, 64 open elements, 1,024 title bytes, and 2,048 bytes per link target. Late callbacks from canceled requests are ignored, and failed/unsupported responses are not recorded as visits.
 

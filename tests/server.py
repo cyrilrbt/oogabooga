@@ -62,6 +62,8 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(data)
             return
         fixture_files = {
+            '/engine/backgrounds': ('fixtures/engine-backgrounds.html', 'text/html; charset=utf-8'),
+            '/engine/backgrounds.css': ('fixtures/engine-backgrounds.css', 'text/css; charset=utf-8'),
             '/engine/floats': ('fixtures/engine-floats.html', 'text/html; charset=utf-8'),
             '/engine/support/css1test5526c.png': ('fixtures/acid1-reference.png', 'image/png'),
             '/engine/acid1': ('fixtures/acid1.html', 'text/html; charset=utf-8'),
@@ -97,7 +99,7 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
             return
-        if path == '/engine/missing.png':
+        if path in ('/engine/missing.png', '/engine/missing-background.png'):
             self.send_error(404)
             return
         if path == '/engine/result':

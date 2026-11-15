@@ -117,18 +117,12 @@ Lresource_css:
     cbz x0, Lresource_css_url
     ldrb w9, [x0]
     cbz w9, Lresource_css_url
-    bl _mac_string
-    MSG lowercase
     mov x24, x0
-    STR screen_media
-    mov x2, x0
+    bl _strlen
+    add x1, x24, x0
     mov x0, x24
-    MSG equal
-    cbnz w0, Lresource_css_url
-    STR all_media
-    mov x2, x0
-    mov x0, x24
-    MSG equal
+    mov x2, #-1 // defer viewport conditions to the wrapped stylesheet
+    bl _css_media_match
     cbz w0, Lresource_next
 Lresource_css_url:
     mov x23, #1
@@ -202,6 +196,19 @@ Lresource_font_limit:
     bl _mac_fonts_complete
     b Lresources_finish
 Lresources_fonts_done:
+    mov x0, x19
+    bl _mac_background_next
+    cbz x0, Lresources_backgrounds_done
+    mov x24, x0
+    mov x20, x1
+    mov x23, #4
+    LOAD x9, resource_count
+    cmp x9, #32
+    b.hs Lresources_backgrounds_done
+    add x9, x9, #1
+    STORE x9, resource_count
+    b Lresource_request
+Lresources_backgrounds_done:
     bl _mac_engine_refresh
     STORE xzr, _engine_resource_doc
     STORE xzr, _engine_phase
@@ -333,6 +340,14 @@ _mac_resource_complete:
     bl _mac_engine_decode
     cbz x0, Lresource_consumed
     mov x19, x0
+    LOAD x1, resource_base_url
+    bl _mac_background_source
+    mov x20, x0
+    mov x0, x19
+    MSG release
+    mov x19, x20
+    cbz x19, Lresource_consumed
+    mov x0, x19
     MSG length
     mov x20, x0
     mov x0, x19
@@ -379,9 +394,21 @@ Lresource_decode_image:
     bl _mac_resource_image
     cbz x0, Lresource_consumed
     mov x19, x0
+    LOAD x9, _engine_phase
+    cmp x9, #4
+    b.ne Lresource_image_node_key
+    LOAD x0, _engine_resource_doc
+    ldr x0, [x0, #72]
+    LOAD x9, _engine_resource_node
+    add x0, x0, x9, lsl #11
+    bl _mac_background_url
+    MSG absoluteString
+    b Lresource_image_key_ready
+Lresource_image_node_key:
     CLASS NSNumber
     LOAD x2, _engine_resource_node
     MSG numberLongLong
+Lresource_image_key_ready:
     mov x3, x0
     mov x2, x19
     LOAD x0, _engine_images
@@ -526,6 +553,7 @@ _mac_resources_styles:
     strb wzr, [x9]
     mov x20, #0
 Lstyles_next:
+    mov x22, #0
     ldr x9, [x19, #24]
     cmp x20, x9
     b.hs Lstyles_apply
@@ -540,22 +568,37 @@ Lstyles_next:
     ldr x9, [x19, #72]
     add x9, x9, x20, lsl #11
     ldr x21, [x9, #ATTR_CSS_DATA]
+    ldr x22, [x9, #ATTR_MEDIA]
     b Lstyles_source
 Lstyles_inline:
     ldr x21, [x9, #32]
     ldr x10, [x19, #72]
     add x10, x10, x20, lsl #11
+    ldr x22, [x10, #ATTR_MEDIA]
     ldr x10, [x10, #ATTR_CSS_DATA]
     cmp x10, #0
     csel x21, x21, x10, eq
 Lstyles_source:
     cbz x21, Lstyles_advance
+    mov x23, #0
+    cbz x22, Lstyles_source_ready
+    ldrb w9, [x22]
+    cbz w9, Lstyles_source_ready
+    mov x0, x21
+    mov x1, x22
+    bl _mac_media_source
+    cbz x0, Lstyles_advance
+    mov x21, x0
+    mov x23, x0
+Lstyles_source_ready:
     mov x0, x21
     bl _strlen
     mov x2, x0
     mov x1, x21
     mov x0, x19
     bl _engine_css_source
+    mov x0, x23
+    bl _free
 Lstyles_advance:
     add x20, x20, #1
     b Lstyles_next

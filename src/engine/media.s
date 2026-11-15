@@ -1,11 +1,47 @@
 // Conservative screen media queries: [only] screen/all and min/max-width in px.
-// Unknown conditions and comma lists remain inactive, rather than applying the
-// wrong theme or print styles. Fixed-point comparisons preserve fractional px.
+// Comma-separated alternatives match independently; unknown branches stay inactive. Fixed-point comparisons preserve fractional px.
 .include "src/mac/mac.inc"
 .text
 .p2align 2
 .globl _css_media_match
 _css_media_match:
+    ENTER
+    mov x19, x0
+    mov x20, x1
+    mov x21, x2
+    mov x22, x0
+    mov x23, #0
+Lmedia_list_scan:
+    cmp x22, x20
+    b.hs Lmedia_list_branch
+    ldrb w9, [x22]
+    cmp w9, #40
+    b.ne Lmedia_list_close
+    add x23, x23, #1
+Lmedia_list_close:
+    cmp w9, #41
+    b.ne Lmedia_list_comma
+    cbz x23, Lmedia_list_comma
+    sub x23, x23, #1
+Lmedia_list_comma:
+    cmp w9, #44
+    b.ne Lmedia_list_advance
+    cbnz x23, Lmedia_list_advance
+Lmedia_list_branch:
+    mov x0, x19
+    mov x1, x22
+    mov x2, x21
+    bl media_single_match
+    cbnz x0, Lmedia_list_done
+    cmp x22, x20
+    b.hs Lmedia_list_done
+    add x19, x22, #1
+Lmedia_list_advance:
+    add x22, x22, #1
+    b Lmedia_list_scan
+Lmedia_list_done:
+    LEAVE
+media_single_match:
     ENTER
     mov x19, x0
     mov x20, x1
@@ -117,6 +153,7 @@ Lmedia_value:
     cbz x2, Lmedia_no
     cmp x1, #1
     b.ne Lmedia_no
+    tbnz x21, #63, Lmedia_feature_done // width=-1: fetch potentially active screen sheets
     cmp x21, x0
     cbz x27, Lmedia_maximum
     b.lo Lmedia_no

@@ -289,6 +289,8 @@ Lreplay_command:
     ldp d2, d3, [x22, #32]
     bl _NSRectFill
 Lreplay_border:
+    mov x0, x22
+    bl _mac_background_paint
     ldr x0, [x22, #80]
     bl _mac_css_color
     cbz x0, Lreplay_next

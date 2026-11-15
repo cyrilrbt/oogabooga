@@ -23,6 +23,8 @@ Lscene_needed:
     add x9, x20, x22, lsl #11
     ldr x10, [x9, #696]
     cbnz x10, Lscene_needed_next
+    ldr x10, [x9, #(32+CSS_BG_IMAGE*8)]
+    cbnz x10, Lscene_allocate
     ldr x10, [x9, #88]
     cmp x10, #5
     b.eq Lscene_allocate
