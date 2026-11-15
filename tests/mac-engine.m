@@ -185,6 +185,10 @@ int main(void) {
         assert(mac_engine_enabled && web.hidden && count()==1);
         NSScrollView *scroll=(NSScrollView *)window.contentView.subviews.lastObject;
         NSTextView *text=(NSTextView *)scroll.documentView;
+        // Match CI's width-consuming scrollbars even on machines configured
+        // for overlays, so responsive fixture breakpoints are reproducible.
+        scroll.scrollerStyle=NSScrollerStyleLegacy;
+        mac_engine_resize(nil,NULL,nil);
         assert([text.string containsString:@"Hello 🌐"] && ![text.string containsString:@"SHOULD NOT RENDER"]);
         NSRange link=[text.string rangeOfString:@"next café"];
         NSURL *target=[text.textStorage attribute:NSLinkAttributeName atIndex:link.location effectiveRange:NULL];
@@ -402,12 +406,19 @@ int main(void) {
         assert(control(@"signin")==signin && !signin.hidden && signin.frame.size.height==40);
         [signin performClick:nil]; waitFor(^BOOL { return [window.title hasPrefix:@"Second — Assembly"]; });
         assert([address.stringValue isEqual:@"https://engine.test/second"]);
+        // Legacy scrollbars consume viewport width. A 650pt window can yield
+        // only 595pt of page space, activating this fixture's 600px breakpoint.
+        // Force that mode, and start wide enough to test the fixed-width form.
+        NSScrollerStyle previousScrollerStyle=scroll.scrollerStyle;
+        scroll.scrollerStyle=NSScrollerStyleLegacy;
+        [window setContentSize:NSMakeSize(700,780)]; mac_engine_resize(nil,NULL,nil);
         // Compatibility defaults vary with the linked AppKit version. Rendering
         // must restore table-capable layout instead of relying on that default.
         text.layoutManager.typesetterBehavior=NSTypesetterOriginalBehavior;
         assert(text.layoutManager.typesetterBehavior==NSTypesetterOriginalBehavior);
         navigate(@"/flow"); waitFor(^BOOL { return [window.title hasPrefix:@"Flow layout — Assembly"] && [status.stringValue containsString:@"ready."]; });
         assert(text.layoutManager.typesetterBehavior==NSTypesetterBehavior_10_4);
+        assert(text.textContainer.size.width>600);
         NSRange fl=[text.string rangeOfString:@"Flex left"],fm=[text.string rangeOfString:@"Flex middle"],fr=[text.string rangeOfString:@"Flex right"];
         NSRect flr=blockRect(text,fl),fmr=blockRect(text,fm),frr=blockRect(text,fr);
         if(!(fabs(flr.origin.y-fmr.origin.y)<1 && fabs(flr.origin.y-frr.origin.y)<1 && fmr.origin.x>=NSMaxX(flr)+19 && frr.origin.x>=NSMaxX(fmr)+19)) {
@@ -423,11 +434,18 @@ int main(void) {
         NSRange wrapOne=[text.string rangeOfString:@"Wrap one"],wrapThree=[text.string rangeOfString:@"Wrap three"];
         NSRect wor=blockRect(text,wrapOne),wtr=blockRect(text,wrapThree); assert(wtr.origin.y>wor.origin.y);
         NSTextField *flexQuery=control(@"flexq"); NSButton *flexSend=control(@"flexsend");
+        if(!(flexQuery && flexSend && fabs(flexQuery.frame.size.width-390)<1 && fabs(flexSend.frame.size.width-100)<1)) NSLog(@"Flex controls at viewport %.2f: query %@, send %@",text.textContainer.size.width,NSStringFromRect(flexQuery.frame),NSStringFromRect(flexSend.frame));
         assert(flexQuery && flexSend && fabs(flexQuery.frame.size.width-390)<1 && fabs(flexSend.frame.size.width-100)<1);
         assert(fabs(flexQuery.frame.origin.y-flexSend.frame.origin.y)<5);
         flexQuery.stringValue=@"kept after flex resize";
+        // Reproduce CI's formerly failing size: the media rule expands the
+        // form to the page width, leaving 100px for submit and a 10px gap.
+        [window setContentSize:NSMakeSize(650,780)]; mac_engine_resize(nil,NULL,nil);
+        assert(text.textContainer.size.width<=600);
+        assert(control(@"flexq")==flexQuery && fabs(flexQuery.frame.size.width-(text.textContainer.size.width-110))<1 && fabs(flexSend.frame.size.width-100)<1);
         [window setContentSize:NSMakeSize(500,780)]; mac_engine_resize(nil,NULL,nil);
         assert(control(@"flexq")==flexQuery && [flexQuery.stringValue isEqual:@"kept after flex resize"] && flexQuery.frame.size.width<390);
+        scroll.scrollerStyle=previousScrollerStyle;
         [window setContentSize:NSMakeSize(650,780)]; mac_engine_resize(nil,NULL,nil);
         NSRange upper=[text.string rangeOfString:@"Upper"],lower=[text.string rangeOfString:@"Lower"],wide=[text.string rangeOfString:@"Wide footer"];
         NSTextTableBlock *ub=(id)((NSParagraphStyle *)[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:upper.location effectiveRange:NULL]).textBlocks.lastObject;
