@@ -1,21 +1,36 @@
-// Native text fields keep their editor, focus ring and existing bezel metrics.
-// An explicit layer outline supplies a visible default on white web canvases;
-// authored uniform borders and border:none take precedence over that default.
+// Native fields retain their editor and focus ring; buttons retain tracking.
+// Website-styled buttons replace the native bezel with their CSS layer.
+// Uniform borders/radii are shared with the visible default input outline.
 .include "src/mac/mac.inc"
 .include "src/engine/css.inc"
 .text
 .p2align 2
-// metadata,control,kind (text=0, unsupported text=3).
+// metadata,control,kind (text=0/3, submit=1, inert button=8).
 .globl _mac_input_border
 _mac_input_border:
+    cmp x2, #1
+    b.eq Linput_border_button
+    cmp x2, #8
+    b.eq Linput_border_button
     cbz x2, Linput_border_text
     cmp x2, #3
     b.ne Linput_border_return
+Linput_border_button:
+    ENTER
+    mov x19, x0
+    mov x20, x1
+    bl _mac_button_style
+    mov x23, #1
+    mov x22, #0
+    cbz x0, Linput_border_layer
+    b Linput_border_authored
 Linput_border_text:
     ENTER
     mov x19, x0
     mov x20, x1
     mov x22, #1
+    mov x23, #0
+Linput_border_authored:
     ldr x9, [x19, #(1024+CSS_BORDER*8)]
     ldr x10, [x19, #(1024+CSS_BORDER_RIGHT*8)]
     orr x9, x9, x10
@@ -35,6 +50,7 @@ Linput_border_text:
     cmp x22, x9
     csel x22, x9, x22, lt
 Linput_border_width_ready:
+    cbnz x23, Linput_border_layer
     mov x0, x20
     cmp x22, #0
     cset x2, ne
@@ -44,12 +60,22 @@ Linput_border_width_ready:
     mov x2, #0
     MSG setBordered
 Linput_border_native_ready:
+Linput_border_layer:
     mov x0, x20
     mov x2, #1
     MSG setWantsLayer
     mov x0, x20
     MSG layer
     mov x21, x0
+    cbz x23, Linput_border_background_done
+    ldr x0, [x19, #40]
+    bl _mac_css_color
+    MSG CGColor
+    mov x2, x0
+    mov x0, x21
+    MSG setBackgroundCG
+Linput_border_background_done:
+    mov x0, x21
     scvtf d0, x22
     MSG setBorderWidth
     mov x0, #0x8a8a
@@ -63,7 +89,10 @@ Linput_border_color:
     mov x2, x0
     mov x0, x21
     MSG setBorderCG
-    NUM d0, 4
+    mov x9, #4
+    cmp x23, #0
+    csel x9, x9, xzr, eq
+    scvtf d0, x9
     ldr x9, [x19, #(1024+CSS_RADIUS*8)]
     cbz x9, Linput_border_radius
     mov x0, x20

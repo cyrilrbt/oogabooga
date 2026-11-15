@@ -237,6 +237,8 @@ Lcontrol_button:
     RECT 0, 0, 100, 28
     MSG initFrame
     mov x23, x0
+    bl _mac_button_cell_install
+    mov x0, x23
     mov x2, #1
     MSG setBezelStyle
     ldr x0, [x19, #ATTR_LABEL]

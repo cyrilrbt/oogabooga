@@ -1505,6 +1505,12 @@ _sel_atomicSelectionForeground: .quad name_atomicSelectionForeground
 _sel_inputSetBezeled: .quad input_set_bezeled
 .globl _sel_hideApp
 _sel_hideApp: .quad hide_app_name
+.globl _sel_buttonSetCell, _sel_buttonTitleRect, _sel_buttonCellSize
+_sel_buttonSetCell: .quad button_set_cell_name
+_sel_buttonTitleRect: .quad button_title_rect_name
+_sel_buttonCellSize: .quad button_cell_size_name
+.globl _sel_buttonBordered
+_sel_buttonBordered: .quad button_bordered_name
 selector_end:
 selectors_ready: .quad 0
 .section __TEXT,__cstring,cstring_literals
@@ -1675,3 +1681,10 @@ input_set_bezeled: .asciz "setBezeled:"
 
 .section __TEXT,__cstring,cstring_literals
 hide_app_name: .asciz "hide:"
+
+.section __TEXT,__cstring,cstring_literals
+button_set_cell_name: .asciz "setCell:"
+button_title_rect_name: .asciz "titleRectForBounds:"
+button_cell_size_name: .asciz "cellSize"
+
+button_bordered_name: .asciz "isBordered"

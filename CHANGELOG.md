@@ -4,6 +4,27 @@ Record user-visible changes here whenever `VERSION` changes. Keep the newest
 version first, use the same SemVer as `VERSION`, and distinguish added features,
 behavior changes, and fixes. Historical entries summarize the repository history.
 
+## 0.15.1 — 2026-11-15
+
+### Changed
+
+- Set Google (`https://www.google.com/`) as the startup homepage on macOS and Linux.
+
+## 0.15.0 — 2026-11-15
+
+### Added
+
+- Assembly CSS button styling: replace native bezels when a website supplies
+  visual styles, apply background/text colors, uniform borders and corner radii,
+  and measure/place titles using CSS padding. Keep native activation, focus and
+  accessibility, with native appearance for unstyled buttons.
+
+### Changed
+
+- Start both applications at DuckDuckGo's JavaScript-free HTML homepage
+  (`https://html.duckduckgo.com/html/`). Typed URLs are unchanged; DuckDuckGo's
+  main JavaScript-dependent homepage is not redirected automatically.
+
 ## 0.14.2 — 2026-11-15
 
 ### Fixed

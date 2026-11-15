@@ -90,6 +90,12 @@ Lmeasure_toggle_width:
     csel x23, x26, x23, gt
     b Lmeasure_control_dimensions
 Lmeasure_button_width:
+    mov x0, x25
+    MSG buttonBordered
+    cbnz w0, Lmeasure_native_button_width
+    mov x23, x26
+    b Lmeasure_control_dimensions
+Lmeasure_native_button_width:
     mov x9, #100
     cmp x26, x9
     csel x23, x26, x9, gt

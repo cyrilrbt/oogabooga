@@ -108,7 +108,7 @@ Editing commands act on the focused field/page and depend on that widget's editi
 See [the engine roadmap](ENGINE_TODO.md) for the audited feature backlog,
 recommended implementation order, and prerequisites for starting JavaScript.
 
-Choose **Navigate → Use Assembly Engine (Experimental)** or press **⌘E** to switch the current page between the assembly renderer and WebKit. The assembly engine is the macOS default. To launch with WebKit instead:
+Choose **Navigate → Use Assembly Engine (Experimental)** or press **⌘E** to switch the current page between the assembly renderer and WebKit. The assembly engine is the macOS default. Both applications open [Google](https://www.google.com/) at startup; typed URLs are loaded as entered. To launch with WebKit instead:
 
 ```sh
 OOGABOOGA_ENGINE=webkit build/Oogabooga.app/Contents/MacOS/oogabooga https://example.com
@@ -117,6 +117,12 @@ OOGABOOGA_ENGINE=webkit build/Oogabooga.app/Contents/MacOS/oogabooga https://exa
 The ARM64 engine tokenizes static HTML into a bounded flow tree, supplies implied `html`/`body` elements, decodes named/numeric entities, collapses whitespace, and maps UTF-8 byte offsets to native UTF-16 ranges. CSS parsing, selector matching, inheritance, and the cascade are handwritten assembly; native text layout measures styled glyphs and wraps them inside assembly-created, nested content boxes. It supports paragraphs, headings, lists, preformatted text, titles, legacy `<center>` alignment, and relative HTTP(S) links. Inline span/emphasis tags stay in text flow; inline-blocks have independent nested shaping contexts with retained source text. Native AppKit text services supply glyph shaping, drawing, text selection, link hit testing, and scrolling; WebKit is not used to parse or render this mode. Back/forward/reload and SQLite history work in both modes, with independent in-window navigation stacks. Clickable links show the pointing-hand cursor; authored link colors remain authoritative, including sites that intentionally use purple for unvisited links.
 
 This first engine is macOS-only. Linux continues to use WebKitGTK. It does **not** implement full HTML5 tree-construction rules, JavaScript, fragment anchors, file uploads, or modern login flows. Comments and inert script bodies are retained in a separate mutable document tree and excluded from rendering; style blocks are parsed as CSS and never displayed. Layout supports normal text flow, nested boxes, bounded flexbox/Grid subsets, and HTML tables. Relative/absolute/fixed positioning, stacking contexts, group opacity, clipping, and contained wheel scrolling have regression coverage; sticky positioning and full CSS box behavior remain incomplete. Unsupported pages can be opened in WebKit with ⌘E.
+
+Website-styled submit buttons use assembly-configured native cells with CSS
+background/text colors, uniform borders, corner radii and title padding. Native
+tracking, keyboard focus and accessibility remain available; unstyled buttons
+keep their platform appearance. Per-side border colors and CSS background images
+on native controls are not implemented yet.
 
 Fetching uses `NSURLSession` with normal system TLS validation and an independent ephemeral cookie jar; it does not share WebKit logins or persist experimental-engine cookies across app restarts. Successful HTML responses are decoded using their HTTP charset header and normalized to UTF-8 before parsing. Foundation supplies the codecs; HTML Latin-1/ASCII labels use Windows-1252. Missing charset headers currently default to UTF-8; HTML meta-charset sniffing is not implemented. Unknown encodings or invalid byte sequences are rejected. Limits: 1 MiB for both the response and normalized UTF-8, 4,096 tree nodes, 64 open elements, 1,024 title bytes, and 2,048 bytes per link target. Late callbacks from canceled requests are ignored, and failed/unsupported responses are not recorded as visits.
 
