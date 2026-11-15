@@ -64,6 +64,15 @@ _mac_engine_create:
     MSG initFrame
     STORE x0, _engine_text
     mov x20, x0
+    bl _mac_display_manager_create
+    mov x21, x0
+    mov x0, x20
+    MSG textContainer
+    mov x2, x21
+    MSG replaceLayoutManager
+    mov x0, x21
+    MSG release
+    mov x0, x20
     mov x2, #0
     MSG setEditable
     mov x0, x20
@@ -781,6 +790,17 @@ Ldisplay_install:
     LOAD x0, _engine_text
     MSG layoutManager
     mov x25, x0
+    // NSTextTable requires modern block layout. AppKit's implicit compatibility
+    // mode depends on the linked framework version; do not inherit that default
+    // in command-line harnesses or when loading on an older macOS release.
+    MSG typesetterBehavior
+    cmp x0, #4                     // NSTypesetterBehavior_10_4 (table support)
+    b.eq Ldisplay_typesetter_ready
+    mov x0, x25
+    mov x2, #4
+    MSG setTypesetterBehavior
+Ldisplay_typesetter_ready:
+    mov x0, x25
     mov x2, x24
     MSG ensureTextLayout
     mov x0, x19

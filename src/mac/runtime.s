@@ -888,6 +888,9 @@ css_method_setContainerSize: .asciz "setContainerSize:"
 css_method_setWidthTracksView: .asciz "setWidthTracksTextView:"
 css_method_layoutManager: .asciz "layoutManager"
 css_method_ensureTextLayout: .asciz "ensureLayoutForTextContainer:"
+css_method_typesetterBehavior: .asciz "typesetterBehavior"
+css_method_setTypesetterBehavior: .asciz "setTypesetterBehavior:"
+css_method_replaceLayoutManager: .asciz "replaceLayoutManager:"
 css_method_usedTextRect: .asciz "usedRectForTextContainer:"
 .globl _class_NSFontManager
 _class_NSFontManager: .asciz "NSFontManager"
@@ -940,6 +943,11 @@ _sel_setWidthTracksView: .quad css_method_setWidthTracksView
 _sel_layoutManager: .quad css_method_layoutManager
 .globl _sel_ensureTextLayout
 _sel_ensureTextLayout: .quad css_method_ensureTextLayout
+.globl _sel_typesetterBehavior, _sel_setTypesetterBehavior
+_sel_typesetterBehavior: .quad css_method_typesetterBehavior
+_sel_setTypesetterBehavior: .quad css_method_setTypesetterBehavior
+.globl _sel_replaceLayoutManager
+_sel_replaceLayoutManager: .quad css_method_replaceLayoutManager
 .globl _sel_usedTextRect
 _sel_usedTextRect: .quad css_method_usedTextRect
 

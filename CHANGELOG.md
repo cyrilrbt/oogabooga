@@ -8,11 +8,12 @@ behavior changes, and fixes. Historical entries summarize the repository history
 
 ### Fixed
 
-- Preserve native TextKit table-block identity when capturing retained box
-  painting, rather than changing initialized cells into a custom subclass.
-  Keep the original native painter for blocks outside the assembly engine.
-- Test flex cell geometry directly and cover native table identity and painting
-  fallback to catch compatibility regressions across macOS versions.
+- Explicitly select TextKit's table-capable typesetter compatibility mode before
+  layout instead of inheriting a linked-framework-dependent default.
+- Initialize the custom layout manager as its actual class, rather than changing
+  an already-initialized native layout manager's class during each render.
+- Test flex cell geometry directly, restore modern layout after a forced legacy
+  mode, and include typesetter/cell diagnostics when integration checks fail.
 
 ## 0.12.0 — 2026-11-14
 

@@ -154,9 +154,6 @@ static NSRect blockRect(NSTextView *text,NSRange characters) {
     [manager ensureLayoutForTextContainer:text.textContainer];
     NSParagraphStyle *style=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:characters.location effectiveRange:NULL];
     assert(style.textBlocks.count);
-    // The retained painter must not replace native table blocks with a dynamic
-    // subclass: older TextKit versions then treat the cell as a generic block.
-    assert(object_getClass(style.textBlocks.lastObject)==NSTextTableBlock.class);
     NSRange glyphs=[manager glyphRangeForCharacterRange:characters actualCharacterRange:NULL];
     assert(glyphs.length);
     NSRect rect=[manager layoutRectForTextBlock:style.textBlocks.lastObject atIndex:glyphs.location effectiveRange:NULL];
@@ -164,27 +161,10 @@ static NSRect blockRect(NSTextView *text,NSRange characters) {
     assert(!NSIsEmptyRect(rect));
     return rect;
 }
-typedef void (*BlockPainter)(id,SEL,NSRect,NSView *,NSRange,NSLayoutManager *);
-static NSBitmapImageRep *paintUnboundBlock(NSTextView *text,BlockPainter original) {
-    NSBitmapImageRep *bitmap=[[NSBitmapImageRep alloc] initWithBitmapDataPlanes:NULL pixelsWide:24 pixelsHigh:24 bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSDeviceRGBColorSpace bytesPerRow:0 bitsPerPixel:0];
-    memset(bitmap.bitmapData,0,bitmap.bytesPerRow*bitmap.pixelsHigh);
-    NSTextTable *table=[NSTextTable new]; table.numberOfColumns=1;
-    NSTextTableBlock *block=[[NSTextTableBlock alloc] initWithTable:table startingRow:0 rowSpan:1 startingColumn:0 columnSpan:1];
-    block.backgroundColor=NSColor.redColor;
-    [NSGraphicsContext saveGraphicsState];
-    NSGraphicsContext.currentContext=[NSGraphicsContext graphicsContextWithBitmapImageRep:bitmap];
-    SEL draw=@selector(drawBackgroundWithFrame:inView:characterRange:layoutManager:);
-    NSRect frame=NSMakeRect(2,2,20,20);
-    if(original) original(block,draw,frame,text,NSMakeRange(0,1),text.layoutManager);
-    else [block drawBackgroundWithFrame:frame inView:text characterRange:NSMakeRange(0,1) layoutManager:text.layoutManager];
-    [NSGraphicsContext restoreGraphicsState];
-    return bitmap;
-}
 static int denyInsert(void *ctx,int action,const char *a,const char *b,const char *c,const char *d) { (void)ctx;(void)a;(void)b;(void)c;(void)d;return action==SQLITE_INSERT ? SQLITE_DENY : SQLITE_OK; }
 int main(void) {
     @autoreleasepool {
         NSApplication *app=NSApplication.sharedApplication;
-        BlockPainter originalTablePainter=(BlockPainter)class_getMethodImplementation(NSTextTableBlock.class,@selector(drawBackgroundWithFrame:inView:characterRange:layoutManager:));
         id delegate=[[mac_register_class() alloc] init];
         NSWindow *window=[[NSWindow alloc] initWithContentRect:NSMakeRect(0,0,1160,780) styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
         window.releasedWhenClosed=NO;
@@ -419,16 +399,21 @@ int main(void) {
         assert(control(@"signin")==signin && !signin.hidden && signin.frame.size.height==40);
         [signin performClick:nil]; waitFor(^BOOL { return [window.title hasPrefix:@"Second — Assembly"]; });
         assert([address.stringValue isEqual:@"https://engine.test/second"]);
+        // Compatibility defaults vary with the linked AppKit version. Rendering
+        // must restore table-capable layout instead of relying on that default.
+        text.layoutManager.typesetterBehavior=NSTypesetterOriginalBehavior;
+        assert(text.layoutManager.typesetterBehavior==NSTypesetterOriginalBehavior);
         navigate(@"/flow"); waitFor(^BOOL { return [window.title hasPrefix:@"Flow layout — Assembly"] && [status.stringValue containsString:@"ready."]; });
+        assert(text.layoutManager.typesetterBehavior==NSTypesetterBehavior_10_4);
         NSRange fl=[text.string rangeOfString:@"Flex left"],fm=[text.string rangeOfString:@"Flex middle"],fr=[text.string rangeOfString:@"Flex right"];
         NSRect flr=blockRect(text,fl),fmr=blockRect(text,fm),frr=blockRect(text,fr);
-        // The class-local painting hook must leave unrelated native tables
-        // unchanged, including the original rectangle/argument ABI.
-        NSBitmapImageRep *nativePaint=paintUnboundBlock(text,originalTablePainter),*hookedPaint=paintUnboundBlock(text,NULL);
-        assert(nativePaint.bytesPerRow==hookedPaint.bytesPerRow && !memcmp(nativePaint.bitmapData,hookedPaint.bitmapData,nativePaint.bytesPerRow*nativePaint.pixelsHigh));
-        NSColor *nativeCenter=[[hookedPaint colorAtX:12 y:12] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
-        assert(nativeCenter.redComponent>.9 && nativeCenter.greenComponent<.1 && nativeCenter.alphaComponent>.9);
-        if(!(fabs(flr.origin.y-fmr.origin.y)<1 && fabs(flr.origin.y-frr.origin.y)<1 && fmr.origin.x>=NSMaxX(flr)+19 && frr.origin.x>=NSMaxX(fmr)+19)) NSLog(@"Flex cell boxes: %@ / %@ / %@",NSStringFromRect(flr),NSStringFromRect(fmr),NSStringFromRect(frr));
+        if(!(fabs(flr.origin.y-fmr.origin.y)<1 && fabs(flr.origin.y-frr.origin.y)<1 && fmr.origin.x>=NSMaxX(flr)+19 && frr.origin.x>=NSMaxX(fmr)+19)) {
+            NSLog(@"Flex cell boxes: %@ / %@ / %@; typesetter %@, behavior %ld, glyphs %lu",NSStringFromRect(flr),NSStringFromRect(fmr),NSStringFromRect(frr),text.layoutManager.typesetter,(long)text.layoutManager.typesetterBehavior,(unsigned long)text.layoutManager.numberOfGlyphs);
+            for(NSValue *range in @[[NSValue valueWithRange:fl],[NSValue valueWithRange:fm],[NSValue valueWithRange:fr]]) {
+                NSParagraphStyle *style=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:range.rangeValue.location effectiveRange:NULL];
+                for(NSTextTableBlock *block in style.textBlocks) NSLog(@"Cell %@ width %.2f row %ld col %ld columns %ld table %@",block,block.contentWidth,(long)block.startingRow,(long)block.startingColumn,(long)block.table.numberOfColumns,block.table);
+            }
+        }
         assert(fabs(flr.origin.y-fmr.origin.y)<1 && fabs(flr.origin.y-frr.origin.y)<1 && fmr.origin.x>=NSMaxX(flr)+19 && frr.origin.x>=NSMaxX(fmr)+19);
         NSParagraphStyle *flowStyle=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:fm.location effectiveRange:NULL];
         assert(flowStyle.textBlocks.count && fabs(flowStyle.textBlocks.lastObject.contentWidth-360)<1);

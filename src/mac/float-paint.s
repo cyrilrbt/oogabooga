@@ -16,9 +16,17 @@ _mac_float_painter:
     mov x2, x20
     mov x3, #1
     bl _objc_setAssociatedObject
+    LEAVE
+
+// Create the renderer's layout manager with its real class from the outset.
+// Changing an initialized AppKit object's isa can bypass subclass-dependent
+// setup and discard private concrete-class behavior on older system releases.
+.globl _mac_display_manager_create
+_mac_display_manager_create:
+    ENTER
     ADDR x0, painter_name
     bl _objc_getClass
-    cbnz x0, Lpainter_class
+    cbnz x0, Lpainter_new
     CLASS NSLayoutManager
     ADDR x1, painter_name
     mov x2, #0
@@ -41,13 +49,8 @@ _mac_float_painter:
     mov x0, x23
     bl _objc_registerClassPair
     mov x0, x23
-    b Lpainter_class
-Lpainter_plain:
-    CLASS NSLayoutManager
-Lpainter_class:
-    mov x1, x0
-    mov x0, x22
-    bl _object_setClass
+Lpainter_new:
+    MSG new
     LEAVE
 
 // drawBackgroundForGlyphRange:atPoint: (range x2/x3, point d0/d1).

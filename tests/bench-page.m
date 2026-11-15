@@ -8,6 +8,7 @@ extern Class mac_register_class(void);
 extern void *engine_parse(const char *,size_t);
 extern void engine_document_free(void *);
 extern int mac_engine_display(void *,NSURL *);
+extern NSLayoutManager *mac_display_manager_create(void) __attribute__((ns_returns_retained));
 extern void mac_resources_reset(void);
 extern uint64_t engine_profile_enabled,engine_profile_totals[8],engine_profile_counts[8];
 extern void engine_profile_reset(void);
@@ -69,6 +70,7 @@ int main(int argc,const char **argv) {@autoreleasepool{
     [NSApplication sharedApplication];id delegate=[[mac_register_class() alloc]init];mac_delegate=delegate;
     NSScrollView *scroll=[[NSScrollView alloc]initWithFrame:NSMakeRect(0,0,1000,700)];
     NSTextView *text=[[NSTextView alloc]initWithFrame:NSMakeRect(0,0,1000,700)];text.editable=NO;text.richText=YES;text.verticallyResizable=YES;text.horizontallyResizable=YES;scroll.documentView=text;
+    [text.textContainer replaceLayoutManager:mac_display_manager_create()];
     engine_text=text;engine_scroll=scroll;assert(history_open(":memory:",&mac_db)==SQLITE_OK);
     NSString *acid=[NSString stringWithContentsOfFile:@"tests/fixtures/acid1.html" encoding:NSUTF8StringEncoding error:NULL];assert(acid);
     if(argc>1&&!strcmp(argv[1],"--reference")){bench(@"Acid1",acid,1,YES);return 0;}
