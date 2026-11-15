@@ -145,6 +145,22 @@ static id control(NSString *identifier) {
     for(uint64_t i=0;i<doc[3];i++) { char *name=*(char **)(meta+i*2048); if(name && [identifier isEqualToString:[NSString stringWithUTF8String:name]]) return engine_controls[@(i)]; }
     return nil;
 }
+// TextKit can report one containing line fragment for an entire table row.
+// Query the actual cell's allocated content rectangle instead of that fragment
+// or font-dependent glyph ink. NSLayoutManager APIs take glyph indices.
+static NSRect blockRect(NSTextView *text,NSRange characters) {
+    assert(characters.location!=NSNotFound && characters.length);
+    NSLayoutManager *manager=text.layoutManager;
+    [manager ensureLayoutForTextContainer:text.textContainer];
+    NSParagraphStyle *style=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:characters.location effectiveRange:NULL];
+    assert(style.textBlocks.count);
+    NSRange glyphs=[manager glyphRangeForCharacterRange:characters actualCharacterRange:NULL];
+    assert(glyphs.length);
+    NSRect rect=[manager layoutRectForTextBlock:style.textBlocks.lastObject atIndex:glyphs.location effectiveRange:NULL];
+    if(NSIsEmptyRect(rect)) NSLog(@"Missing cell layout for %@: characters %@, glyphs %@, block %@",[text.string substringWithRange:characters],NSStringFromRange(characters),NSStringFromRange(glyphs),style.textBlocks.lastObject);
+    assert(!NSIsEmptyRect(rect));
+    return rect;
+}
 static int denyInsert(void *ctx,int action,const char *a,const char *b,const char *c,const char *d) { (void)ctx;(void)a;(void)b;(void)c;(void)d;return action==SQLITE_INSERT ? SQLITE_DENY : SQLITE_OK; }
 int main(void) {
     @autoreleasepool {
@@ -385,18 +401,13 @@ int main(void) {
         assert([address.stringValue isEqual:@"https://engine.test/second"]);
         navigate(@"/flow"); waitFor(^BOOL { return [window.title hasPrefix:@"Flow layout — Assembly"] && [status.stringValue containsString:@"ready."]; });
         NSRange fl=[text.string rangeOfString:@"Flex left"],fm=[text.string rangeOfString:@"Flex middle"],fr=[text.string rangeOfString:@"Flex right"];
-        // Compare allocated line boxes, not glyph ink (ascenders/descenders and
-        // fallback font metrics vary between macOS runner versions). Convert
-        // character offsets explicitly: character and glyph indices can differ.
-        NSRect flr=[text.layoutManager lineFragmentRectForGlyphAtIndex:[text.layoutManager glyphIndexForCharacterAtIndex:fl.location] effectiveRange:NULL];
-        NSRect fmr=[text.layoutManager lineFragmentRectForGlyphAtIndex:[text.layoutManager glyphIndexForCharacterAtIndex:fm.location] effectiveRange:NULL];
-        NSRect frr=[text.layoutManager lineFragmentRectForGlyphAtIndex:[text.layoutManager glyphIndexForCharacterAtIndex:fr.location] effectiveRange:NULL];
-        if(!(fabs(flr.origin.y-fmr.origin.y)<1 && fabs(flr.origin.y-frr.origin.y)<1 && fmr.origin.x>=NSMaxX(flr)+19 && frr.origin.x>=NSMaxX(fmr)+19)) NSLog(@"Flex line boxes: %@ / %@ / %@",NSStringFromRect(flr),NSStringFromRect(fmr),NSStringFromRect(frr));
+        NSRect flr=blockRect(text,fl),fmr=blockRect(text,fm),frr=blockRect(text,fr);
+        if(!(fabs(flr.origin.y-fmr.origin.y)<1 && fabs(flr.origin.y-frr.origin.y)<1 && fmr.origin.x>=NSMaxX(flr)+19 && frr.origin.x>=NSMaxX(fmr)+19)) NSLog(@"Flex cell boxes: %@ / %@ / %@",NSStringFromRect(flr),NSStringFromRect(fmr),NSStringFromRect(frr));
         assert(fabs(flr.origin.y-fmr.origin.y)<1 && fabs(flr.origin.y-frr.origin.y)<1 && fmr.origin.x>=NSMaxX(flr)+19 && frr.origin.x>=NSMaxX(fmr)+19);
         NSParagraphStyle *flowStyle=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:fm.location effectiveRange:NULL];
         assert(flowStyle.textBlocks.count && fabs(flowStyle.textBlocks.lastObject.contentWidth-360)<1);
         NSRange wrapOne=[text.string rangeOfString:@"Wrap one"],wrapThree=[text.string rangeOfString:@"Wrap three"];
-        NSRect wor=[text.layoutManager boundingRectForGlyphRange:wrapOne inTextContainer:text.textContainer],wtr=[text.layoutManager boundingRectForGlyphRange:wrapThree inTextContainer:text.textContainer]; assert(wtr.origin.y>wor.origin.y);
+        NSRect wor=blockRect(text,wrapOne),wtr=blockRect(text,wrapThree); assert(wtr.origin.y>wor.origin.y);
         NSTextField *flexQuery=control(@"flexq"); NSButton *flexSend=control(@"flexsend");
         assert(flexQuery && flexSend && fabs(flexQuery.frame.size.width-390)<1 && fabs(flexSend.frame.size.width-100)<1);
         assert(fabs(flexQuery.frame.origin.y-flexSend.frame.origin.y)<5);
