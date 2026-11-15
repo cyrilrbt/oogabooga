@@ -48,11 +48,18 @@ Lflow_owner_kind:
     ldr x9, [x23, #88]
     cmp x9, #1
     b.eq Lflow_layout_advance
+    cmp x9, #4
+    b.eq Lflow_grid_kind
     cmp x9, #3
     b.ne Lflow_table_kind
     mov x0, x19
     mov x1, x22
     bl _engine_flex_owner
+    b Lflow_layout_advance
+Lflow_grid_kind:
+    mov x0, x19
+    mov x1, x22
+    bl _engine_grid_owner
     b Lflow_layout_advance
 Lflow_table_kind:
     ldr x9, [x24]

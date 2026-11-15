@@ -12,6 +12,30 @@ Lselector_check_next:
     b.eq Lselector_check_escape
     cmp w2, #32
     b.ls Lselector_check_next
+    cmp w2, #91
+    b.eq Lselector_check_next
+    cmp w2, #93
+    b.eq Lselector_check_next
+    cmp w2, #40
+    b.eq Lselector_check_next
+    cmp w2, #41
+    b.eq Lselector_check_next
+    cmp w2, #61
+    b.eq Lselector_check_next
+    cmp w2, #43
+    b.eq Lselector_check_next
+    cmp w2, #126
+    b.eq Lselector_check_next
+    cmp w2, #94
+    b.eq Lselector_check_next
+    cmp w2, #36
+    b.eq Lselector_check_next
+    cmp w2, #124
+    b.eq Lselector_check_next
+    cmp w2, #34
+    b.eq Lselector_check_next
+    cmp w2, #39
+    b.eq Lselector_check_next
     cmp w2, #44
     b.eq Lselector_check_next
     cmp w2, #62

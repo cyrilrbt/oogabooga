@@ -83,6 +83,8 @@ Lmeasure_text:
     ldr x11, [x19, #72]
     add x10, x11, x10, lsl #11
     ldr x10, [x10, #88]
+    cmp x10, #4
+    b.eq Lmeasure_text_needed
     cmp x10, #3
     b.eq Lmeasure_text_needed
     mov x23, #1
@@ -244,6 +246,9 @@ _mac_grid_cell:
     ldr x25, [x9]
     add x9, x23, #1
     lsl x26, x9, #16
+    ldr x9, [x24, #88]
+    cmp x9, #4
+    b.eq Lgrid_key
     cmp x25, #NODE_TABLE
     b.eq Lgrid_key
     ldr x9, [x22, #FLOW_ROW]
@@ -285,8 +290,12 @@ Lgrid_table_ready:
     mov x2, x28
     mov x3, #0
     mov x4, #1
+    ldr x9, [x24, #88]
+    cmp x9, #4
+    b.eq Lgrid_row_coordinates
     cmp x25, #NODE_TABLE
     b.ne Lgrid_block_coordinates
+Lgrid_row_coordinates:
     ldr x3, [x22, #FLOW_ROW]
     ldr x4, [x22, #FLOW_ROWSPAN]
 Lgrid_block_coordinates:

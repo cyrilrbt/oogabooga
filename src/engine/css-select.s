@@ -29,13 +29,11 @@ Lselector_group:
     b.hs Lselector_result
     mov x24, x21
 Lselector_comma:
-    cmp x24, x22
-    b.hs Lselector_try
-    ldrb w9, [x24]
-    cmp w9, #44
-    b.eq Lselector_try
-    add x24, x24, #1
-    b Lselector_comma
+    mov x0, x21
+    mov x1, x22
+    mov x2, #44
+    bl _css_selector_boundary
+    mov x24, x0
 Lselector_try:
     mov x0, x19
     mov x1, x20
@@ -65,64 +63,10 @@ _css_match_one:
     b.hs Lmatch_no
     ldr x9, [sp, #144]
     cbnz x9, Lselector_rightmost
-    // Reject unsupported combinators/pseudo/attribute/escape syntax, not partial matches.
-    mov x23, x21
-Lselector_validate:
-    cmp x23, x22
-    b.hs Lselector_rightmost
-    ldr x9, [x19, #88]
-    cbz x9, Lmatch_no
-    sub x9, x9, #1
-    str x9, [x19, #88]
-    ldrb w9, [x23], #1
-    cmp w9, #92
-    b.eq Lselector_escape
-    cmp w9, #32
-    b.ls Lselector_validate
-    cmp w9, #62
-    b.eq Lselector_validate
-    cmp w9, #58
-    b.eq Lselector_validate
-    cmp w9, #46
-    b.eq Lselector_validate
-    cmp w9, #35
-    b.eq Lselector_validate
-    cmp w9, #42
-    b.eq Lselector_validate
-    cmp w9, #45
-    b.eq Lselector_validate
-    cmp w9, #95
-    b.eq Lselector_validate
-    sub w10, w9, #48
-    cmp w10, #9
-    b.ls Lselector_validate
-    orr w9, w9, #32
-    sub w10, w9, #97
-    cmp w10, #25
-    b.ls Lselector_validate
-    b Lmatch_no
-Lselector_escape:
-    cmp x23, x22
-    b.hs Lmatch_no
-    ldrb w9, [x23], #1
-    // Simple punctuation escapes, e.g. md\:block and w-1\/2. Hex escapes
-    // and escaped combinators need a fuller identifier tokenizer.
-    cmp w9, #33
-    b.lo Lmatch_no
-    cmp w9, #126
-    b.hi Lmatch_no
-    cmp w9, #62
-    b.eq Lmatch_no
-    cmp w9, #44
-    b.eq Lmatch_no
-    sub w10, w9, #48
-    cmp w10, #9
-    b.ls Lmatch_no
-    orr w10, w9, #32
-    sub w10, w10, #97
-    cmp w10, #25
-    b.ls Lmatch_no
-    b Lselector_validate
+    mov x0, x21
+    mov x1, x22
+    bl _css_selector_supported
+    cbz x0, Lmatch_no
 Lselector_rightmost:
     mov x23, x22
     mov x25, #0                     // accumulated specificity
@@ -140,16 +84,10 @@ Lselector_component:
 Lselector_component_end:
     mov x24, x23
 Lselector_component_start:
-    cmp x23, x21
-    b.ls Lselector_component_match
-    sub x9, x23, #1
-    ldrb w10, [x9]
-    cmp w10, #62
-    b.eq Lselector_component_match
-    cmp w10, #32
-    b.ls Lselector_component_match
-    mov x23, x9
-    b Lselector_component_start
+    mov x0, x21
+    mov x1, x24
+    bl _css_component_start
+    mov x23, x0
 Lselector_component_match:
     cmp x23, x24
     b.eq Lmatch_no
@@ -163,6 +101,8 @@ Lselector_ancestor:
     mov x3, x24
     bl _css_compound
     cbnz x0, Lselector_component_found
+    cmp x27, #3
+    b.eq Lselector_previous_try
     cbnz x27, Lmatch_no
     cmp x26, #1
     b.eq Lmatch_no                  // rightmost must match the element itself
@@ -172,6 +112,13 @@ Lselector_ancestor:
     madd x9, x20, x10, x9
     ldr x20, [x9, #8]
     tbnz x20, #63, Lmatch_no
+    b Lselector_ancestor
+Lselector_previous_try:
+    mov x0, x19
+    mov x1, x20
+    bl _css_previous_sibling
+    cbz x0, Lmatch_no
+    mov x20, x0
     b Lselector_ancestor
 Lselector_component_found:
     sub x0, x0, #1
@@ -188,11 +135,32 @@ Lselector_separator:
     b Lselector_separator
 Lselector_separator_end:
     cmp w10, #62
-    b.ne Lselector_parent_step
+    b.eq Lselector_child
+    cmp w10, #43
+    b.eq Lselector_adjacent
+    cmp w10, #126
+    b.eq Lselector_sibling
+    b Lselector_parent_step
+Lselector_child:
     mov x27, #1
+    b Lselector_consume_combinator
+Lselector_adjacent:
+    mov x27, #2
+    b Lselector_consume_combinator
+Lselector_sibling:
+    mov x27, #3
+Lselector_consume_combinator:
     mov x23, x9
     cmp x23, x21
     b.ls Lmatch_no
+    cmp x27, #2
+    b.lo Lselector_parent_step
+    mov x0, x19
+    mov x1, x20
+    bl _css_previous_sibling
+    cbz x0, Lmatch_no
+    mov x20, x0
+    b Lselector_component
 Lselector_parent_step:
     cbz x20, Lmatch_no
     ldr x9, [x19, #16]
@@ -208,6 +176,7 @@ Lmatch_no:
     mov x0, #0
     LEAVE
 
+.globl _css_compound
 _css_compound:
     ENTER
     mov x19, x0
@@ -231,6 +200,8 @@ _css_compound:
     cmp w9, #46
     b.eq Lcompound_suffix
     cmp w9, #58
+    b.eq Lcompound_suffix
+    cmp w9, #91
     b.eq Lcompound_suffix
     cmp w9, #35
     b.eq Lcompound_suffix
@@ -259,6 +230,8 @@ Lcompound_suffix:
     cmp x20, x21
     b.hs Lcompound_yes
     ldrb w24, [x20], #1
+    cmp w24, #91
+    b.eq Lcompound_attribute
     cmp w24, #58
     b.eq Lcompound_link_state
     cmp w24, #35
@@ -266,13 +239,36 @@ Lcompound_suffix:
     cmp w24, #46
     b.ne Lcompound_no
     b Lcompound_identifier
+Lcompound_attribute:
+    mov x0, x19
+    ldr x1, [sp, #144]
+    mov x2, x20
+    mov x3, x21
+    bl _css_attribute_match
+    cbz x0, Lcompound_no
+    mov x20, x1
+    add x22, x22, #100
+    b Lcompound_suffix
 Lcompound_link_state:
     mov x25, x20
     mov x0, x20
     mov x1, x21
     bl _css_ident_end
     mov x20, x0
-    mov x1, x0
+    mov x0, x19
+    ldr x1, [sp, #144]
+    mov x2, x25
+    mov x3, x20
+    mov x4, x21
+    bl _css_pseudo_match
+    cmp x0, #-1
+    b.eq Lcompound_known_link_pseudo
+    cbz x0, Lcompound_no
+    mov x20, x1
+    add x22, x22, x2
+    b Lcompound_suffix
+Lcompound_known_link_pseudo:
+    mov x1, x20
     mov x0, x25
     ADDR x2, pseudo_root
     bl _css_eq
@@ -399,6 +395,7 @@ Lcompound_no:
     LEAVE
 
 // Return first byte after an ASCII identifier, bounded by end.
+.globl _css_ident_end
 _css_ident_end:
 Lident_next:
     cmp x0, x1

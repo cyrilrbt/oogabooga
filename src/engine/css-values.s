@@ -344,6 +344,8 @@ _css_value:
     ADDR x2, unset_text
     bl _css_eq
     cbnz w0, Lvalue_unset
+    cmp x19, #CSS_POSITION
+    b.hs Lvalue_layout
     cmp x19, #CSS_BORDER_RIGHT
     b.hs Lvalue_length
     cmp x19, #CSS_GROW
@@ -430,6 +432,12 @@ Lvalue_weight_number:
     cmp x0, #900
     b.hi Lvalue_bad
     b Lvalue_good
+Lvalue_layout:
+    mov x0, x19
+    mov x1, x20
+    mov x2, x21
+    bl _css_layout_value
+    LEAVE
 Lvalue_factor:
     mov x0, x20
     mov x1, x21
@@ -742,6 +750,8 @@ Ldecl_property_next:
     b Ldecl_property_next
 Ldecl_property_found:
     ldr x28, [x27, #8]
+    cmp x28, #108
+    b.hs Ldecl_grid_placement
     cmp x28, #107
     b.eq Ldecl_border_style
     cmp x28, #106
@@ -768,6 +778,17 @@ Ldecl_property_found:
     mov x3, x0
     mov x0, x21
     bl _css_store_decl
+    b Ldecl_advance
+Ldecl_grid_placement:
+    mov x0, x24
+    mov x1, x25
+    mov x2, x21
+    mov x3, x26
+    mov x4, #CSS_GRID_COLUMN
+    cmp x28, #109
+    mov x9, #CSS_GRID_ROW
+    csel x4, x9, x4, eq
+    bl _css_grid_placement
     b Ldecl_advance
 Ldecl_border_style:
     mov x0, x24
@@ -949,6 +970,22 @@ Lstore_return:
 .section __DATA,__const
 .p2align 3
 property_table:
+.quad p_position, CSS_POSITION
+.quad p_inset_top, CSS_INSET_TOP
+.quad p_inset_right, CSS_INSET_RIGHT
+.quad p_inset_bottom, CSS_INSET_BOTTOM
+.quad p_inset_left, CSS_INSET_LEFT
+.quad p_z_index, CSS_Z_INDEX
+.quad p_overflow, CSS_OVERFLOW
+.quad p_overflow_x, CSS_OVERFLOW_X
+.quad p_overflow_y, CSS_OVERFLOW_Y
+.quad p_grid_columns, CSS_GRID_COLUMNS
+.quad p_grid_rows, CSS_GRID_ROWS
+.quad p_grid_column, 108
+.quad p_grid_row, 109
+.quad p_grid_column_start, CSS_GRID_COLUMN
+.quad p_grid_row_start, CSS_GRID_ROW
+.quad p_grid_auto_rows, CSS_GRID_AUTO_ROWS
 .quad p_direction, CSS_DIRECTION
 .quad p_justify, CSS_JUSTIFY
 .quad p_align_items, CSS_ALIGN_ITEMS
@@ -1099,7 +1136,7 @@ keyword_table:
 .quad CSS_DISPLAY, none_text, 1
 .quad CSS_DISPLAY, flex_text, 3
 .quad CSS_DISPLAY, inline_flex_text, 3
-.quad CSS_DISPLAY, grid_text, 0
+.quad CSS_DISPLAY, grid_text, 4
 .quad CSS_DISPLAY, block_text, 0
 .quad CSS_DISPLAY, inline_text, 2
 .quad CSS_DISPLAY, inline_block_text, 2
@@ -1265,3 +1302,20 @@ p_border_bottom_width: .asciz "border-bottom-width"
 p_border_left_width: .asciz "border-left-width"
 p_border_style: .asciz "border-style"
 f_verdana: .asciz "Verdana"
+
+p_position: .asciz "position"
+p_inset_top: .asciz "top"
+p_inset_right: .asciz "right"
+p_inset_bottom: .asciz "bottom"
+p_inset_left: .asciz "left"
+p_z_index: .asciz "z-index"
+p_overflow: .asciz "overflow"
+p_overflow_x: .asciz "overflow-x"
+p_overflow_y: .asciz "overflow-y"
+p_grid_columns: .asciz "grid-template-columns"
+p_grid_rows: .asciz "grid-template-rows"
+p_grid_column: .asciz "grid-column"
+p_grid_row: .asciz "grid-row"
+p_grid_column_start: .asciz "grid-column-start"
+p_grid_row_start: .asciz "grid-row-start"
+p_grid_auto_rows: .asciz "grid-auto-rows"

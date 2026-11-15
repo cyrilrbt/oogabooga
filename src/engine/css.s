@@ -12,6 +12,15 @@ _engine_css_capture:
     str x4, [x19, #24]              // borrowed canonical tag name
     mov x20, x2
     mov x21, x3
+    ldr x0, [x19, #ATTR_RAW]
+    bl _free
+    sub x1, x21, x20
+    mov x9, #8192
+    cmp x1, x9
+    csel x1, x9, x1, hi
+    mov x0, x20
+    bl _strndup
+    str x0, [x19, #ATTR_RAW]
     // Repeated explicit document start tags replace owned attribute strings safely.
     ldr x0, [x19]
     bl _free
@@ -111,6 +120,8 @@ _engine_css_free:
     cbz x20, Lcss_free_buffers
 Lcss_free_meta:
     cbz x21, Lcss_free_buffers
+    ldr x0, [x20, #ATTR_RAW]
+    bl _free
     mov x0, x20
     bl _css_variables_free
     ldr x0, [x20]
@@ -262,7 +273,8 @@ Lrules_selector:
     mov x9, #CSS_RULE_SIZE
     madd x26, x22, x9, x19
     stp x23, x24, [x26]
-    stp x20, x25, [x26, #416]
+    add x9, x26, #544
+    stp x20, x25, [x9]
     mov x0, x20
     mov x1, x25
     add x2, x26, #16
@@ -275,7 +287,7 @@ Lrules_selector:
     bl _memmem
     cmp x0, #0
     cset x9, ne
-    str x9, [x26, #440]
+    str x9, [x26, #568]
     cbz x0, Lrules_visible_properties
     ldr x9, [x26, #16]
     and x9, x9, #1
@@ -288,25 +300,25 @@ Lrules_visible_properties:
     bl _memmem
     cmp x0, #0
     cset x9, ne
-    str x9, [x26, #432]
+    str x9, [x26, #560]
     mov x0, x20
     sub x1, x25, x20
     ADDR x2, var_marker
     mov x3, #4
     bl _memmem
     cbz x0, Lrules_flags_done
-    ldr x9, [x26, #432]
+    ldr x9, [x26, #560]
     orr x9, x9, #2
-    str x9, [x26, #432]
+    str x9, [x26, #560]
 Lrules_flags_done:
-    ldr x9, [x26, #440]
+    ldr x9, [x26, #568]
     cbz x9, Lrules_flags_visible
-    ldr x9, [x26, #432]
+    ldr x9, [x26, #560]
     and x9, x9, #0xfffffffffffffffe
-    str x9, [x26, #432]
+    str x9, [x26, #560]
 Lrules_flags_visible:
     ldr x9, [x26, #16]
-    ldr x10, [x26, #432]
+    ldr x10, [x26, #560]
     orr x9, x9, x10
     cbz x9, Lrules_advance
     add x22, x22, #1
@@ -395,14 +407,14 @@ Lcascade_property:
     b.eq Lcascade_compare
     orr x7, x7, #0x1000000000000
 Lcascade_compare:
-    add x8, x0, #1024
-    ldr x9, [x8, x3, lsl #3]
+    CSS_PRIORITY_ADDR x8, x0, x3
+    ldr x9, [x8]
     cmp x7, x9
     b.lo Lcascade_next
-    str x7, [x8, x3, lsl #3]
+    str x7, [x8]
     ldr x9, [x1, x3, lsl #3]
-    add x8, x0, #32
-    str x9, [x8, x3, lsl #3]
+    CSS_VALUE_ADDR x8, x0, x3
+    str x9, [x8]
 Lcascade_next:
     add x3, x3, #1
     b Lcascade_property
@@ -509,7 +521,7 @@ Llength_return:
 .globl _engine_css_apply_impl
 _engine_css_apply_impl:
     ENTER
-    sub sp, sp, #512                // temporary inline declaration block + locals
+    sub sp, sp, #640                // temporary inline declaration block + locals
     mov x19, x0
     ldr x20, [x19, #72]
     ldr x21, [x19, #24]
@@ -563,6 +575,14 @@ Lapply_default:
     mov x1, #0
     mov x2, #384
     bl _memset
+    add x0, x23, #416
+    mov x1, #0
+    mov x2, #96
+    bl _memset
+    add x0, x23, #1968
+    mov x1, #0
+    mov x2, #32
+    bl _memset
     mov x26, #0
     ADDR x27, css_defaults
     ADDR x28, css_inherited_mask
@@ -576,11 +596,11 @@ Lapply_default_property:
     lsl x11, x11, x26
     tst x28, x11
     b.eq Lapply_default_store
-    add x11, x24, #32
-    ldr x10, [x11, x26, lsl #3]
+    CSS_VALUE_ADDR x11, x24, x26
+    ldr x10, [x11]
 Lapply_default_store:
-    add x11, x23, #32
-    str x10, [x11, x26, lsl #3]
+    CSS_VALUE_ADDR x11, x23, x26
+    str x10, [x11]
     add x26, x26, #1
     b Lapply_default_property
 Lapply_ua:
@@ -684,18 +704,19 @@ Lapply_rule:
     lsl x2, x0, #16
     add x9, x26, #1
     orr x2, x2, x9
-    str x2, [sp, #416]
-    ldr x9, [x27, #432]
+    str x2, [sp, #544]
+    ldr x9, [x27, #560]
     tbz x9, #1, Lapply_static_declarations
     mov x0, sp
     mov x1, #0
-    mov x2, #400
+    mov x2, #528
     bl _memset
-    ldp x0, x1, [x27, #416]
+    add x9, x27, #544
+    ldp x0, x1, [x9]
     mov x2, sp
     mov x3, x23
     bl _css_declarations_resolved
-    ldr x9, [x27, #440]
+    ldr x9, [x27, #568]
     cbz x9, Lapply_resolved_visible
     ldr x9, [sp]
     and x9, x9, #1
@@ -707,7 +728,7 @@ Lapply_static_declarations:
     add x1, x27, #16
 Lapply_declarations_ready:
     mov x0, x23
-    ldr x2, [sp, #416]
+    ldr x2, [sp, #544]
     bl _css_cascade
 Lapply_rule_next:
     add x26, x26, #1
@@ -717,7 +738,7 @@ Lapply_inline:
     cbz x26, Lapply_resolve
     mov x0, sp
     mov x1, #0
-    mov x2, #400
+    mov x2, #528
     bl _memset
     mov x0, x26
     bl _strlen
@@ -738,8 +759,8 @@ Lapply_resolve:
 Lapply_resolve_property:
     cmp x26, #CSS_PROPERTIES
     b.hs Lapply_inherited_hidden
-    add x9, x23, #32
-    ldr x0, [x9, x26, lsl #3]
+    CSS_VALUE_ADDR x9, x23, x26
+    ldr x0, [x9]
     cmn x0, #2
     b.eq Lapply_inherit
     cmn x0, #3
@@ -756,8 +777,8 @@ Lapply_initial:
     ldr x0, [x27, x26, lsl #3]
     b Lapply_resolve_length
 Lapply_inherit:
-    add x9, x24, #32
-    ldr x0, [x9, x26, lsl #3]
+    CSS_VALUE_ADDR x9, x24, x26
+    ldr x0, [x9]
 Lapply_resolve_length:
     cmp x26, #CSS_FILL
     b.eq Lapply_not_current_color
@@ -767,6 +788,8 @@ Lapply_resolve_length:
     b.ne Lapply_not_current_color
     ldr x0, [x23, #32]
 Lapply_not_current_color:
+    cmp x26, #CSS_POSITION
+    b.hs Lapply_extension_length
     cmp x26, #CSS_BORDER_RIGHT
     b.hs Lapply_length
     cmp x26, #CSS_GAP
@@ -803,15 +826,31 @@ Lapply_not_current_color:
     b.eq Lapply_length
     cmp x26, #CSS_BORDER
     b.hi Lapply_resolved_store
+    b Lapply_length
+Lapply_extension_length:
+    cmp x26, #CSS_INSET_TOP
+    b.lo Lapply_resolved_store
+    cmp x26, #CSS_INSET_LEFT
+    b.ls Lapply_length
+    cmp x26, #CSS_GRID_AUTO_ROWS
+    b.ne Lapply_resolved_store
 Lapply_length:
     mov x1, x26
     mov x2, x24
     mov x3, x23
     ldr x4, [x19, #72]
     bl _css_length
+    cmp x26, #CSS_INSET_TOP
+    b.lo Lapply_resolved_store
+    cmp x26, #CSS_INSET_LEFT
+    b.hi Lapply_resolved_store
+    cmn x0, #1
+    b.eq Lapply_resolved_store
+    tbz x5, #62, Lapply_resolved_store
+    orr x0, x0, #0x10000000000
 Lapply_resolved_store:
-    add x9, x23, #32
-    str x0, [x9, x26, lsl #3]
+    CSS_VALUE_ADDR x9, x23, x26
+    str x0, [x9]
     add x26, x26, #1
     b Lapply_resolve_property
 Lapply_text_node:
@@ -913,7 +952,7 @@ Lapply_done:
     bl _engine_zero_margin_flow
     mov x0, x20
     bl _free
-    add sp, sp, #512
+    add sp, sp, #640
     LEAVE
 
 .section __DATA,__const
@@ -922,6 +961,7 @@ css_inherited_mask: .quad (3197 | (7 << 39))
 css_defaults:
 .quad -1, -1, 14, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0
 .quad 0, 0, 0, 0, 0, 0, 1000, -1, -1, -1, -1, -6, -1, 1, 1000, 0, 0, 0, 0, 0
+.quad 0,-1,-1,-1,-1,32768,0,0,0,0,1,0,1,0,0,0
 .section __TEXT,__cstring,cstring_literals
 id_name: .asciz "id"
 class_name: .asciz "class"

@@ -180,17 +180,29 @@ int main(void) {
     assert(d->nodes[id(d,"t")].parent==d->nodes[id(d,"def")].parent && d->meta[0].value[1]==255);
     l=engine_layout(d,0); assert(l && strstr(l->text,"before\ninside\nafter")); engine_layout_free(l); engine_document_free(d);
     char *newline=engine_form_encode("a\nb\rc\r\nd"); assert(newline && !strcmp(newline,"a%0D%0Ab%0D%0Ac%0D%0Ad")); free(newline);
+    d=parse("<style>p + p{color:red}p ~ a[data-kind^=news]{color:blue}p:not(.skip){font-weight:700}[data-label='a, b']{font-style:italic}</style><div><p id=sfirst data-label='a, b'>first</p><p id=snext class=skip>next</p><span>gap</span><a id=slink href=/x data-kind=newspaper>news</a></div><input id=scheck checked><input id=sdisabled disabled><div id=sempty></div>");
+    assert(d->meta[id(d,"snext")].value[0]==0xff0000 && d->meta[id(d,"slink")].value[0]==255);
+    assert(d->meta[id(d,"sfirst")].value[3]==700 && d->meta[id(d,"sfirst")].value[4]==1 && d->meta[id(d,"snext")].value[3]==400);
+    assert(match(d,id(d,"sfirst"),"p:first-child") && match(d,id(d,"slink"),"a:last-child") && match(d,id(d,"scheck"),":checked") && match(d,id(d,"sdisabled"),":disabled") && match(d,id(d,"sempty"),":empty"));
+    assert(match(d,id(d,"slink"),"[data-kind$=paper]") && match(d,id(d,"slink"),"[data-kind*=wsp]") && match(d,id(d,"sfirst"),"[data-label='A, B' i]"));
+    engine_document_free(d);
+    d=parse("<div id=grid style='display:grid;width:600px;grid-template-columns:100px 1fr 2fr;gap:10px;grid-auto-rows:50px'><div id=g1>a</div><div id=g2 style='grid-column:2 / span 2'>b</div><div id=g3 style='grid-row:2 / span 2'>c</div><div id=g4>d</div></div>");
+    engine_box_tree(d,800); engine_flow_tree(d);
+    assert(d->meta[id(d,"grid")].value[7]==4);
+    uint64_t *gg1=(uint64_t *)&d->meta[id(d,"g1")],*gg2=(uint64_t *)&d->meta[id(d,"g2")],*gg3=(uint64_t *)&d->meta[id(d,"g3")];
+    assert(gg1[1464/8]==100 && gg2[1464/8]==490 && gg2[1448/8]==2 && gg3[1456/8]==2 && gg3[1432/8]==1 && gg3[1472/8]>=110);
+    engine_document_free(d);
     // Every declaration prefix ends at a protected boundary.
     size_t page=(size_t)sysconf(_SC_PAGESIZE);
     char *guard=mmap(NULL,page*2,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0); assert(guard!=MAP_FAILED); assert(!mprotect(guard+page,page,PROT_NONE));
     const char *css="/*c*/color:#abc!important; font-family:'Times New Roman',serif; margin:1.5em 0 2px 3px; broken:url('x;z}');font-size:120%";
-    for(size_t k=0;k<=strlen(css);k++) { char *p=guard+page-k; memcpy(p,css,k); uint64_t decl[50]={0}; css_declarations(p,p+k,decl); }
+    for(size_t k=0;k<=strlen(css);k++) { char *p=guard+page-k; memcpy(p,css,k); uint64_t decl[66]={0}; css_declarations(p,p+k,decl); }
     const char *media="only screen and (min-width:767.95px) and (max-width:1200px)";
     for(size_t k=0;k<=strlen(media);k++) { char *p=guard+page-k; memcpy(p,media,k); (void)css_media_match(p,p+k,900); }
     const char *sides="border-width:1em 1.5em 2em .5em;border-style:solid;float:right;clear:both";
-    for(size_t k=0;k<=strlen(sides);k++) { char *p=guard+page-k; memcpy(p,sides,k); uint64_t decl[50]={0}; css_declarations(p,p+k,decl); }
+    for(size_t k=0;k<=strlen(sides);k++) { char *p=guard+page-k; memcpy(p,sides,k); uint64_t decl[66]={0}; css_declarations(p,p+k,decl); }
     const char *font="font:italic 700 18px/1.5 'Arial',sans-serif";
-    for(size_t k=0;k<=strlen(font);k++) { char *p=guard+page-k; memcpy(p,font,k); uint64_t decl[50]={0}; css_declarations(p,p+k,decl); }
+    for(size_t k=0;k<=strlen(font);k++) { char *p=guard+page-k; memcpy(p,font,k); uint64_t decl[66]={0}; css_declarations(p,p+k,decl); }
     munmap(guard,page*2);
     char *encoded=engine_form_encode("café +&=🌐"); assert(encoded && !strcmp(encoded,"caf%C3%A9+%2B%26%3D%F0%9F%8C%90")); free(encoded);
     // Malformed sheets, unsupported at-rules and declaration data must remain bounded.

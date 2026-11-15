@@ -5,9 +5,14 @@
 .text
 .p2align 2
 // doc,index -> eligible direct flex item (resource/whitespace/hidden nodes skip).
+.globl _engine_flow_item
+_engine_flow_item:
 flow_item:
     ldr x2, [x0, #72]
     add x2, x2, x1, lsl #11
+    ldr x3, [x2, #(1840+(CSS_POSITION-48)*8)]
+    cmp x3, #2
+    b.hs Lflow_item_no
     ldr x3, [x2, #88]
     cmp x3, #1
     b.eq Lflow_item_no

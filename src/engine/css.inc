@@ -2,8 +2,8 @@
 // 48 computed values at +32; priorities at +1024; owned attributes at +512.
 // Rule: selector*, length, declaration mask, important mask, 48 values, raw declarations and flags (448 bytes).
 .set CSS_META_SIZE, 2048
-.set CSS_RULE_SIZE, 448
-.set CSS_PROPERTIES, 48
+.set CSS_RULE_SIZE, 576
+.set CSS_PROPERTIES, 64
 .set CSS_MAX_SOURCE, 1048576
 .set CSS_MAX_RULES, 4096
 .set CSS_COLOR, 0
@@ -137,3 +137,52 @@
 
 .set NATIVE_HAS_REPLACED, 1824
 .set NATIVE_HAS_FLOATS, 1832
+
+// Extension values use spare metadata space; existing 48 property/attribute
+// offsets and the 2048-byte node ABI stay stable.
+.set CSS_POSITION, 48
+.set CSS_INSET_TOP, 49
+.set CSS_INSET_RIGHT, 50
+.set CSS_INSET_BOTTOM, 51
+.set CSS_INSET_LEFT, 52
+.set CSS_Z_INDEX, 53
+.set CSS_OVERFLOW, 54
+.set CSS_GRID_COLUMNS, 55
+.set CSS_GRID_ROWS, 56
+.set CSS_GRID_COLUMN, 57
+.set CSS_GRID_COLSPAN, 58
+.set CSS_GRID_ROW, 59
+.set CSS_GRID_ROWSPAN, 60
+.set CSS_GRID_AUTO_ROWS, 61
+.set CSS_OVERFLOW_X, 62
+.set CSS_OVERFLOW_Y, 63
+// dst is a byte address; prop and metadata must be different from dst.
+.macro CSS_VALUE_ADDR dst, meta, prop
+    cmp \prop, #48
+    b.hs Lcss_ext_value_\@
+    add \dst, \meta, \prop, lsl #3
+    add \dst, \dst, #32
+    b Lcss_value_ready_\@
+Lcss_ext_value_\@:
+    add \dst, \meta, \prop, lsl #3
+    add \dst, \dst, #1456
+Lcss_value_ready_\@:
+.endm
+.macro CSS_PRIORITY_ADDR dst, meta, prop
+    cmp \prop, #48
+    b.hs Lcss_ext_priority_\@
+    add \dst, \meta, \prop, lsl #3
+    add \dst, \dst, #1024
+    b Lcss_priority_ready_\@
+Lcss_ext_priority_\@:
+    cmp \prop, #60
+    b.hs Lcss_last_priority_\@
+    add \dst, \meta, \prop, lsl #3
+    add \dst, \dst, #32
+    b Lcss_priority_ready_\@
+Lcss_last_priority_\@:
+    add \dst, \meta, \prop, lsl #3
+    add \dst, \dst, #1488
+Lcss_priority_ready_\@:
+.endm
+.set ATTR_RAW, 2000

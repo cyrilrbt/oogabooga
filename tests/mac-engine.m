@@ -385,8 +385,14 @@ int main(void) {
         assert([address.stringValue isEqual:@"https://engine.test/second"]);
         navigate(@"/flow"); waitFor(^BOOL { return [window.title hasPrefix:@"Flow layout — Assembly"] && [status.stringValue containsString:@"ready."]; });
         NSRange fl=[text.string rangeOfString:@"Flex left"],fm=[text.string rangeOfString:@"Flex middle"],fr=[text.string rangeOfString:@"Flex right"];
-        NSRect flr=[text.layoutManager boundingRectForGlyphRange:fl inTextContainer:text.textContainer],fmr=[text.layoutManager boundingRectForGlyphRange:fm inTextContainer:text.textContainer],frr=[text.layoutManager boundingRectForGlyphRange:fr inTextContainer:text.textContainer];
-        assert(fabs(flr.origin.y-fmr.origin.y)<1 && fabs(flr.origin.y-frr.origin.y)<1 && fmr.origin.x>NSMaxX(flr) && frr.origin.x>NSMaxX(fmr));
+        // Compare allocated line boxes, not glyph ink (ascenders/descenders and
+        // fallback font metrics vary between macOS runner versions). Convert
+        // character offsets explicitly: character and glyph indices can differ.
+        NSRect flr=[text.layoutManager lineFragmentRectForGlyphAtIndex:[text.layoutManager glyphIndexForCharacterAtIndex:fl.location] effectiveRange:NULL];
+        NSRect fmr=[text.layoutManager lineFragmentRectForGlyphAtIndex:[text.layoutManager glyphIndexForCharacterAtIndex:fm.location] effectiveRange:NULL];
+        NSRect frr=[text.layoutManager lineFragmentRectForGlyphAtIndex:[text.layoutManager glyphIndexForCharacterAtIndex:fr.location] effectiveRange:NULL];
+        if(!(fabs(flr.origin.y-fmr.origin.y)<1 && fabs(flr.origin.y-frr.origin.y)<1 && fmr.origin.x>=NSMaxX(flr)+19 && frr.origin.x>=NSMaxX(fmr)+19)) NSLog(@"Flex line boxes: %@ / %@ / %@",NSStringFromRect(flr),NSStringFromRect(fmr),NSStringFromRect(frr));
+        assert(fabs(flr.origin.y-fmr.origin.y)<1 && fabs(flr.origin.y-frr.origin.y)<1 && fmr.origin.x>=NSMaxX(flr)+19 && frr.origin.x>=NSMaxX(fmr)+19);
         NSParagraphStyle *flowStyle=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:fm.location effectiveRange:NULL];
         assert(flowStyle.textBlocks.count && fabs(flowStyle.textBlocks.lastObject.contentWidth-360)<1);
         NSRange wrapOne=[text.string rangeOfString:@"Wrap one"],wrapThree=[text.string rangeOfString:@"Wrap three"];
