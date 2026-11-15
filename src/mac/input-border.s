@@ -1,4 +1,5 @@
-// Native fields retain their editor and focus ring; buttons retain tracking.
+// CSS fields retain native editing with a centered content rect, without a
+// native bezel or focus outline. Buttons retain native tracking.
 // Website-styled buttons replace the native bezel with their CSS layer.
 // Uniform borders/radii are shared with the visible default input outline.
 .include "src/mac/mac.inc"
@@ -51,14 +52,9 @@ Linput_border_authored:
     csel x22, x9, x22, lt
 Linput_border_width_ready:
     cbnz x23, Linput_border_layer
-    mov x0, x20
-    cmp x22, #0
-    cset x2, ne
-    MSG inputSetBezeled
-    cbnz x22, Linput_border_native_ready
-    mov x0, x20
-    mov x2, #0
-    MSG setBordered
+    mov x0, x19
+    mov x1, x20
+    bl _mac_input_cell_style
 Linput_border_native_ready:
 Linput_border_layer:
     mov x0, x20
@@ -67,8 +63,12 @@ Linput_border_layer:
     mov x0, x20
     MSG layer
     mov x21, x0
-    cbz x23, Linput_border_background_done
     ldr x0, [x19, #40]
+    cbnz x23, Linput_border_background_color
+    ldr x9, [x19, #(1024+CSS_BACKGROUND*8)]
+    cbnz x9, Linput_border_background_color
+    mov x0, #0xffffff
+Linput_border_background_color:
     bl _mac_css_color
     MSG CGColor
     mov x2, x0

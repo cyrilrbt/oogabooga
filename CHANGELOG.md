@@ -4,6 +4,32 @@ Record user-visible changes here whenever `VERSION` changes. Keep the newest
 version first, use the same SemVer as `VERSION`, and distinguish added features,
 behavior changes, and fixes. Historical entries summarize the repository history.
 
+## 0.16.2 — 2026-11-15
+
+### Fixed
+
+- Seed native control scene boxes from their measured widget frames. Absolutely
+  positioned image buttons no longer drift offscreen when their hidden
+  attachment glyphs provide no text geometry, including DuckDuckGo's search
+  button. Cover placement within the form as well as background-image pixels.
+
+### Changed
+
+- Open DuckDuckGo's HTML homepage by default on both macOS and Linux.
+- Add a brief done/partial/todo assembly-engine status table to the README.
+
+## 0.16.1 — 2026-11-15
+
+### Fixed
+
+- Remove AppKit bezels and native focus outlines from assembly webpage text
+  inputs. Keep the visible default/CSS border, website colors and backgrounds.
+- Use one padded, vertically centered rectangle for displayed text and the
+  native field editor. Preserve live text, selection and horizontal scrolling
+  through reflow; keep fields inside the surrounding CSS form geometry.
+- Add `/engine/inputs` to the local test lab and regressions for active-editor
+  bounds, CSS padding, parent outline alignment and resize preservation.
+
 ## 0.16.0 — 2026-11-15
 
 ### Added

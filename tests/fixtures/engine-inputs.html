@@ -1,0 +1,20 @@
+<!doctype html><meta charset="utf-8"><title>Input geometry lab</title>
+<style>
+body{margin:24px;background:#f5f3ed;color:#243247;font:16px/1.5 Arial}
+h1,h2{color:#1659b8}p{margin:16px 0}
+.searchbox{position:relative;box-sizing:border-box;width:500px;max-width:100%;height:50px;padding:0 60px 0 10px;border:1px solid #8893a2;background:white}
+.searchbox .query{display:block;width:100%;height:48px;padding:0;border:none;background:transparent;font:16px Arial}
+.searchbox .submit{position:absolute;right:2px;top:1px;width:48px;height:46px;padding:0;border:none;background:#e6edf7;color:#1659b8}
+.padded{width:300px;height:50px;padding:6px 20px;border:2px solid #1659b8;background:white}
+.tall{width:300px;height:60px}
+</style>
+<h1>Input geometry and editing</h1>
+<p>Click each field, type, select text and resize the window. Text should stay vertically centered, with no native bezel or blue focus outline. Website borders and padding stay visible.</p>
+<h2>Field inside a rendered form outline</h2>
+<p>The form reserves space on the right for its absolutely positioned submit button. The editor should remain inside the padded text area.</p>
+<form class="searchbox" action="/engine/result"><input class="query" name=q value="Centered search text"><input class="submit" type="submit" value="Go"></form>
+<h2>Explicit padding and border</h2>
+<p><input class="padded" value="Padding: café 🌐"></p>
+<h2>Tall default field</h2>
+<p><input class="tall" value="Text and editor share a center"></p>
+<p><a href="/">All tests</a> · <a href="/engine/features">Form submission tests</a></p>

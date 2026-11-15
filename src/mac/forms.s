@@ -167,11 +167,12 @@ Lcontrol_new:
     b.eq Lcontrol_button
     cmp x0, #1
     b.eq Lcontrol_button
-    CLASS NSTextField
+    bl _mac_input_field_class
     MSG alloc
     RECT 0, 0, 220, 26
     MSG initFrame
     mov x23, x0
+    bl _mac_input_cell_install
     ldr x0, [x19, #ATTR_VALUE]
     cmp x22, #3
     b.ne Lcontrol_text_value
@@ -486,6 +487,7 @@ Lposition_advance:
 Lposition_done:
     mov x0, x28
     bl _mac_controls_prune
+    bl _mac_scene_controls_commit
     LOAD x0, _engine_scroll
     mov x2, #0
     MSG setAccessibilityChildren

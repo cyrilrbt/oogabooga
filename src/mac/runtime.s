@@ -1519,6 +1519,17 @@ _sel_bgDrawImage: .quad bg_draw_image_name
 _sel_bgIsKind: .quad bg_is_kind_name
 .globl _sel_bgCellDraw
 _sel_bgCellDraw: .quad bg_cell_draw_name
+.globl _sel_inputDrawingRect, _sel_inputEditFrame, _sel_inputSelectFrame, _sel_inputFocusRing
+_sel_inputDrawingRect: .quad input_drawing_name
+_sel_inputEditFrame: .quad input_edit_name
+_sel_inputSelectFrame: .quad input_select_name
+_sel_inputFocusRing: .quad input_focus_ring_name
+.globl _sel_inputCurrentEditor, _sel_inputConvertRect, _sel_inputFrameOrigin, _sel_inputLinePadding, _sel_inputScrollPoint
+_sel_inputCurrentEditor: .quad input_current_editor_name
+_sel_inputConvertRect: .quad input_convert_rect_name
+_sel_inputFrameOrigin: .quad input_frame_origin_name
+_sel_inputLinePadding: .quad input_line_padding_name
+_sel_inputScrollPoint: .quad input_scroll_point_name
 selector_end:
 selectors_ready: .quad 0
 .section __TEXT,__cstring,cstring_literals
@@ -1704,3 +1715,14 @@ bg_draw_image_name: .asciz "drawInRect:fromRect:operation:fraction:respectFlippe
 bg_is_kind_name: .asciz "isKindOfClass:"
 
 bg_cell_draw_name: .asciz "drawWithFrame:inView:"
+
+input_drawing_name: .asciz "drawingRectForBounds:"
+input_edit_name: .asciz "editWithFrame:inView:editor:delegate:event:"
+input_select_name: .asciz "selectWithFrame:inView:editor:delegate:start:length:"
+input_focus_ring_name: .asciz "setFocusRingType:"
+
+input_current_editor_name: .asciz "currentEditor"
+input_convert_rect_name: .asciz "convertRect:toView:"
+input_frame_origin_name: .asciz "setFrameOrigin:"
+input_line_padding_name: .asciz "setLineFragmentPadding:"
+input_scroll_point_name: .asciz "scrollToPoint:"

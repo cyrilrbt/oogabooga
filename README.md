@@ -108,7 +108,25 @@ Editing commands act on the focused field/page and depend on that widget's editi
 See [the engine roadmap](ENGINE_TODO.md) for the audited feature backlog,
 recommended implementation order, and prerequisites for starting JavaScript.
 
-Choose **Navigate → Use Assembly Engine (Experimental)** or press **⌘E** to switch the current page between the assembly renderer and WebKit. The assembly engine is the macOS default. Both applications open [Google](https://www.google.com/) at startup; typed URLs are loaded as entered. To launch with WebKit instead:
+### Engine status at a glance
+
+“Done” refers to the supported subset; this is still an experimental renderer.
+
+| Area | Status | Current scope / remaining work |
+| --- | --- | --- |
+| Navigation & history | Done | Back, forward, reload and SQLite visit history. |
+| Text & links | Done | Native Unicode shaping, selection, link hit testing and pointer cursors. |
+| CSS cascade | Done | Supported selectors/properties, inheritance, variables and `!important`. |
+| HTML & mutable DOM | Partial | Static HTML and tree mutation work; full HTML5 parsing remains. |
+| Layout | Partial | Blocks, inline boxes, flex/Grid, tables and positioning; full CSS behavior and sticky positioning remain. |
+| Images & backgrounds | Partial | Raster/SVG and one background image layer; gradients and multiple layers remain. |
+| Forms & editing | Partial | GET/POST and common controls; passwords, uploads and full validation remain. |
+| Networking & authentication | Partial | HTTPS, redirects and HTTP auth; persistent assembly cookies and modern login flows remain. |
+| Compatibility testing | Partial | Acid1 geometry checks and saved-page regressions; broader standards coverage remains. |
+| JavaScript & web APIs | Todo | No JavaScript execution or script-facing browser APIs yet. |
+| Assembly engine on Linux | Todo | Custom renderer is macOS ARM64 only; Linux uses WebKitGTK. |
+
+Choose **Navigate → Use Assembly Engine (Experimental)** or press **⌘E** to switch the current page between the assembly renderer and WebKit. The assembly engine is the macOS default. Both applications open [DuckDuckGo's HTML homepage](https://html.duckduckgo.com/html/) at startup; typed URLs are loaded as entered. To launch with WebKit instead:
 
 ```sh
 OOGABOOGA_ENGINE=webkit build/Oogabooga.app/Contents/MacOS/oogabooga https://example.com
@@ -123,6 +141,12 @@ background/text colors, uniform borders, corner radii and title padding. Native
 tracking, keyboard focus and accessibility remain available; unstyled buttons
 keep their platform appearance. Native buttons also support single-layer CSS background images. Per-side border
 colors on native controls are not implemented yet.
+
+Webpage text fields use a shared CSS content rectangle for displayed text and
+native editing, with padding and vertical centering. Native bezels and focus
+rings are disabled; default/CSS borders and backgrounds are painted explicitly.
+The toolbar address field retains its native behavior. Try `/engine/inputs` on
+the local fixture server.
 
 CSS backgrounds support one raster/SVG image layer, stylesheet-relative URLs,
 `background-size` (auto, lengths, percentages, cover/contain), basic positions,

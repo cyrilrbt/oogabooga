@@ -14,8 +14,27 @@ _mac_scene_control_place:
     str x0, [x19, #SC_CONTROL]
     stp d0, d1, [x19, #SC_CONTROL_RECT]
     stp d2, d3, [x19, #(SC_CONTROL_RECT+16)]
-    mov x0, x19
-    bl scene_control_update
+    // Hidden out-of-flow attachment glyphs can have no native text box. The
+    // widget's actual untransformed frame is authoritative for scene insets.
+    LOAD x0, _mac_scene
+    bl _engine_scene_set_box
+    LEAVE
+
+// Recompute transforms once after all widget boxes have been registered. This
+// keeps form layout linear rather than walking the scene once per control.
+.globl _mac_scene_controls_commit
+_mac_scene_controls_commit:
+    ENTER
+    LOAD x0, _mac_scene
+    cbz x0, Lscene_controls_commit_done
+    LOAD x0, _engine_text
+    MSG visibleRect
+    LOAD x0, _mac_scene
+    bl _engine_scene_update
+    LOAD x0, _mac_scene
+    bl _engine_scene_extents
+    bl _mac_scene_controls_update
+Lscene_controls_commit_done:
     LEAVE
 
 // Reposition fixed/contained-scroll widgets after updating the scene, without

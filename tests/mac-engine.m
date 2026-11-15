@@ -93,13 +93,14 @@ static BOOL slowStarted;
     NSInteger status=200;
     NSString *html=@"<title>First</title><h1>Hello 🌐</h1><p><a href='/second?a=1&amp;b=2'>next café</a> <a href='javascript:alert(1)'>bad link</a></p><script>SHOULD NOT RENDER</script>";
     if([path isEqual:@"/atomic"]) html=[NSString stringWithContentsOfFile:@"tests/fixtures/compat-inline-boxes.html" encoding:NSUTF8StringEncoding error:NULL];
-    if([path isEqual:@"/backgrounds"]) html=@"<title>Background images</title><link rel=stylesheet media='handheld, all' href='/bg-assets/sheet.css'><link rel=stylesheet media='screen and (min-width:900px)' href='/bg-assets/wide.css'><link rel=stylesheet media='print, speech' href='/must-not-load.css'><div id=bgpaint></div><div id=bgtile></div><div id=bgmissing></div><input type=submit id=bgsubmit value='' style='width:60px;height:30px'>";
+    if([path isEqual:@"/backgrounds"]) html=@"<title>Background images</title><link rel=stylesheet media='handheld, all' href='/bg-assets/sheet.css'><link rel=stylesheet media='screen and (min-width:900px)' href='/bg-assets/wide.css'><link rel=stylesheet media='print, speech' href='/must-not-load.css'><div id=bgpaint></div><div id=bgtile></div><div id=bgmissing></div><form id=bgform action='/form-result' style='position:relative;width:300px;height:50px;padding:0;border:1px solid gray'><input type=submit id=bgsubmit name=go value='' style='position:absolute;right:2px;top:0;width:60px;height:30px'></form>";
     if([path isEqual:@"/bg-assets/sheet.css"]) {html=@"body{margin:0;background:white}#bgpaint{width:100px;height:60px;background-image:url(tile.svg);background-size:20px 10px;background-position:center;background-repeat:no-repeat}#bgtile{width:100px;height:60px;background:url(tile.svg);background-size:20px 10px;background-repeat:repeat}#bgmissing{width:100px;height:30px;background:green;background-image:url(missing.png)}#bgsubmit{background-image:url(tile.svg);background-size:20px 10px;background-position:center;background-repeat:no-repeat;border:none}";headers=@{@"Content-Type":@"text/css"};}
     if([path isEqual:@"/bg-assets/tile.svg"]) {html=@"<svg width='40' height='20'><rect width='40' height='20' fill='blue'/></svg>";headers=@{@"Content-Type":@"image/svg+xml"};}
     if([path isEqual:@"/bg-assets/wide.css"]) {html=@"#bgpaint{color:red}";headers=@{@"Content-Type":@"text/css"};}
     if([path isEqual:@"/bg-assets/missing.png"]) status=404;
     assert(![path isEqual:@"/must-not-load.css"]);
     if([path isEqual:@"/button-styles"]) html=@"<title>Button styles</title><form action='/form-result' method=get><input name=query value='CSS button'><input id=plainbutton type=submit value='Plain'><input id=flatbutton type=submit name=go value='Styled' style='background:#123456;color:white;border:2px solid red;border-radius:8px;padding:8px 20px;width:200px;height:50px'><input id=clearbutton type=submit value='Clear' style='border:none;background:transparent;padding:0'></form>";
+    if([path isEqual:@"/input-editor-box"]) html=@"<title>Input editor geometry</title><style>body{margin:0;background:white}.searchbox{position:relative;box-sizing:border-box;width:500px;max-width:100%;height:50px;padding:0 60px 0 10px;border:1px solid gray}.searchbox input{display:block;width:100%;height:48px;padding:0;border:none;background:transparent;font:16px Arial}</style><form id=searchbox class=searchbox><input id=csseditor name=q value='A long editable search value'></form><input id=paddededitor value='Padding' style='width:300px;height:50px;padding:6px 20px;border:2px solid blue'>";
     if([path isEqual:@"/input-borders"]) html=@"<title>Input borders</title><style>body{background:white}input{width:300px;height:30px}</style><input id=defaultborder value='Editable café'><input id=noborder style='border:none' value='No outline'><input id=customborder style='border:2px solid red;border-radius:0' value='Red outline'><input id=roundborder style='border:1px solid blue;border-radius:50%' value='Rounded'>";
     if([path isEqual:@"/typography"]) html=@"<title>Typography</title><style>body{margin:0;font:16px monospace}.track{letter-spacing:2px;word-spacing:5px}.pre{white-space:pre}.nowrap{white-space:nowrap;width:100px}#image{min-width:120px;max-width:160px;max-height:80px}</style><p class=track>A café 🌐 B</p><p>base <span style='vertical-align:super'>raised</span> <span style='vertical-align:-3px'>lowered</span></p><div class=pre> a  b\n c </div><div class=nowrap>Long unbroken text stays on a single line beyond the box</div><img id=image src=/assets/image.png>";
     if([path isEqual:@"/mutation"]) html=@"<title>Mutable tree</title><link rel=stylesheet href='/assets/mutation.css'><style>.hot{font-weight:700}</style><div id=container><p id=message>Before mutation</p><p id=proof>External CSS survives</p><form action=/posted method=post><input id=keep name=q value=start><input id=remove name=removed value=old><input id=mutatesend type=submit value=Submit></form><img id=photo src=/assets/image.png width=80></div>";
@@ -569,7 +570,7 @@ int main(void) {
         [window setContentSize:NSMakeSize(720,780)];mac_engine_resize(nil,NULL,nil);
         navigate(@"/input-borders");waitFor(^BOOL{return [window.title hasPrefix:@"Input borders — Assembly"]&&[status.stringValue containsString:@"ready."];});
         NSTextField *defaultBorder=control(@"defaultborder"),*noBorder=control(@"noborder"),*customBorder=control(@"customborder");
-        assert(defaultBorder.bezeled && defaultBorder.layer.borderWidth==1 && defaultBorder.frame.size.height==30);
+        assert(!defaultBorder.bezeled && !defaultBorder.bordered && defaultBorder.focusRingType==NSFocusRingTypeNone && defaultBorder.layer.borderWidth==1 && defaultBorder.frame.size.height==30);
         assert(!noBorder.bezeled && !noBorder.bordered && noBorder.layer.borderWidth==0);
         NSColor *defaultEdge=inputEdge(defaultBorder),*noneEdge=inputEdge(noBorder);
         assert(defaultEdge.redComponent<.8 && fabs(defaultEdge.redComponent-defaultEdge.greenComponent)<.02);
@@ -581,6 +582,27 @@ int main(void) {
         [window setContentSize:NSMakeSize(600,780)];mac_engine_resize(nil,NULL,nil);
         assert(control(@"defaultborder")==defaultBorder && defaultBorder.currentEditor==borderEditor && NSEqualRanges(borderEditor.selectedRange,NSMakeRange(2,3)) && [borderEditor.string isEqual:@"Still editable 🌐"]);
         assert(defaultBorder.layer.borderWidth==1 && noBorder.layer.borderWidth==0 && customBorder.layer.borderWidth==2);
+        navigate(@"/input-editor-box");waitFor(^BOOL{return [window.title hasPrefix:@"Input editor geometry — Assembly"]&&[status.stringValue containsString:@"ready."];});
+        NSTextField *cssEditor=control(@"csseditor"),*paddedEditor=control(@"paddededitor");
+        assert(!cssEditor.bezeled&&!cssEditor.bordered&&cssEditor.focusRingType==NSFocusRingTypeNone&&cssEditor.layer.borderWidth==0);
+        NSRect editorDrawing=[cssEditor.cell drawingRectForBounds:cssEditor.bounds];
+        assert(fabs(NSMidY(editorDrawing)-NSMidY(cssEditor.bounds))<1 && editorDrawing.size.height<cssEditor.bounds.size.height-10);
+        NSRect paddedDrawing=[paddedEditor.cell drawingRectForBounds:paddedEditor.bounds];
+        assert(fabs(paddedDrawing.origin.x-22)<1 && fabs(paddedDrawing.size.width-(paddedEditor.bounds.size.width-44))<1);
+        NSRect editorForm=paintRect(@"searchbox"),editorControl=[cssEditor.superview convertRect:cssEditor.frame toView:text];
+        assert(fabs(editorControl.origin.x-editorForm.origin.x-11)<2 && fabs(editorControl.size.width-(editorForm.size.width-72))<2);
+        assert([window makeFirstResponder:cssEditor]);NSTextView *activeEditor=(id)cssEditor.currentEditor;assert(activeEditor);
+        NSRect editorFrame=[activeEditor.superview convertRect:activeEditor.frame toView:cssEditor];
+        NSLog(@"CSS editor bounds %@, drawing %@, active %@ (parent %@)",NSStringFromRect(cssEditor.bounds),NSStringFromRect(editorDrawing),NSStringFromRect(editorFrame),activeEditor.superview);
+        assert(fabs(NSMidY(editorFrame)-NSMidY(editorDrawing))<2 && fabs(editorFrame.size.width-editorDrawing.size.width)<2);
+        activeEditor.string=@"Edited café 🌐 value that is deliberately long enough to scroll horizontally beyond the available input width";activeEditor.selectedRange=NSMakeRange(4,3);
+        [window setContentSize:NSMakeSize(350,780)];mac_engine_resize(nil,NULL,nil);
+        assert(control(@"csseditor")==cssEditor && cssEditor.currentEditor==activeEditor && NSEqualRanges(activeEditor.selectedRange,NSMakeRange(4,3)));
+        editorDrawing=[cssEditor.cell drawingRectForBounds:cssEditor.bounds];editorFrame=[activeEditor.superview convertRect:activeEditor.frame toView:cssEditor];
+        NSRect editorViewport=[activeEditor.superview.superview convertRect:activeEditor.superview.frame toView:cssEditor];
+        assert(fabs(NSMidY(editorViewport)-NSMidY(editorDrawing))<1 && fabs(editorViewport.size.width-editorDrawing.size.width)<1 && editorDrawing.size.width<400);
+        assert(activeEditor.frame.size.width>=editorViewport.size.width && activeEditor.frame.size.height<30);
+        [window setContentSize:NSMakeSize(650,780)];mac_engine_resize(nil,NULL,nil);
         navigate(@"/backgrounds");waitFor(^BOOL{return [window.title hasPrefix:@"Background images — Assembly"]&&[status.stringValue containsString:@"ready."];});
         assert(!strcmp((char *)(uintptr_t)metadata(@"bgpaint")[30],"https://engine.test/bg-assets/tile.svg"));
         NSRect bgCapture=NSMakeRect(0,0,200,200);NSBitmapImageRep *bgBitmap=[text bitmapImageRepForCachingDisplayInRect:bgCapture];[text cacheDisplayInRect:bgCapture toBitmapImageRep:bgBitmap];
@@ -594,6 +616,10 @@ int main(void) {
         [window setContentSize:NSMakeSize(1000,780)];mac_engine_resize(nil,NULL,nil);assert(metadata(@"bgpaint")[4]==0xff0000);
         [window setContentSize:NSMakeSize(650,780)];mac_engine_resize(nil,NULL,nil);assert(metadata(@"bgpaint")[4]!=0xff0000);
         NSButton *bgSubmit=control(@"bgsubmit");assert(bgSubmit && !bgSubmit.bordered);
+        NSRect buttonForm=paintRect(@"bgform"),placedButton=[bgSubmit.superview convertRect:bgSubmit.frame toView:text];
+        assert(fabs(NSMaxX(placedButton)-(NSMaxX(buttonForm)-3))<2 && fabs(NSMinY(placedButton)-(NSMinY(buttonForm)+1))<2);
+        assert(NSContainsRect(buttonForm,placedButton)&&!bgSubmit.superview.hidden);
+
         NSBitmapImageRep *buttonPixels=[[NSBitmapImageRep alloc]initWithBitmapDataPlanes:NULL pixelsWide:60 pixelsHigh:30 bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSCalibratedRGBColorSpace bytesPerRow:0 bitsPerPixel:0];
         [NSGraphicsContext saveGraphicsState];[NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithBitmapImageRep:buttonPixels]];
         [bgSubmit.cell drawWithFrame:NSMakeRect(0,0,60,30) inView:bgSubmit];[NSGraphicsContext restoreGraphicsState];
