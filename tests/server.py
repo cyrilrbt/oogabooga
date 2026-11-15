@@ -22,6 +22,12 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(data)
             return
         fixture_files = {
+            '/engine/floats': ('fixtures/engine-floats.html', 'text/html; charset=utf-8'),
+            '/engine/support/css1test5526c.png': ('fixtures/acid1-reference.png', 'image/png'),
+            '/engine/acid1': ('fixtures/acid1.html', 'text/html; charset=utf-8'),
+            '/engine/layout': ('fixtures/engine-layout.html', 'text/html; charset=utf-8'),
+            '/engine/layout.css': ('fixtures/engine-layout.css', 'text/css; charset=utf-8'),
+            '/engine/vector.svg': ('fixtures/engine-vector.svg', 'image/svg+xml'),
             '/engine/features': ('fixtures/engine-features.html', 'text/html; charset=utf-8'),
             '/engine/features.css': ('fixtures/engine-features.css', 'text/css; charset=utf-8'),
             '/engine/image.png': ('engine-image.png', 'image/png'),
@@ -90,7 +96,7 @@ class Handler(BaseHTTPRequestHandler):
                 <p class="center">Centered paragraphs with native glyph shaping.</p>
                 <p class="hidden">HIDDEN CONTENT MUST NOT RENDER 🌐</p>
                 <p><a href="/engine/second">Links still work after hidden Unicode content</a></p>
-                <p>This is a text-flow CSS subset. Linked sheets, boxes, images, and GET forms are available in the <a href="/engine/features">features fixture</a>. Flex/grid, positioning, and JavaScript are not implemented.</p>'''
+                <p>This is a text-flow CSS subset. Linked sheets, boxes, images, and GET forms are available in the <a href="/engine/features">features fixture</a>. Flexbox, variables, tables, and SVG are demonstrated in the <a href="/engine/layout">layout fixture</a>. Grid, positioning, and JavaScript remain unsupported.</p>'''
             if self.path.startswith('/engine/second'):
                 body = '<!doctype html><meta charset="utf-8"><title>Second Assembly Page</title><h1>Link navigation works</h1><p>This is the second page. Use Back to return.</p><p><a href="/engine/">Return to the fixture</a></p>'
             self.send_response(200)

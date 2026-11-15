@@ -51,7 +51,7 @@ Lresource_next:
     mov x9, #40
     madd x21, x20, x9, x21
     ldr x22, [x19, #72]
-    add x22, x22, x20, lsl #10
+    add x22, x22, x20, lsl #11
     ldr x9, [x21]
     cmp x9, #NODE_SHEET
     b.eq Lresource_embedded
@@ -186,6 +186,11 @@ Lresource_mime:
     mov w0, #1
     LEAVE
 Lresource_image_mime:
+    STR svg_mime
+    mov x2, x0
+    mov x0, x20
+    MSG equal
+    STORE x0, resource_is_svg
     STR image_mime
     mov x2, x0
     mov x0, x20
@@ -236,7 +241,7 @@ _mac_resource_complete:
     LOAD x9, _engine_resource_doc
     ldr x22, [x9, #72]
     LOAD x9, _engine_resource_node
-    add x22, x22, x9, lsl #10
+    add x22, x22, x9, lsl #11
     ldr x0, [x22, #ATTR_CSS_DATA]
     bl _free
     str x21, [x22, #ATTR_CSS_DATA]
@@ -291,6 +296,18 @@ resource_total: .space 8
 _mac_resource_image:
     ENTER
     mov x19, x0
+    LOAD x9, resource_is_svg
+    cbz x9, Lresource_decode_raster
+    MSG length
+    mov x20, x0
+    mov x0, x19
+    MSG bytes
+    mov x1, x20
+    mov x2, #0
+    bl _mac_svg_image
+    LEAVE
+Lresource_decode_raster:
+    mov x0, x19
     mov x1, #0
     bl _CGImageSourceCreateWithData
     cbz x0, Lraster_none
@@ -376,7 +393,7 @@ Lstyles_next:
     cmp x10, #NODE_LINK
     b.ne Lstyles_advance
     ldr x9, [x19, #72]
-    add x9, x9, x20, lsl #10
+    add x9, x9, x20, lsl #11
     ldr x21, [x9, #ATTR_CSS_DATA]
     b Lstyles_source
 Lstyles_inline:
@@ -406,3 +423,9 @@ resources_history_error: .asciz "Assembly engine: page ready, but history could 
 .p2align 3
 .globl _engine_history_failed
 _engine_history_failed: .space 8
+
+.section __DATA,__data
+.p2align 3
+resource_is_svg: .quad 0
+.section __TEXT,__cstring,cstring_literals
+svg_mime: .asciz "image/svg+xml"

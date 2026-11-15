@@ -27,7 +27,7 @@ Lbox_nodes:
 Linline_box_next:
     cmp x6, x2
     b.hs Linline_box_done
-    add x7, x3, x6, lsl #10
+    add x7, x3, x6, lsl #11
     str xzr, [x7, #872]
     mov x8, #40
     madd x8, x6, x8, x1

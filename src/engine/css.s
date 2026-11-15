@@ -8,7 +8,7 @@
 _engine_css_capture:
     ENTER
     ldr x19, [x0, #72]
-    add x19, x19, x1, lsl #10
+    add x19, x19, x1, lsl #11
     str x4, [x19, #24]              // borrowed canonical tag name
     mov x20, x2
     mov x21, x3
@@ -50,6 +50,8 @@ Lcapture_extra:
     add x22, x22, #1
     b Lcapture_extra
 Lcapture_done:
+    mov x0, x19
+    bl _css_class_filter_build
     ldr x9, [x19, #ATTR_LABEL]
     cbnz x9, Lcapture_visibility
     mov x0, x20
@@ -66,6 +68,10 @@ Lcapture_visibility:
     cset x9, ne
     str x9, [x19, #696]
     bl _free
+    mov x0, x19
+    mov x1, x20
+    mov x2, x21
+    bl _engine_table_attributes
     LEAVE
 
 // Append a complete embedded block if it fits; oversized blocks are ignored whole.
@@ -105,6 +111,8 @@ _engine_css_free:
     cbz x20, Lcss_free_buffers
 Lcss_free_meta:
     cbz x21, Lcss_free_buffers
+    mov x0, x20
+    bl _css_variables_free
     ldr x0, [x20]
     bl _free
     ldr x0, [x20, #8]
@@ -247,9 +255,14 @@ Lrules_selector:
     cbz x24, Lrules_advance
     cmp x24, #256
     b.hi Lrules_advance
+    mov x0, x23
+    add x1, x23, x24
+    bl _css_selector_supported
+    cbz x0, Lrules_advance
     mov x9, #CSS_RULE_SIZE
     madd x26, x22, x9, x19
     stp x23, x24, [x26]
+    stp x20, x25, [x26, #416]
     mov x0, x20
     mov x1, x25
     add x2, x26, #16
@@ -260,12 +273,41 @@ Lrules_selector:
     ADDR x2, visited_selector
     mov x3, #8
     bl _memmem
+    cmp x0, #0
+    cset x9, ne
+    str x9, [x26, #440]
     cbz x0, Lrules_visible_properties
     ldr x9, [x26, #16]
     and x9, x9, #1
     str x9, [x26, #16]
 Lrules_visible_properties:
+    mov x0, x20
+    sub x1, x25, x20
+    ADDR x2, custom_marker
+    mov x3, #2
+    bl _memmem
+    cmp x0, #0
+    cset x9, ne
+    str x9, [x26, #432]
+    mov x0, x20
+    sub x1, x25, x20
+    ADDR x2, var_marker
+    mov x3, #4
+    bl _memmem
+    cbz x0, Lrules_flags_done
+    ldr x9, [x26, #432]
+    orr x9, x9, #2
+    str x9, [x26, #432]
+Lrules_flags_done:
+    ldr x9, [x26, #440]
+    cbz x9, Lrules_flags_visible
+    ldr x9, [x26, #432]
+    and x9, x9, #0xfffffffffffffffe
+    str x9, [x26, #432]
+Lrules_flags_visible:
     ldr x9, [x26, #16]
+    ldr x10, [x26, #432]
+    orr x9, x9, x10
     cbz x9, Lrules_advance
     add x22, x22, #1
 Lrules_advance:
@@ -353,7 +395,7 @@ Lcascade_property:
     b.eq Lcascade_compare
     orr x7, x7, #0x1000000000000
 Lcascade_compare:
-    add x8, x0, #256
+    add x8, x0, #1024
     ldr x9, [x8, x3, lsl #3]
     cmp x7, x9
     b.lo Lcascade_next
@@ -464,10 +506,24 @@ Llength_return:
     ret
 
 .globl _engine_css_apply
-_engine_css_apply:
+.globl _engine_css_apply_impl
+_engine_css_apply_impl:
     ENTER
-    sub sp, sp, #320                // temporary inline declaration block + locals
+    sub sp, sp, #512                // temporary inline declaration block + locals
     mov x19, x0
+    ldr x20, [x19, #72]
+    ldr x21, [x19, #24]
+Lapply_clear_variables:
+    cbz x21, Lapply_clear_done
+    mov x0, x20
+    bl _css_variables_free
+    add x20, x20, #CSS_META_SIZE
+    sub x21, x21, #1
+    b Lapply_clear_variables
+Lapply_clear_done:
+    ldr x0, [x19, #72]
+    str xzr, [x0, #960]
+    str xzr, [x0, #968]
     ldr x0, [x19, #80]
     mov x1, #0
     ldr x2, [x19, #40]
@@ -494,22 +550,23 @@ Lapply_node:
     cmp x22, x9
     b.hs Lapply_done
     ldr x23, [x19, #72]
-    add x23, x23, x22, lsl #10
+    add x23, x23, x22, lsl #11
     ldr x25, [x19, #16]
     mov x9, #40
     madd x25, x22, x9, x25
     ldr x9, [x25, #8]
     ldr x24, [x19, #72]
     tbnz x9, #63, Lapply_default
-    add x24, x24, x9, lsl #10
+    add x24, x24, x9, lsl #11
 Lapply_default:
-    add x0, x23, #256
+    add x0, x23, #1024
     mov x1, #0
-    mov x2, #224
+    mov x2, #384
     bl _memset
     mov x26, #0
     ADDR x27, css_defaults
-    mov x28, #3197                  // inherited color/font/text/line properties
+    ADDR x28, css_inherited_mask
+    ldr x28, [x28]                  // inherited color/font/text/line properties
 Lapply_default_property:
     cmp x26, #CSS_PROPERTIES
     b.hs Lapply_ua
@@ -528,6 +585,15 @@ Lapply_default_store:
     b Lapply_default_property
 Lapply_ua:
     ldr x9, [x25]
+    cmp x9, #NODE_TABLE
+    b.lo Lapply_no_table_ua
+    cmp x9, #NODE_CAPTION
+    b.hi Lapply_no_table_ua
+    mov x0, x19
+    mov x1, x22
+    bl _engine_table_hints
+    b Lapply_rules
+Lapply_no_table_ua:
     cmp x9, #NODE_CENTER
     b.eq Lapply_center_ua
     cmp x9, #NODE_TEXT
@@ -596,6 +662,11 @@ Lapply_link_ua:
 Lapply_link_color:
     str x10, [x23, #32]
 Lapply_rules:
+    mov x0, x19
+    mov x1, x22
+    mov x2, x20
+    mov x3, x21
+    bl _css_variables_node
     mov x26, #0
 Lapply_rule:
     cmp x26, x21
@@ -607,14 +678,36 @@ Lapply_rule:
     ldr x2, [x27]
     ldr x3, [x27, #8]
     add x3, x2, x3
-    bl _css_match
+    bl _css_match_rule
     cbz x0, Lapply_rule_next
     sub x0, x0, #1
     lsl x2, x0, #16
     add x9, x26, #1
     orr x2, x2, x9
-    mov x0, x23
+    str x2, [sp, #416]
+    ldr x9, [x27, #432]
+    tbz x9, #1, Lapply_static_declarations
+    mov x0, sp
+    mov x1, #0
+    mov x2, #400
+    bl _memset
+    ldp x0, x1, [x27, #416]
+    mov x2, sp
+    mov x3, x23
+    bl _css_declarations_resolved
+    ldr x9, [x27, #440]
+    cbz x9, Lapply_resolved_visible
+    ldr x9, [sp]
+    and x9, x9, #1
+    str x9, [sp]
+Lapply_resolved_visible:
+    mov x1, sp
+    b Lapply_declarations_ready
+Lapply_static_declarations:
     add x1, x27, #16
+Lapply_declarations_ready:
+    mov x0, x23
+    ldr x2, [sp, #416]
     bl _css_cascade
 Lapply_rule_next:
     add x26, x26, #1
@@ -624,14 +717,15 @@ Lapply_inline:
     cbz x26, Lapply_resolve
     mov x0, sp
     mov x1, #0
-    mov x2, #240
+    mov x2, #400
     bl _memset
     mov x0, x26
     bl _strlen
     add x1, x26, x0
     mov x0, x26
     mov x2, sp
-    bl _css_declarations
+    mov x3, x23
+    bl _css_declarations_resolved
     mov x0, x23
     mov x1, sp
     // Inline is an independent cascade tier, above every bounded selector score.
@@ -652,7 +746,8 @@ Lapply_resolve_property:
     b.eq Lapply_initial
     cmn x0, #4
     b.ne Lapply_resolve_length
-    mov x10, #3197
+    ADDR x10, css_inherited_mask
+    ldr x10, [x10]
     mov x11, #1
     lsl x11, x11, x26
     tst x10, x11
@@ -664,6 +759,26 @@ Lapply_inherit:
     add x9, x24, #32
     ldr x0, [x9, x26, lsl #3]
 Lapply_resolve_length:
+    cmp x26, #CSS_FILL
+    b.eq Lapply_not_current_color
+    cmp x26, #CSS_STROKE
+    b.eq Lapply_not_current_color
+    cmn x0, #6
+    b.ne Lapply_not_current_color
+    ldr x0, [x23, #32]
+Lapply_not_current_color:
+    cmp x26, #CSS_BORDER_RIGHT
+    b.hs Lapply_length
+    cmp x26, #CSS_GAP
+    b.eq Lapply_length
+    cmp x26, #CSS_ROW_GAP
+    b.eq Lapply_length
+    cmp x26, #CSS_COLUMN_GAP
+    b.eq Lapply_length
+    cmp x26, #CSS_BASIS
+    b.eq Lapply_length
+    cmp x26, #CSS_STROKE_WIDTH
+    b.eq Lapply_length
     cmp x26, #CSS_SIZE
     b.eq Lapply_length
     cmp x26, #CSS_TOP
@@ -700,10 +815,11 @@ Lapply_resolved_store:
     add x26, x26, #1
     b Lapply_resolve_property
 Lapply_text_node:
-    add x0, x23, #32
-    add x1, x24, #32
-    mov x2, #224
-    bl _memcpy
+    ldr x9, [x24, #928]
+    str x9, [x23, #928]
+    str x9, [x23, #944]
+    // The default pass already copied inherited text properties. Box geometry
+    // is not inherited by anonymous flex text items.
 Lapply_inherited_hidden:
     cbz x22, Lapply_canvas
     ldr x9, [x24, #88]
@@ -730,6 +846,9 @@ Lapply_body_canvas:
     cmn x10, #1
     b.eq Lapply_mark_hidden
     ldr x9, [x19, #72]
+    ldr x11, [x9, #(CSS_META_SIZE+40)]
+    cmn x11, #1
+    b.ne Lapply_mark_hidden
     str x10, [x9, #40]
 Lapply_mark_hidden:
     ldr x9, [x23, #696]
@@ -754,6 +873,24 @@ Lapply_input_visibility:
     mov x9, #1
     str x9, [x23, #88]
 Lapply_visibility:
+    ldr x9, [x25]
+    cmp x9, #NODE_LI
+    b.ne Lapply_visibility_display
+    ldr x9, [x23, #(1024+CSS_DISPLAY*8)]
+    cbz x9, Lapply_visibility_display
+    ldr x0, [x19, #80]
+    ldr x10, [x25, #16]
+    ldr x11, [x25, #24]
+    sub x11, x11, x10
+    cmp x11, #4
+    b.lo Lapply_visibility_display
+    add x0, x0, x10
+    mov w9, #1
+    strb w9, [x0]
+    strb w9, [x0, #1]
+    strb w9, [x0, #2]
+    strb w9, [x0, #3]
+Lapply_visibility_display:
     ldr x9, [x23, #88]
     cmp x9, #1
     b.ne Lapply_node_next
@@ -770,15 +907,21 @@ Lapply_node_next:
 Lapply_done:
     mov x0, x19
     bl _engine_inline_flow
+    mov x0, x19
+    bl _engine_block_boundaries
+    mov x0, x19
+    bl _engine_zero_margin_flow
     mov x0, x20
     bl _free
-    add sp, sp, #320
+    add sp, sp, #512
     LEAVE
 
 .section __DATA,__const
 .p2align 3
+css_inherited_mask: .quad (3197 | (7 << 39))
 css_defaults:
 .quad -1, -1, 14, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0
+.quad 0, 0, 0, 0, 0, 0, 1000, -1, -1, -1, -1, -6, -1, 1, 1000, 0, 0, 0, 0, 0
 .section __TEXT,__cstring,cstring_literals
 id_name: .asciz "id"
 class_name: .asciz "class"
@@ -821,3 +964,7 @@ media_at_name: .asciz "@media"
 
 .section __TEXT,__cstring,cstring_literals
 visited_selector: .asciz ":visited"
+
+.section __TEXT,__cstring,cstring_literals
+custom_marker: .asciz "--"
+var_marker: .asciz "var("

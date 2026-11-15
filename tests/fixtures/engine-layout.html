@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Assembly layout lab</title>
+<link rel="stylesheet" href="/engine/layout.css"></head>
+<body><main>
+<div class="toolbar"><h1>Assembly layout lab</h1><a class="button" href="/engine/features">Feature gallery</a></div>
+<p>Flexbox, inherited variables, modern colors, SVG, and table cells share the assembly layout engine.</p>
+<div class="cards">
+  <div class="card"><h2>Flexible rows</h2><p>Three growing cards wrap as the window gets narrower. Their backgrounds use a shared color variable.</p></div>
+  <div class="card"><h2>Inline vector</h2><p><svg width="64" height="64" viewBox="0 0 32 32" style="color:var(--accent);fill:currentColor"><circle cx="16" cy="16" r="14"/><path d="M9 16l5 5 9-11" fill="none" stroke="white" stroke-width="3"/></svg> A vector icon drawn from paths.</p></div>
+  <div class="card"><h2>External vector</h2><p><img src="/engine/vector.svg" width="150" alt="Assembly vector badge"></p><p>The image loader also accepts SVG resources.</p></div>
+</div>
+<h2>Grow and shrink</h2>
+<div class="shrink"><div>Two 220px items</div><div>shrink into a 350px row.</div></div>
+<h2>Column alignment</h2>
+<div class="stack"><div>Top card</div><div>Bottom card</div></div>
+<h2>Table rows, columns, and spans</h2>
+<table cellpadding="8" border="1">
+  <thead><tr><th>Feature<th>Implementation<th>Status</thead>
+  <tbody><tr><td rowspan="2">Layout<td>Flex rows and columns<td>Ready
+  <tr><td>Table sizing and spans<td>Ready
+  <tr><td>Graphics<td colspan="2">SVG paths, shapes, transforms, and inherited paint</tbody>
+</table>
+<p><a href="/engine/">Engine home</a> · <a href="/engine/features">Forms and images</a></p>
+</main></body></html>

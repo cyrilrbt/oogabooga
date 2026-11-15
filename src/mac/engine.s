@@ -624,7 +624,8 @@ _mac_engine_link:
 // Display a parsed tree using native glyph rendering and our assembly line/range layout.
 // x0 document*, x1 base NSURL; returns BOOL. Does not take document ownership.
 .globl _mac_engine_display
-_mac_engine_display:
+.globl _mac_engine_display_impl
+_mac_engine_display_impl:
     ENTER
     mov x19, x0
     STORE x19, _engine_render_document
@@ -649,6 +650,12 @@ Ldisplay_viewport_ready:
     mov x0, x19
     LOAD x1, _engine_viewport
     bl _engine_box_tree
+    mov x0, x19
+    bl _mac_flow_measure
+    mov x0, x19
+    bl _engine_flow_tree
+    mov x0, x19
+    bl _engine_float_tree
     mov x0, x19
     bl _engine_inline_boxes
     mov x0, x19
@@ -691,7 +698,7 @@ Ldisplay_node:
     ldr x9, [x19, #24]
     sub x9, x9, x27
     ldr x1, [x19, #72]
-    add x1, x1, x9, lsl #10
+    add x1, x1, x9, lsl #11
     ldr x4, [x26]
     mov x0, x23
     bl _mac_css_attributes
@@ -744,6 +751,12 @@ Ldisplay_install:
     mov x1, x21
     mov x2, x23
     bl _mac_attachments
+    LOAD x0, _engine_text
+    MSG textContainer
+    mov x2, x0
+    mov x0, x19
+    mov x1, x21
+    bl _mac_float_prepare
     mov x0, x19
     mov x1, x21
     mov x2, x23
@@ -755,9 +768,12 @@ Ldisplay_install:
     LOAD x0, _engine_text
     MSG textContainer
     mov x24, x0
+    fmov d0, xzr
+    MSG setFragmentPadding
     LOAD x9, _engine_viewport
     scvtf d0, x9
     NUM d1, 1048576
+    mov x0, x24
     MSG setContainerSize
     mov x0, x24
     mov x2, #0
@@ -767,15 +783,29 @@ Ldisplay_install:
     mov x25, x0
     mov x2, x24
     MSG ensureTextLayout
+    mov x0, x19
+    mov x1, x21
+    mov x2, x25
+    mov x3, x24
+    bl _mac_display_compile
     mov x0, x25
     mov x2, x24
     MSG usedTextRect
-    NUM d4, 60
+    stp d2, d3, [sp, #144]
+    mov x0, x24
+    bl _mac_float_extent
+    ldp d2, d3, [sp, #144]
+    fmax d2, d2, d0
+    fmax d3, d3, d1
+    LOAD x10, _engine_inset
+    lsl x10, x10, #1
+    add x9, x10, #20
+    scvtf d4, x9
     fadd d1, d3, d4
     LOAD x9, _engine_viewport
-    add x9, x9, #40
+    add x9, x9, x10
     scvtf d0, x9
-    NUM d4, 40
+    scvtf d4, x10
     fadd d2, d2, d4
     fmax d0, d0, d2
     LOAD x0, _engine_text

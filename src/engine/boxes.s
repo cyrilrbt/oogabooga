@@ -13,6 +13,8 @@ _engine_box_length:
     mov x2, #1000
     mov x3, #100
     mul x2, x2, x3
+    mov x3, #50000
+    add x0, x0, x3
     udiv x0, x0, x2
 Lbox_length_done:
     mov x2, #16384
@@ -43,13 +45,28 @@ Lmetric_next:
     add x21, x21, #1
     cmp x21, #9
     b.lo Lmetric_next
+    mov x21, #0
+Lmetric_border_side:
+    ADDR x9, box_border_properties
+    ldr x9, [x9, x21, lsl #3]
+    add x9, x19, x9, lsl #3
+    ldr x0, [x9, #32]
+    mov x1, x20
+    bl _engine_box_length
+    add x9, x19, #BOX_BORDER_LEFT
+    str x0, [x9, x21, lsl #3]
+    add x21, x21, #1
+    cmp x21, #4
+    b.lo Lmetric_border_side
     ldr x21, [x19, #776]
     ldr x22, [x19, #784]       // resolved margins left/right
     ldr x23, [x19, #808]
     ldr x24, [x19, #816]       // padding left/right
     add x23, x23, x24
-    ldr x24, [x19, #840]
-    add x23, x23, x24, lsl #1       // horizontal border + padding
+    ldr x24, [x19, #BOX_BORDER_LEFT]
+    add x23, x23, x24
+    ldr x24, [x19, #BOX_BORDER_RIGHT]
+    add x23, x23, x24       // horizontal border + padding
     sub x24, x20, x21
     sub x24, x24, x22
     sub x24, x24, x23              // auto fills remaining content width
@@ -105,12 +122,14 @@ Lmetric_done:
     LEAVE
 .section __DATA,__const
 .p2align 3
+box_border_properties: .quad CSS_BORDER_LEFT,CSS_BORDER,CSS_BORDER_RIGHT,CSS_BORDER_BOTTOM
 metric_properties: .quad CSS_LEFT,CSS_RIGHT,CSS_TOP,CSS_BOTTOM,CSS_PAD_LEFT,CSS_PAD_RIGHT,CSS_PAD_TOP,CSS_PAD_BOTTOM,CSS_BORDER
 
 .text
 .p2align 2
 .globl _engine_box_tree
-_engine_box_tree:
+.globl _engine_box_tree_impl
+_engine_box_tree_impl:
     ENTER
     mov x19, x0
     ldr x20, [x19, #72]
@@ -125,9 +144,9 @@ Lbox_tree_next:
     mov x10, #40
     madd x9, x21, x10, x9
     ldr x9, [x9, #8]
-    add x9, x20, x9, lsl #10
+    add x9, x20, x9, lsl #11
     ldr x1, [x9, #768]
-    add x0, x20, x21, lsl #10
+    add x0, x20, x21, lsl #11
     bl _engine_box_metrics
     add x21, x21, #1
     b Lbox_tree_next

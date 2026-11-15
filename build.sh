@@ -30,6 +30,8 @@ if [ "$mode" = test ]; then
     build/engine-test
     xcrun clang $flags -Wall -Wextra -Werror tests/css.c build/obj/engine_*.o -o build/css-test
     build/css-test
+    xcrun clang $flags -Wall -Wextra -Werror tests/display-list.c build/obj/engine_*.o -o build/display-list-test
+    build/display-list-test
     test_objects="build/obj/core.o"
     for source in src/mac/*.s src/engine/*.s; do
         [ "$source" = src/mac/start.s ] || test_objects="$test_objects build/obj/$(basename "$(dirname "$source")")_$(basename "$source" .s).o"
@@ -44,5 +46,8 @@ if [ "$mode" = test ]; then
     build/mac-shortcuts-test
     xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-engine.m $test_objects -framework Cocoa -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-engine-test
     build/mac-engine-test
+    xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-svg.m $test_objects -framework Cocoa -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-svg-test
+    build/mac-svg-test
+    ./tools/benchmark-page.sh --reference
 fi
 printf 'Built %s/build/Oogabooga.app\n' "$PWD"

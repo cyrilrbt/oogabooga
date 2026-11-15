@@ -1403,6 +1403,24 @@ _sel_numberDouble: .quad box_method_numberDouble
 _sel_initStringAttributes: .quad box_method_initStringAttributes
 .globl _sel_setNeedsDisplay
 _sel_setNeedsDisplay: .quad box_method_setNeedsDisplay
+.globl _sel_tableLayoutAlgorithm, _sel_blockVerticalAlignment
+_sel_tableLayoutAlgorithm: .quad flow_layout_algorithm
+_sel_blockVerticalAlignment: .quad flow_vertical_alignment
+.globl _sel_setFragmentPadding
+_sel_setFragmentPadding: .quad flow_fragment_padding
+.globl _sel_currentContext
+_sel_currentContext: .quad svg_method_currentContext
+.globl _sel_CGContext
+_sel_CGContext: .quad svg_method_CGContext
+.globl _sel_dataBytesLength, _sel_mutableBytes, _sel_setLength
+_sel_dataBytesLength: .quad float_data_bytes
+_sel_mutableBytes: .quad float_mutable_bytes
+_sel_setLength: .quad float_set_length
+.globl _sel_setFill
+_sel_setFill: .quad float_set_fill
+.globl _sel_visibleRect, _sel_invalidateCursorRects
+_sel_visibleRect: .quad display_visible_rect
+_sel_invalidateCursorRects: .quad display_invalidate_cursor
 selector_end:
 selectors_ready: .quad 0
 .text
@@ -1471,3 +1489,34 @@ box_method_setNeedsDisplay: .asciz "setNeedsDisplay:"
 
 .globl _class_NSAttributedString
 _class_NSAttributedString: .asciz "NSAttributedString"
+
+.section __TEXT,__cstring,cstring_literals
+flow_layout_algorithm: .asciz "setLayoutAlgorithm:"
+flow_vertical_alignment: .asciz "setVerticalAlignment:"
+
+.section __TEXT,__cstring,cstring_literals
+flow_fragment_padding: .asciz "setLineFragmentPadding:"
+
+.section __TEXT,__cstring,cstring_literals
+svg_method_currentContext: .asciz "currentContext"
+svg_method_CGContext: .asciz "CGContext"
+
+.globl _class_NSGraphicsContext
+_class_NSGraphicsContext: .asciz "NSGraphicsContext"
+
+.section __TEXT,__cstring,cstring_literals
+.globl _class_NSData
+_class_NSData: .asciz "NSData"
+float_data_bytes: .asciz "dataWithBytes:length:"
+float_mutable_bytes: .asciz "mutableBytes"
+float_set_length: .asciz "setLength:"
+
+float_set_fill: .asciz "setFill"
+.globl _class_NSTextContainer
+_class_NSTextContainer: .asciz "NSTextContainer"
+.globl _class_NSLayoutManager
+_class_NSLayoutManager: .asciz "NSLayoutManager"
+
+.section __TEXT,__cstring,cstring_literals
+display_visible_rect: .asciz "visibleRect"
+display_invalidate_cursor: .asciz "invalidateCursorRectsForView:"

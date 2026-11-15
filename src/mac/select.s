@@ -45,7 +45,7 @@ Loption_next:
     cmp x9, x20
     b.ne Loption_advance
     ldr x26, [x19, #72]
-    add x26, x26, x24, lsl #10
+    add x26, x26, x24, lsl #11
     ldr x9, [x19]
     ldr x10, [x25, #16]
     add x0, x9, x10

@@ -60,7 +60,7 @@ int main(void) {
     assert(strstr(d->text,"onetwothreefour"));
     int buttons=0;
     for(uint64_t i=0;i<d->count;i++) if(d->nodes[i].type==34) {
-        char *label=*(char **)((char *)d->css_meta+i*1024+608);
+        char *label=*(char **)((char *)d->css_meta+i*2048+608);
         assert(label && !strcmp(label,buttons ? "Open menu" : "More & café")); buttons++;
     }
     assert(buttons==2); engine_document_free(d);

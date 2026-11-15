@@ -7,7 +7,8 @@
 .text
 .p2align 2
 .globl _engine_parse
-_engine_parse:
+.globl _engine_parse_impl
+_engine_parse_impl:
     ENTER
     sub sp, sp, #1024
     mov x20, x0
@@ -79,7 +80,7 @@ _engine_parse:
     mov x4, #0
     bl _engine_node
     ldr x9, [x19, #72]
-    add x9, x9, #2048
+    add x9, x9, #4096
     ADDR x10, tag_body
     str x10, [x9, #24]
     mov x24, #2
@@ -142,6 +143,7 @@ Lparse_text_end:
     str x23, [x9, #24]
     b Lparse_next
 Lparse_tag:
+    str x20, [sp, #200]
     sub x9, x21, x20
     cmp x9, #4
     b.lo Lparse_tag_name
@@ -264,6 +266,15 @@ Lparse_tag_ready:
     sub x10, x25, #1
     ldr x24, [x28, x10, lsl #3]
 Lparse_dispatch_open:
+    mov x0, x19
+    mov x1, x28
+    mov x2, x25
+    mov x3, x22
+    bl _engine_table_autoclose
+    mov x25, x0
+    mov x24, x1
+    cmp x22, #NODE_SVG
+    b.eq Lparse_leaf
     cmp x22, #NODE_LINK
     b.eq Lparse_leaf
     cmp x22, #NODE_INPUT
@@ -322,6 +333,17 @@ Lparse_node_open:
     mov x0, x24
     str x0, [x28, x25, lsl #3]
     add x25, x25, #1
+    cmp x22, #NODE_TD
+    b.eq Lparse_cell_marker
+    cmp x22, #NODE_TH
+    b.ne Lparse_check_list
+Lparse_cell_marker:
+    mov x0, x19
+    ADDR x1, cell_marker
+    mov x2, #3
+    mov x3, #0
+    bl _engine_append
+Lparse_check_list:
     cmp x22, #NODE_LI
     b.ne Lparse_check_pre
     mov x0, x19
@@ -379,6 +401,8 @@ Lparse_object:
     madd x9, x23, x10, x9
     ldr x10, [x19, #8]
     str x10, [x9, #24]
+    cmp x22, #NODE_SVG
+    b.eq Lparse_svg
     cmp x22, #NODE_TEXTAREA
     b.eq Lparse_textarea
     cmp x22, #NODE_BUTTON
@@ -391,13 +415,13 @@ Lparse_object:
     bl _engine_find_close
     mov x20, x0
     ldr x9, [x19, #72]
-    add x9, x9, x23, lsl #10
+    add x9, x9, x23, lsl #11
     ldr x0, [sp, #192]
     mov x1, x20
     bl _css_trim
     bl _engine_button_label
     ldr x9, [x19, #72]
-    add x9, x9, x23, lsl #10
+    add x9, x9, x23, lsl #11
     mov x27, x0
     cbz x0, Lbutton_keep_label
     ldrb w10, [x0]
@@ -405,12 +429,43 @@ Lparse_object:
     ldr x0, [x9, #ATTR_LABEL]
     bl _free
     ldr x9, [x19, #72]
-    add x9, x9, x23, lsl #10
+    add x9, x9, x23, lsl #11
     str x27, [x9, #ATTR_LABEL]
     b Lbutton_keep_label
 Lbutton_empty_label:
     bl _free
 Lbutton_keep_label:
+    b Lparse_next
+Lparse_svg:
+    ldr x9, [sp, #176]
+    ldrb w9, [x9, #-1]
+    cmp w9, #47
+    b.eq Lparse_svg_copy
+    mov x0, x20
+    mov x1, x21
+    ADDR x2, svg_close
+    mov x3, #5
+    bl _engine_find_close
+    mov x20, x0
+    mov w1, #62
+    sub x2, x21, x20
+    bl _memchr
+    cbz x0, Lparse_svg_end
+    add x20, x0, #1
+    b Lparse_svg_copy
+Lparse_svg_end:
+    mov x20, x21
+Lparse_svg_copy:
+    ldr x0, [sp, #200]
+    sub x1, x20, x0
+    mov x9, #65536
+    cmp x1, x9
+    b.hi Lparse_next
+    bl _strndup
+    ldr x9, [x19, #16]
+    mov x10, #40
+    madd x9, x23, x10, x9
+    str x0, [x9, #32]
     b Lparse_next
 Lparse_textarea:
     mov x0, x20
@@ -433,11 +488,11 @@ Ltextarea_decode:
     bl _engine_decode_attribute
     mov x27, x0
     ldr x9, [x19, #72]
-    add x9, x9, x23, lsl #10
+    add x9, x9, x23, lsl #11
     ldr x0, [x9, #ATTR_VALUE]
     bl _free
     ldr x9, [x19, #72]
-    add x9, x9, x23, lsl #10
+    add x9, x9, x23, lsl #11
     str x27, [x9, #ATTR_VALUE]
     b Lparse_next
 Lparse_close:
@@ -454,13 +509,16 @@ Lparse_close_find:
     ldr x11, [x10]
     cmp x11, x22
     b.ne Lparse_close_find
-    ldr x12, [x19, #8]
 Lparse_close_unwind:
     sub x25, x25, #1
+    mov x0, x19
+    ldr x1, [x28, x25, lsl #3]
+    bl _engine_empty_block
     ldr x9, [x28, x25, lsl #3]
     ldr x10, [x19, #16]
     mov x11, #40
     madd x10, x9, x11, x10
+    ldr x12, [x19, #8]
     str x12, [x10, #24]
     ldr x11, [x10]
     cmp x11, #NODE_PRE
@@ -582,6 +640,10 @@ Lparse_finish:
 Lparse_finalize_nodes:
     cbz x25, Lparse_success
     sub x25, x25, #1
+    mov x0, x19
+    ldr x1, [x28, x25, lsl #3]
+    bl _engine_empty_block
+    ldr x22, [x19, #8]
     ldr x9, [x28, x25, lsl #3]
     ldr x10, [x19, #16]
     mov x11, #40
@@ -825,6 +887,19 @@ Lfind_found:
 .section __DATA,__const
 .p2align 3
 tag_table:
+.quad tag_dl, 2, NODE_DL
+.quad tag_dt, 2, NODE_DT
+.quad tag_dd, 2, NODE_DD
+.quad tag_address, 7, NODE_ADDRESS
+.quad tag_svg, 3, NODE_SVG
+.quad tag_table_element, 5, NODE_TABLE
+.quad tag_tr, 2, NODE_TR
+.quad tag_td, 2, NODE_TD
+.quad tag_th, 2, NODE_TH
+.quad tag_tbody, 5, NODE_TBODY
+.quad tag_thead, 5, NODE_THEAD
+.quad tag_tfoot, 5, NODE_TFOOT
+.quad tag_caption, 7, NODE_CAPTION
 .quad tag_center, 6, NODE_CENTER
 .quad tag_select, 6, NODE_SELECT
 .quad tag_option, 6, NODE_OPTION
@@ -928,3 +1003,78 @@ textarea_close: .asciz "</textarea"
 
 .section __TEXT,__cstring,cstring_literals
 explicit_newline: .asciz "\n"
+
+.section __TEXT,__cstring,cstring_literals
+tag_table_element: .asciz "table"
+tag_tr: .asciz "tr"
+tag_td: .asciz "td"
+tag_th: .asciz "th"
+tag_tbody: .asciz "tbody"
+tag_thead: .asciz "thead"
+tag_tfoot: .asciz "tfoot"
+tag_caption: .asciz "caption"
+cell_marker: .asciz "\342\200\213"
+
+.section __TEXT,__cstring,cstring_literals
+tag_svg: .asciz "svg"
+svg_close: .asciz "</svg"
+
+tag_dl: .asciz "dl"
+tag_dt: .asciz "dt"
+tag_dd: .asciz "dd"
+tag_address: .asciz "address"
+
+.text
+.p2align 2
+.globl _engine_empty_block
+_engine_empty_block:
+    mov x2, #40
+    ldr x3, [x0, #16]
+    madd x3, x1, x2, x3
+    ldr x4, [x3]
+    cmp x4, #NODE_P
+    b.lo Lempty_done
+    cmp x4, #NODE_QUOTE
+    b.hi Lempty_more_blocks
+    cmp x4, #NODE_A
+    b.eq Lempty_done
+    b Lempty_candidate
+Lempty_more_blocks:
+    cmp x4, #NODE_SECTION
+    b.lo Lempty_done
+    cmp x4, #NODE_NAV
+    b.ls Lempty_candidate
+    cmp x4, #NODE_FORM
+    b.eq Lempty_candidate
+    cmp x4, #NODE_CENTER
+    b.eq Lempty_candidate
+    cmp x4, #NODE_TABLE
+    b.lo Lempty_done
+    cmp x4, #NODE_CAPTION
+    b.ls Lempty_candidate
+    cmp x4, #NODE_DL
+    b.lo Lempty_done
+    cmp x4, #NODE_ADDRESS
+    b.hi Lempty_done
+Lempty_candidate:
+    ldr x4, [x3, #16]
+    ldr x5, [x0, #8]
+    cmp x4, x5
+    b.ne Lempty_done
+    ldr x4, [x0, #40]
+    add x6, x5, #3
+    cmp x6, x4
+    b.hs Lempty_done
+    ldr x4, [x0]
+    mov w7, #0xe2
+    strb w7, [x4, x5]
+    add x5, x5, #1
+    mov w7, #0x80
+    strb w7, [x4, x5]
+    add x5, x5, #1
+    mov w7, #0x8b
+    strb w7, [x4, x5]
+    strb wzr, [x4, x6]
+    str x6, [x0, #8]
+Lempty_done:
+    ret

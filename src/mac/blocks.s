@@ -17,6 +17,9 @@ _mac_blocks:
     bl _calloc
     cbz x0, Lblocks_done
     mov x22, x0
+    CLASS NSMutableDictionary
+    MSG new
+    str x0, [sp, #144]
     ldr x9, [x19, #72]
     LOAD x10, _engine_viewport
     str x10, [x9, #768]
@@ -26,16 +29,34 @@ Lblock_create:
     cmp x23, x9
     b.hs Lblocks_ranges
     ldr x24, [x19, #72]
-    add x24, x24, x23, lsl #10
+    add x24, x24, x23, lsl #11
     ldr x9, [x19, #16]
     mov x10, #40
     madd x9, x23, x10, x9
     ldr x10, [x9, #8]
     ldr x11, [x19, #72]
-    add x11, x11, x10, lsl #10
+    add x11, x11, x10, lsl #11
     ldr x1, [x11, #768]
     mov x0, x24
     bl _engine_box_metrics
+    ldr x9, [x24, #FLOW_OWNER]
+    cbz x9, Lblock_regular
+    ldr x9, [x24, #FLOW_WIDTH]
+    str x9, [x24, #768]
+    mov x0, x19
+    mov x1, x23
+    ldr x2, [sp, #144]
+    ldr x9, [x24, #FLOAT_ACTIVE]
+    cbnz x9, Lblock_float_cell
+    bl _mac_grid_cell
+    b Lblock_flow_cell_ready
+Lblock_float_cell:
+    bl _mac_float_block
+Lblock_flow_cell_ready:
+    mov x25, x0
+    str x25, [x22, x23, lsl #3]
+    b Lblock_height
+Lblock_regular:
     ldr x9, [x19, #16]
     mov x10, #40
     madd x9, x23, x10, x9
@@ -50,11 +71,33 @@ Lblock_create:
     b.eq Lblock_create_next
     cmp x9, #NODE_EM
     b.eq Lblock_create_next
+    cmp x9, #NODE_DL
+    b.hs Lblock_container
+    cmp x9, #NODE_TABLE
+    b.eq Lblock_container
     cmp x9, #NODE_NAV
     b.hi Lblock_create_next
+Lblock_container:
     ldr x9, [x24, #88]
     cmp x9, #2
     b.eq Lblock_create_next
+    ldr x9, [x19, #16]
+    mov x10, #40
+    madd x9, x23, x10, x9
+    ldr x9, [x9]
+    cmp x9, #NODE_BODY
+    b.eq Lblock_non_background
+    cmp x9, #NODE_HTML
+    b.eq Lblock_non_background
+    ldr x9, [x24, #40]
+    cmn x9, #1
+    b.ne Lblock_make
+Lblock_non_background:
+    ldr x9, [x24, #(32+CSS_CLEAR*8)]
+    cbnz x9, Lblock_make
+    ldr x9, [x19, #72]
+    ldr x9, [x9, #FLOAT_ACTIVE]
+    cbnz x9, Lblock_make
     ldr x9, [x24, #208]
     cmn x9, #1
     b.ne Lblock_make
@@ -71,8 +114,23 @@ Lblock_create:
     orr x9, x9, x11
     ldr x10, [x24, #192]
     orr x9, x9, x10
+    ldr x10, [x24, #(32+CSS_BORDER_RIGHT*8)]
+    orr x9, x9, x10
+    ldr x10, [x24, #(32+CSS_BORDER_BOTTOM*8)]
+    orr x9, x9, x10
+    ldr x10, [x24, #(32+CSS_BORDER_LEFT*8)]
+    orr x9, x9, x10
     cbz x9, Lblock_create_next
 Lblock_make:
+    ldr x9, [x19, #72]
+    ldr x9, [x9, #FLOAT_ACTIVE]
+    cbz x9, Lblock_make_table
+    mov x0, x24
+    ldr x1, [sp, #144]
+    bl _mac_css_block
+    mov x25, x0
+    b Lblock_store
+Lblock_make_table:
     CLASS NSTextTable
     MSG new
     mov x27, x0
@@ -89,6 +147,7 @@ Lblock_make:
     mov x25, x0
     mov x0, x27
     MSG release
+Lblock_store:
     mov x0, x25
     str x0, [x22, x23, lsl #3]
     ldr x9, [x24, #768]
@@ -111,6 +170,15 @@ Lblock_edge:
     ldr x10, [x9, x26, lsl #3]
     mov x9, x24
     ldr x9, [x9, x10, lsl #3]
+    ldr x10, [x24, #872]
+    cmp x10, #0
+    csel x9, xzr, x9, ne
+    cbnz x10, Lblock_padding_ready
+    cmp x26, #3
+    b.ne Lblock_padding_ready
+    ldr x10, [x24, #FLOW_CROSS]
+    add x9, x9, x10
+Lblock_padding_ready:
     scvtf d0, x9
     mov x0, x25
     mov x2, #0
@@ -118,7 +186,11 @@ Lblock_edge:
     mov x4, x26
     MSG blockEdge
     mov x0, x25
-    ldr x9, [x24, #192]
+    add x9, x24, #BOX_BORDER_LEFT
+    ldr x9, [x9, x26, lsl #3]
+    ldr x10, [x24, #872]
+    cmp x10, #0
+    csel x9, xzr, x9, ne
     scvtf d0, x9
     mov x2, #0
     mov x3, #0                     // solid border
@@ -128,6 +200,30 @@ Lblock_edge:
     ldr x10, [x9, x26, lsl #3]
     mov x9, x24
     ldr x9, [x9, x10, lsl #3]
+    ldr x10, [x24, #872]
+    cmp x10, #0
+    csel x9, xzr, x9, ne
+    ldr x10, [x24, #FLOW_OWNER]
+    cbz x10, Lblock_margin_value
+    cmp x26, #0
+    b.ne Lblock_margin_right
+    ldr x10, [x24, #FLOW_LEAD]
+    b Lblock_margin_add
+Lblock_margin_right:
+    cmp x26, #2
+    b.ne Lblock_margin_top
+    ldr x10, [x24, #FLOW_TRAIL]
+    b Lblock_margin_add
+Lblock_margin_top:
+    cmp x26, #1
+    b.ne Lblock_margin_bottom
+    ldr x10, [x24, #FLOW_BEFORE]
+    b Lblock_margin_add
+Lblock_margin_bottom:
+    ldr x10, [x24, #FLOW_AFTER]
+Lblock_margin_add:
+    add x9, x9, x10
+Lblock_margin_value:
     scvtf d0, x9
     mov x0, x25
     mov x2, #0
@@ -143,10 +239,17 @@ Lblock_edge:
     mov x0, x25
     MSG blockBorderColor
     ldr x0, [x24, #40]
+    ldr x9, [x24, #872]
+    cbz x9, Lblock_background_color
+    mov x0, #-1
+Lblock_background_color:
     bl _mac_css_color
     mov x2, x0
     mov x0, x25
     MSG setBackgroundColor
+    mov x0, x25
+    mov x1, x24
+    bl _mac_display_bind
 Lblock_create_next:
     add x23, x23, #1
     b Lblock_create
@@ -192,7 +295,7 @@ Lblocks_apply:
     MSG count
     cbz x0, Lblocks_release_array
     ldr x9, [x19, #72]
-    add x9, x9, x23, lsl #10
+    add x9, x9, x23, lsl #11
     ldr x9, [x9, #88]
     cmp x9, #2
     b.eq Lblocks_copy_style
@@ -218,7 +321,7 @@ Lblocks_apply:
     cmp x9, #NODE_BUTTON
     b.eq Lblocks_copy_style
     ldr x0, [x19, #72]
-    add x0, x0, x23, lsl #10
+    add x0, x0, x23, lsl #11
     bl _mac_css_paragraph
     b Lblocks_style
 Lblocks_copy_style:
@@ -286,6 +389,8 @@ Lblocks_free_next:
 Lblocks_free_buffer:
     mov x0, x22
     bl _free
+    ldr x0, [sp, #144]
+    MSG release
 Lblocks_done:
     LEAVE
 .section __DATA,__const

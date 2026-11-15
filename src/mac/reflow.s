@@ -5,10 +5,26 @@
 .globl _mac_engine_measure
 _mac_engine_measure:
     ENTER
+    mov x19, #20
+    LOAD x9, _engine_render_document
+    cbz x9, Lmeasure_inset_ready
+    ldr x9, [x9, #72]
+    add x9, x9, #4096              // implied body node 2
+    ldr x10, [x9, #1088]
+    ldr x11, [x9, #1096]
+    orr x10, x10, x11
+    ldr x11, [x9, #1120]
+    orr x10, x10, x11
+    ldr x11, [x9, #1128]
+    orr x10, x10, x11
+    cmp x10, #0
+    csel x19, xzr, x19, ne
+Lmeasure_inset_ready:
+    STORE x19, _engine_inset
     LOAD x0, _engine_scroll
     MSG contentSize
     fcvtzs x9, d0
-    sub x9, x9, #40
+    sub x9, x9, x19, lsl #1
     mov x10, #80
     cmp x9, x10
     csel x9, x10, x9, lt
@@ -42,3 +58,6 @@ Lrefresh_done:
 .globl _engine_viewport, _engine_reflowing
 _engine_viewport: .quad 860
 _engine_reflowing: .quad 0
+
+.globl _engine_inset
+_engine_inset: .quad 20

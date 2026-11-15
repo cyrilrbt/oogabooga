@@ -32,7 +32,7 @@ Linline_space_next:
     b Linline_space_advance
 Linline_space_metrics:
     ldr x24, [x19, #72]
-    add x24, x24, x22, lsl #10
+    add x24, x24, x22, lsl #11
     ldr x9, [x24, #872]
     cbnz x9, Linline_space_advance
     ldr x9, [x24, #776]

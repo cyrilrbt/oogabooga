@@ -143,7 +143,7 @@ _mac_radio_group:
     cmp x21, x9
     b.hs Lradio_done
     ldr x22, [x19, #72]
-    add x22, x22, x21, lsl #10
+    add x22, x22, x21, lsl #11
     mov x0, x22
     mov x1, #NODE_INPUT
     bl _mac_control_kind
@@ -170,7 +170,7 @@ Lradio_next:
     cmp x25, x21
     b.eq Lradio_advance
     ldr x26, [x19, #72]
-    add x26, x26, x25, lsl #10
+    add x26, x26, x25, lsl #11
     ldr x1, [x26, #ATTR_NAME]
     cbz x1, Lradio_advance
     mov x0, x23

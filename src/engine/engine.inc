@@ -54,3 +54,18 @@
 .set NODE_CENTER, 38
 
 .set NODE_BR, 39
+
+.set NODE_TABLE, 40
+.set NODE_TR, 41
+.set NODE_TD, 42
+.set NODE_TH, 43
+.set NODE_TBODY, 44
+.set NODE_THEAD, 45
+.set NODE_TFOOT, 46
+.set NODE_CAPTION, 47
+.set NODE_SVG, 48
+
+.set NODE_DL, 49
+.set NODE_DT, 50
+.set NODE_DD, 51
+.set NODE_ADDRESS, 52

@@ -4,6 +4,104 @@ Record user-visible changes here whenever `VERSION` changes. Keep the newest
 version first, use the same SemVer as `VERSION`, and distinguish added features,
 behavior changes, and fixes. Historical entries summarize the repository history.
 
+## 0.12.0 — 2026-11-14
+
+### Added
+
+- An assembly retained display list for ordered box fills/borders, glyph/image
+  ranges, and line-specific link hit regions. Painting culls commands against
+  the graphics damage rectangle, and cursor rectangles use the same hit data.
+- Opt-in local nanosecond profiling for parsing, CSS, geometry, intrinsic
+  measurement, native text/attribute layout, display-list compilation and paint.
+  `./tools/benchmark-page.sh` measures warmed offline page rendering with cached
+  fixture resources; no telemetry or network requests are involved.
+- A full-canvas Acid1 geometry comparison against its historical reference:
+  140,302 pixels outside text/widget regions, with one-pixel edge tolerance.
+  `./tools/benchmark-page.sh --reference` also writes `build/acid1-assembly.png`.
+- `/engine/floats` manual fixture plus regression coverage for empty blocks,
+  auto heights and widths, nested floats, padded/percentage containing widths,
+  normal content between floats, paint order, clipping, and hit regions.
+
+### Fixed
+
+- Reconcile float positions and clearance with actual shaped content, including
+  nested float extents, rather than relying only on pre-layout height estimates.
+- Preserve background order between floated parents and ordinary child boxes.
+- Honor tight CSS line heights for text while allowing images and controls to
+  enlarge their line boxes. Retain invisible layout ranges for empty block boxes.
+- Avoid repeatedly measuring ordinary containers and shaping image placeholders;
+  propagate replaced-element metrics through ancestors instead. The warmed
+  flex/table/SVG benchmark improved from about 9.1 to 2.2 ms/page on the development
+  machine; results vary by hardware and exclude network access.
+
+### Limits
+
+- Native font rasterization and widgets remain platform-dependent. The Acid1
+  comparison verifies geometry/colors outside those regions, not byte-identical
+  screenshots. Full CSS formatting-context rules, margin collapsing, grid and
+  positioned layout remain outside the supported subset.
+
+## 0.11.0 — 2026-11-14
+
+### Added
+
+- ARM64 float placement for left/right margin boxes, nested float contexts,
+  collision bands, and `clear: left/right/both`. Assembly line exclusion restores
+  available text width below floats; native controls and links retain their
+  existing text ranges. Out-of-flow boxes contribute to scrollable extent.
+- Per-side solid block border widths and one-to-four-value `border-width`.
+- Definition-list and address elements, including omitted `dt`/`dd` closing tags,
+  and the Verdana font alias used by Acid1.
+- An attributed local Acid1 fixture at `/engine/acid1`, geometry/color regression
+  checks, two-sided text wrapping and tall-float tests, and a geometry-only
+  benchmark (`./tools/benchmark-layout.sh`).
+
+### Fixed
+
+- Honor `border: 0`, round percentage box widths to the nearest pixel, keep list
+  markers out of explicitly block-displayed list items, and preserve paragraph
+  boundaries inside inline forms.
+- Keep a styled document's canvas background distinct from its body background,
+  exclude margins from box painting, and remove the browser's extra reading inset
+  when the page explicitly sets body margins.
+
+### Limits
+
+- This is an initial float implementation, capped at 128 floats per formatting
+  context. Auto heights use intrinsic measurements; intervening padded block
+  containers, empty float boxes, complex mixed normal/float source order, and
+  full CSS formatting-context rules still need work. Acid1 geometry and sampled
+  colors are regression-tested; this is not a claim of pixel-perfect conformance.
+
+## 0.10.0 — 2026-11-14
+
+### Added
+
+- Assembly flex layout for rows and columns, wrapping rows, grow/shrink factors,
+  flex basis/shorthand, one/two-value gaps, main-axis justification, and cross-axis
+  alignment. Native form controls participate in flex sizing and retain edits
+  during responsive reflow.
+- Inherited CSS custom properties, `:root`, nested `var()` fallbacks, cycle and
+  expansion limits, space-separated `rgb()`/`rgba()`, alpha channels, and four/
+  eight-digit hex colors.
+- Inline and HTTP(S) SVG images drawn from assembly-parsed XML, common shapes,
+  absolute/relative path commands (including curves and arcs), viewBox, inherited
+  paint/currentColor, alpha, groups, and affine transforms.
+- HTML table rows, headers, row groups, implicit cell/row closing, cell sizing,
+  colspan/rowspan, and legacy width/alignment/padding/spacing hints.
+- `/engine/layout` fixture and SVG pixel/guarded-input tests covering the features
+  together, alongside native flex/table/form/transport regression checks.
+
+### Fixed
+
+- Avoid painting alpha backgrounds twice behind text inside CSS boxes, and avoid
+  duplicating a styled link's box/padding when it is a flex item.
+- Remove TextKit's extra cell inset so flex/table positions match CSS geometry.
+- Validate supported selectors once and filter impossible class matches cheaply,
+  keeping large utility stylesheets within the existing selector work budget.
+- Keep visited selectors limited to foreground color, including variable-based
+  declarations; custom-property definitions cannot depend on visited state.
+
 ## 0.9.0 — 2026-11-14
 
 ### Added

@@ -187,6 +187,10 @@ _css_color:
     bl _css_trim
     mov x19, x0
     mov x20, x1
+    bl _css_extended_color
+    cbnz x1, Lcolor_good_return
+    mov x0, x19
+    mov x1, x20
     cmp x0, x1
     b.hs Lcolor_bad
     ldrb w9, [x0]
@@ -310,6 +314,8 @@ Lcolor_good:
     mov x0, x22
     mov x1, #1
     LEAVE
+Lcolor_good_return:
+    LEAVE
 Lcolor_bad:
     mov x0, #0
     mov x1, #0
@@ -338,8 +344,30 @@ _css_value:
     ADDR x2, unset_text
     bl _css_eq
     cbnz w0, Lvalue_unset
+    cmp x19, #CSS_BORDER_RIGHT
+    b.hs Lvalue_length
+    cmp x19, #CSS_GROW
+    b.eq Lvalue_factor
+    cmp x19, #CSS_SHRINK
+    b.eq Lvalue_factor
+    cmp x19, #CSS_OPACITY
+    b.eq Lvalue_factor
     cmp x19, #CSS_BACKGROUND
     b.ls Lvalue_color
+    cmp x19, #CSS_FILL
+    b.eq Lvalue_color
+    cmp x19, #CSS_STROKE
+    b.eq Lvalue_color
+    cmp x19, #CSS_STROKE_WIDTH
+    b.eq Lvalue_length
+    cmp x19, #CSS_GAP
+    b.eq Lvalue_length
+    cmp x19, #CSS_ROW_GAP
+    b.eq Lvalue_length
+    cmp x19, #CSS_COLUMN_GAP
+    b.eq Lvalue_length
+    cmp x19, #CSS_BASIS
+    b.eq Lvalue_length
     cmp x19, #CSS_MAX_WIDTH
     b.eq Lvalue_length
     cmp x19, #CSS_RADIUS
@@ -402,15 +430,52 @@ Lvalue_weight_number:
     cmp x0, #900
     b.hi Lvalue_bad
     b Lvalue_good
+Lvalue_factor:
+    mov x0, x20
+    mov x1, x21
+    bl _css_number
+    cbz x2, Lvalue_bad
+    cbnz x1, Lvalue_bad
+    mov x9, #1000
+    cmp x19, #CSS_OPACITY
+    b.eq Lvalue_factor_clamp
+    mov x9, #60000
+Lvalue_factor_clamp:
+    cmp x0, x9
+    csel x0, x9, x0, hi
+    b Lvalue_good
 Lvalue_color:
+    mov x0, x20
+    mov x1, x21
+    ADDR x2, current_color_text
+    bl _css_eq
+    cbz w0, Lvalue_not_current
+    mov x0, #-6
+    b Lvalue_good
+Lvalue_not_current:
+    mov x0, x20
+    mov x1, x21
+    ADDR x2, none_text
+    bl _css_eq
+    cbz w0, Lvalue_parse_color
+    cmp x19, #CSS_FILL
+    b.eq Lvalue_paint_none
+    cmp x19, #CSS_STROKE
+    b.ne Lvalue_bad
+Lvalue_paint_none:
+    mov x0, #-1
+    b Lvalue_good
+Lvalue_parse_color:
     mov x0, x20
     mov x1, x21
     bl _css_color
     cbz x1, Lvalue_bad
     cmn x0, #1
     b.ne Lvalue_good
-    cmp x19, #CSS_BACKGROUND
-    b.ne Lvalue_bad                 // transparent foreground not supported
+    cmp x19, #CSS_COLOR
+    b.ne Lvalue_good
+    mov x0, #0x10000000000
+    b Lvalue_good
     b Lvalue_good
 Lvalue_length:
     mov x0, x20
@@ -423,6 +488,8 @@ Lvalue_length:
     cmp x19, #CSS_HEIGHT
     b.eq Lvalue_auto
     cmp x19, #CSS_MAX_WIDTH
+    b.eq Lvalue_auto
+    cmp x19, #CSS_BASIS
     b.eq Lvalue_auto
     cmp x19, #CSS_TOP
     b.eq Lvalue_margin_auto
@@ -454,6 +521,8 @@ Lvalue_length_number:
     bl _css_number
     cbz x2, Lvalue_bad
     cmp x19, #CSS_LINE
+    b.eq Lvalue_encode
+    cmp x19, #CSS_STROKE_WIDTH
     b.eq Lvalue_encode
     cbnz x1, Lvalue_length_units
     cbnz x0, Lvalue_bad             // only unitless zero outside line-height
@@ -542,11 +611,19 @@ Lvalue_bad:
 // declarations(start,end,decl): mask, important-mask, 24 value slots. Caller zeroes it.
 .globl _css_declarations
 _css_declarations:
+    mov x3, #0
+.globl _css_declarations_resolved
+_css_declarations_resolved:
     ENTER
+    str x3, [sp, #192]
+    str xzr, [sp, #184]
     mov x19, x0
     mov x20, x1
     mov x21, x2
 Ldecl_next:
+    ldr x0, [sp, #184]
+    bl _free
+    str xzr, [sp, #184]
     mov x0, x19
     mov x1, x20
     bl _css_skip
@@ -642,6 +719,17 @@ Ldecl_value_end:
     mov x25, x1
     mov x26, #1
 Ldecl_property:
+    ldr x2, [sp, #192]
+    cbz x2, Ldecl_expanded
+    mov x0, x24
+    mov x1, x25
+    bl _css_expand
+    cbz x0, Ldecl_advance
+    str x0, [sp, #184]
+    mov x24, x0
+    bl _strlen
+    add x25, x24, x0
+Ldecl_expanded:
     ADDR x27, property_table
 Ldecl_property_next:
     ldr x2, [x27]
@@ -654,6 +742,14 @@ Ldecl_property_next:
     b Ldecl_property_next
 Ldecl_property_found:
     ldr x28, [x27, #8]
+    cmp x28, #107
+    b.eq Ldecl_border_style
+    cmp x28, #106
+    b.eq Ldecl_margin
+    cmp x28, #105
+    b.eq Ldecl_gap
+    cmp x28, #104
+    b.eq Ldecl_flex
     cmp x28, #103
     b.eq Ldecl_font
     cmp x28, #102
@@ -672,6 +768,34 @@ Ldecl_property_found:
     mov x3, x0
     mov x0, x21
     bl _css_store_decl
+    b Ldecl_advance
+Ldecl_border_style:
+    mov x0, x24
+    mov x1, x25
+    ADDR x2, none_text
+    bl _css_eq
+    cbz w0, Ldecl_advance
+    mov x0, x21
+    mov x1, x26
+    mov x2, #0
+    mov x3, #0
+    mov x4, #0
+    mov x5, #0
+    bl _css_border_sides
+    b Ldecl_advance
+Ldecl_gap:
+    mov x0, x24
+    mov x1, x25
+    mov x2, x21
+    mov x3, x26
+    bl _css_gap_declarations
+    b Ldecl_advance
+Ldecl_flex:
+    mov x0, x24
+    mov x1, x25
+    mov x2, x21
+    mov x3, x26
+    bl _css_flex_declarations
     b Ldecl_advance
 Ldecl_font:
     mov x0, x24
@@ -742,6 +866,18 @@ Lmargin_expand:
     b.lo Lmargin_store
     ldr x28, [sp, #168]
 Lmargin_store:
+    ldr x9, [sp, #176]
+    cmp x9, #106
+    b.ne Lmargin_store_normal
+    mov x0, x21
+    mov x1, x26
+    mov x2, x22
+    mov x3, x24
+    mov x4, x27
+    mov x5, x28
+    bl _css_border_sides
+    b Ldecl_advance
+Lmargin_store_normal:
     mov x0, x21
     mov x1, #CSS_TOP
     ldr x9, [sp, #176]
@@ -784,6 +920,8 @@ Ldecl_advance:
     add x19, x19, #1
     b Ldecl_next
 Ldecl_done:
+    ldr x0, [sp, #184]
+    bl _free
     LEAVE
 
 // Store one declaration, preserving an earlier !important against later normal values.
@@ -811,6 +949,22 @@ Lstore_return:
 .section __DATA,__const
 .p2align 3
 property_table:
+.quad p_direction, CSS_DIRECTION
+.quad p_justify, CSS_JUSTIFY
+.quad p_align_items, CSS_ALIGN_ITEMS
+.quad p_gap, 105
+.quad p_row_gap, CSS_ROW_GAP
+.quad p_column_gap, CSS_COLUMN_GAP
+.quad p_wrap, CSS_WRAP
+.quad p_grow, CSS_GROW
+.quad p_shrink, CSS_SHRINK
+.quad p_basis, CSS_BASIS
+.quad p_align_self, CSS_ALIGN_SELF
+.quad p_fill, CSS_FILL
+.quad p_stroke, CSS_STROKE
+.quad p_stroke_width, CSS_STROKE_WIDTH
+.quad p_opacity, CSS_OPACITY
+.quad p_flex, 104
 .quad p_radius, CSS_RADIUS
 .quad p_min_height, CSS_MIN_HEIGHT
 .quad p_min_width, CSS_MIN_WIDTH
@@ -841,7 +995,14 @@ property_table:
 .quad p_padding_right, CSS_PAD_RIGHT
 .quad p_padding_bottom, CSS_PAD_BOTTOM
 .quad p_padding_left, CSS_PAD_LEFT
-.quad p_border_width, CSS_BORDER
+.quad p_border_width, 106
+.quad p_border_top_width, CSS_BORDER
+.quad p_border_right_width, CSS_BORDER_RIGHT
+.quad p_border_bottom_width, CSS_BORDER_BOTTOM
+.quad p_border_left_width, CSS_BORDER_LEFT
+.quad p_border_style, 107
+.quad p_float, CSS_FLOAT
+.quad p_clear, CSS_CLEAR
 .quad p_border_color, CSS_BORDER_COLOR
 .quad p_padding, 101
 .quad 0, 0
@@ -868,6 +1029,7 @@ color_table:
 .quad c_transparent, -1
 .quad 0, 0
 family_table:
+.quad f_verdana, 3
 .quad f_mono, 0
 .quad f_courier, 0
 .quad f_sans, 1
@@ -880,6 +1042,41 @@ family_table:
 .quad f_georgia, 2
 .quad 0, 0
 keyword_table:
+.quad CSS_FLOAT, none_text, 0
+.quad CSS_FLOAT, left_text, 1
+.quad CSS_FLOAT, right_text, 2
+.quad CSS_CLEAR, none_text, 0
+.quad CSS_CLEAR, left_text, 1
+.quad CSS_CLEAR, right_text, 2
+.quad CSS_CLEAR, both_text, 3
+.quad CSS_DIRECTION, flow_CSS_DIRECTION_0, 0
+.quad CSS_DIRECTION, flow_CSS_DIRECTION_1, 1
+.quad CSS_DIRECTION, flow_CSS_DIRECTION_2, 2
+.quad CSS_DIRECTION, flow_CSS_DIRECTION_3, 3
+.quad CSS_JUSTIFY, flow_CSS_JUSTIFY_0, 0
+.quad CSS_JUSTIFY, flow_CSS_JUSTIFY_1, 0
+.quad CSS_JUSTIFY, flow_CSS_JUSTIFY_2, 1
+.quad CSS_JUSTIFY, flow_CSS_JUSTIFY_3, 1
+.quad CSS_JUSTIFY, flow_CSS_JUSTIFY_4, 2
+.quad CSS_JUSTIFY, flow_CSS_JUSTIFY_5, 3
+.quad CSS_JUSTIFY, flow_CSS_JUSTIFY_6, 4
+.quad CSS_JUSTIFY, flow_CSS_JUSTIFY_7, 5
+.quad CSS_ALIGN_ITEMS, flow_CSS_ALIGN_ITEMS_0, 0
+.quad CSS_ALIGN_ITEMS, flow_CSS_ALIGN_ITEMS_1, 1
+.quad CSS_ALIGN_ITEMS, flow_CSS_ALIGN_ITEMS_2, 1
+.quad CSS_ALIGN_ITEMS, flow_CSS_ALIGN_ITEMS_3, 2
+.quad CSS_ALIGN_ITEMS, flow_CSS_ALIGN_ITEMS_4, 3
+.quad CSS_ALIGN_ITEMS, flow_CSS_ALIGN_ITEMS_5, 3
+.quad CSS_ALIGN_ITEMS, flow_CSS_ALIGN_ITEMS_6, 4
+.quad CSS_ALIGN_SELF, flow_CSS_ALIGN_SELF_0, -1
+.quad CSS_ALIGN_SELF, flow_CSS_ALIGN_SELF_1, 0
+.quad CSS_ALIGN_SELF, flow_CSS_ALIGN_SELF_2, 1
+.quad CSS_ALIGN_SELF, flow_CSS_ALIGN_SELF_3, 2
+.quad CSS_ALIGN_SELF, flow_CSS_ALIGN_SELF_4, 3
+.quad CSS_ALIGN_SELF, flow_CSS_ALIGN_SELF_5, 4
+.quad CSS_WRAP, flow_CSS_WRAP_0, 0
+.quad CSS_WRAP, flow_CSS_WRAP_1, 1
+.quad CSS_WRAP, flow_CSS_WRAP_2, 2
 .quad CSS_VERTICAL_ALIGN, baseline_text, 0
 .quad CSS_VERTICAL_ALIGN, middle_text, 1
 .quad CSS_BOX_SIZING, content_box, 0
@@ -900,7 +1097,8 @@ keyword_table:
 .quad CSS_ALIGN, center_text, 2
 .quad CSS_ALIGN, justify_text, 3
 .quad CSS_DISPLAY, none_text, 1
-.quad CSS_DISPLAY, flex_text, 0
+.quad CSS_DISPLAY, flex_text, 3
+.quad CSS_DISPLAY, inline_flex_text, 3
 .quad CSS_DISPLAY, grid_text, 0
 .quad CSS_DISPLAY, block_text, 0
 .quad CSS_DISPLAY, inline_text, 2
@@ -1009,3 +1207,61 @@ p_min_width: .asciz "min-width"
 p_valign: .asciz "vertical-align"
 baseline_text: .asciz "baseline"
 middle_text: .asciz "middle"
+
+.section __TEXT,__cstring,cstring_literals
+flow_CSS_DIRECTION_0: .asciz "row"
+flow_CSS_DIRECTION_1: .asciz "column"
+flow_CSS_DIRECTION_2: .asciz "row-reverse"
+flow_CSS_DIRECTION_3: .asciz "column-reverse"
+flow_CSS_JUSTIFY_0: .asciz "flex-start"
+flow_CSS_JUSTIFY_1: .asciz "start"
+flow_CSS_JUSTIFY_2: .asciz "flex-end"
+flow_CSS_JUSTIFY_3: .asciz "end"
+flow_CSS_JUSTIFY_4: .asciz "center"
+flow_CSS_JUSTIFY_5: .asciz "space-between"
+flow_CSS_JUSTIFY_6: .asciz "space-around"
+flow_CSS_JUSTIFY_7: .asciz "space-evenly"
+flow_CSS_ALIGN_ITEMS_0: .asciz "stretch"
+flow_CSS_ALIGN_ITEMS_1: .asciz "flex-start"
+flow_CSS_ALIGN_ITEMS_2: .asciz "start"
+flow_CSS_ALIGN_ITEMS_3: .asciz "center"
+flow_CSS_ALIGN_ITEMS_4: .asciz "flex-end"
+flow_CSS_ALIGN_ITEMS_5: .asciz "end"
+flow_CSS_ALIGN_ITEMS_6: .asciz "baseline"
+flow_CSS_ALIGN_SELF_0: .asciz "auto"
+flow_CSS_ALIGN_SELF_1: .asciz "stretch"
+flow_CSS_ALIGN_SELF_2: .asciz "flex-start"
+flow_CSS_ALIGN_SELF_3: .asciz "center"
+flow_CSS_ALIGN_SELF_4: .asciz "flex-end"
+flow_CSS_ALIGN_SELF_5: .asciz "baseline"
+flow_CSS_WRAP_0: .asciz "nowrap"
+flow_CSS_WRAP_1: .asciz "wrap"
+flow_CSS_WRAP_2: .asciz "wrap-reverse"
+p_direction: .asciz "flex-direction"
+p_justify: .asciz "justify-content"
+p_align_items: .asciz "align-items"
+p_gap: .asciz "gap"
+p_row_gap: .asciz "row-gap"
+p_column_gap: .asciz "column-gap"
+p_wrap: .asciz "flex-wrap"
+p_grow: .asciz "flex-grow"
+p_shrink: .asciz "flex-shrink"
+p_basis: .asciz "flex-basis"
+p_align_self: .asciz "align-self"
+p_flex: .asciz "flex"
+p_fill: .asciz "fill"
+p_stroke: .asciz "stroke"
+p_stroke_width: .asciz "stroke-width"
+p_opacity: .asciz "opacity"
+inline_flex_text: .asciz "inline-flex"
+current_color_text: .asciz "currentColor"
+
+p_float: .asciz "float"
+p_clear: .asciz "clear"
+both_text: .asciz "both"
+p_border_top_width: .asciz "border-top-width"
+p_border_right_width: .asciz "border-right-width"
+p_border_bottom_width: .asciz "border-bottom-width"
+p_border_left_width: .asciz "border-left-width"
+p_border_style: .asciz "border-style"
+f_verdana: .asciz "Verdana"

@@ -1,6 +1,7 @@
 // Layer-backed inline links. TextKit reserves an attachment; this native view
 // paints the CSS box and text and supplies keyboard/accessibility link actions.
 .include "src/mac/mac.inc"
+.include "src/engine/css.inc"
 .text
 .p2align 2
 .globl _mac_inline_button_class
@@ -260,6 +261,16 @@ Linline_title_color:
     ldr x2, [x20, #248]
     mov x3, x20
     bl inline_extent
+    ldr x9, [x20, #FLOW_OWNER]
+    cbz x9, Linline_flex_width_done
+    ldr x9, [x20, #FLOW_WIDTH]
+    ldr x10, [sp, #56]
+    add x9, x9, x10
+    ldr x10, [sp, #64]
+    add x9, x9, x10
+    ldr x10, [sp, #88]
+    add x0, x9, x10, lsl #1
+Linline_flex_width_done:
     str x0, [sp, #40]
     ldr x1, [x20, #208]
     tbnz x1, #63, Linline_size_height

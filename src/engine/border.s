@@ -63,14 +63,19 @@ Lborder_advance:
     mov x19, x26
     b Lborder_next
 Lborder_commit:
-    cbz x25, Lborder_done
+    cbnz x25, Lborder_has_style
+    and x9, x23, #0xffffffff
+    cbnz x9, Lborder_done
+Lborder_has_style:
     tst x25, #2
     csel x23, xzr, x23, ne
     mov x0, x21
-    mov x1, #CSS_BORDER
-    mov x2, x22
+    mov x1, x22
+    mov x2, x23
     mov x3, x23
-    bl _css_store_decl
+    mov x4, x23
+    mov x5, x23
+    bl _css_border_sides
     mov x0, x21
     mov x1, #CSS_BORDER_COLOR
     mov x2, x22
@@ -81,3 +86,30 @@ Lborder_done:
 .section __TEXT,__cstring,cstring_literals
 border_solid: .asciz "solid"
 border_none: .asciz "none"
+
+.text
+.p2align 2
+// declaration buffer, important, top/right/bottom/left encoded lengths.
+.globl _css_border_sides
+_css_border_sides:
+    ENTER
+    mov x19, x0
+    mov x20, x1
+    stp x2, x3, [sp, #144]
+    stp x4, x5, [sp, #160]
+    mov x21, #0
+Lborder_side_next:
+    ADDR x9, border_side_properties
+    ldr x1, [x9, x21, lsl #3]
+    add x9, sp, #144
+    ldr x3, [x9, x21, lsl #3]
+    mov x0, x19
+    mov x2, x20
+    bl _css_store_decl
+    add x21, x21, #1
+    cmp x21, #4
+    b.lo Lborder_side_next
+    LEAVE
+.section __DATA,__const
+.p2align 3
+border_side_properties: .quad CSS_BORDER, CSS_BORDER_RIGHT, CSS_BORDER_BOTTOM, CSS_BORDER_LEFT

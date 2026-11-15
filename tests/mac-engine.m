@@ -62,6 +62,14 @@ static BOOL slowStarted;
     NSDictionary *headers=@{@"Content-Type":@"text/html; charset=utf-8"};
     NSInteger status=200;
     NSString *html=@"<title>First</title><h1>Hello 🌐</h1><p><a href='/second?a=1&amp;b=2'>next café</a> <a href='javascript:alert(1)'>bad link</a></p><script>SHOULD NOT RENDER</script>";
+    if ([path isEqual:@"/paint-order"]) html=@"<title>Paint order</title><style>body{margin:0;font:10px/1 monospace}.parent{float:left;width:120px;height:100px;background:blue}.child{margin:10px;width:50px;height:30px;background:yellow}</style><div class=parent><p class=child>Child</p></div><p style='clear:both'><a href=/second>Hit target</a></p>";
+    if ([path isEqual:@"/float-hardening"]) html=@"<title>Float hardening</title><style>body{width:300px;margin:0;font:10px/1 monospace}p{margin:0}</style><p>Intro paragraph</p><div id=empty style='float:left;width:50px;height:40px;background:red'></div><p>Some ordinary content follows the empty float and wraps across several lines before the next float starts in source order. More content makes this paragraph long enough.</p><div id=autofloat style='float:left;width:80px;padding:2px;background:blue'>Alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango.</div><div id=afterauto style='float:left;clear:both;width:60px;height:20px'>After auto</div><p style='clear:both'>Bottom</p><div style='width:200px;padding:20px'><div id=innerfloat style='float:right;width:50px;height:20px'>Inner</div><p>Padded content wraps around its float.</p><div id=percentfloat style='float:left;width:50%;height:10px'>Half</div><div id=widthauto style='float:left;clear:both'>A rather long unbroken-float text that must fit the padded containing width instead of the full body.</div></div><p style='clear:both'>End</p><div id=nestedauto style='float:left;width:100px;padding:4px'><div style='float:left;width:60px;height:80px'>Nested</div></div><div id=afternested style='float:left;clear:both;width:50px;height:10px'>After nested</div><p style='clear:both'>New row</p><div id=bigfirst style='float:left;width:250px;height:60px'>First</div><div id=nextrow style='float:left;width:100px;height:20px'>Next row</div><div id=lastrow style='float:left;width:40px;height:10px'>Last</div>";
+    if ([path isEqual:@"/tallfloat"]) html=@"<title>Tall float</title><div style='float:left;width:90px;height:1000px;background:blue'>Tall</div>";
+    if ([path isEqual:@"/floats"]) html=@"<title>Float exclusions</title><style>body{width:300px;font:10px/1 monospace}p{margin:0}.left{float:left;width:60px;height:50px;background:blue}.right{float:right;width:60px;height:80px;background:red}</style><div class=left>Float</div><div class=right>Right</div><p>ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789</p><p style='clear:both'>Clear footer</p>";
+    if ([path isEqual:@"/acid1"]) html=[NSString stringWithContentsOfFile:@"tests/fixtures/acid1.html" encoding:NSUTF8StringEncoding error:NULL];
+    if ([path isEqual:@"/vectors"]) html=@"<title>SVG integration</title><style>:root{--icon:11 87 208}svg{color:rgb(var(--icon));width:48px;height:48px;fill:currentColor}</style><p>Before <a href=/second><svg viewBox='0 0 24 24'><circle cx=12 cy=12 r=10/><path d='M8 12h8' stroke=white stroke-width=2/></svg></a> after vector</p><img src=assets/vector.svg width=80 alt='External vector'>";
+    if ([path isEqual:@"/assets/vector.svg"]) {html=@"<svg width='40' height='20'><rect width='40' height='20' fill='blue'/></svg>";headers=@{@"Content-Type":@"image/svg+xml"};}
+    if ([path isEqual:@"/flow"]) html=@"<title>Flow layout</title><style>:root{--accent:11 87 208}.row{display:flex;width:600px;gap:20px;align-items:center}.row>div{height:50px;padding:0;background:rgb(var(--accent)/.2)}.fixed{width:100px}.grow{flex:1}.wrap{display:flex;width:220px;gap:10px;flex-wrap:wrap}.wrap>div{width:100px}form.flowform{display:flex;width:500px;gap:10px}@media(max-width:600px){form.flowform{width:100%}}table{width:500px}td,th{border:1px solid #369;padding:4px}</style><div class=row><div class=fixed>Flex left</div><div class=grow>Flex middle</div><div class=fixed>Flex right</div></div><div class=wrap><div>Wrap one</div><div>Wrap two</div><div>Wrap three</div></div><form class=flowform><input id=flexq name=q style='flex:1'><input id=flexsend type=submit value=Go style='width:100px'></form><table><tr><td rowspan=2>Rowspan<td>Upper<tr><td>Lower<tr><th colspan=2>Wide footer</table>";
     if ([path isEqual:@"/inline-box"]) html=@"<title>Inline boxes</title><style>@media(max-width:500px){#signin{background:transparent!important;padding:0!important;min-height:0!important;color:blue!important}}</style><p>Before <a id=signin href=/second style='display:inline-block;background:#0b57d0;color:white;padding:10px 24px;border-radius:100px;min-height:40px;box-sizing:border-box;text-align:center;text-decoration:none'>Sign <span>in 🌐</span></a> <a href=/afterbox>after café</a></p><a id=bordered href=/second style='display:inline-block;padding:4px 8px;border:2px solid red;border-radius:6px;min-width:120px;vertical-align:middle;margin:2px 4px'>Bordered</a>";
     if ([path isEqual:@"/compat"]) html=@"<title>Compatibility</title><style>.nav{display:inline-block}body{font:14px Arial}#wide{display:none}@media(min-width:800px){#wide{display:block}}</style><div><div class=nav>Mail</div><div class=nav>Images</div></div><center><p>Centered search</p><form><input id=query name=q><input id=search type=submit value='A comfortably long search label'><button id=more type=button><svg><title>icon source</title></svg><span>More &amp; options</span></button></form><div style='margin:19px auto;text-align:center'>Advertising links</div><p id=wide>Desktop-only content</p><div style='display:inline-block'>Search field line</div><br><span style='display:inline-block'>Search button line</span><p><a href=/spaced style='margin:0 12px;color:purple'>Spaced 🌐</a><a href=/next>Next link</a></p><span style='background:#aaccee'><input id=painted type=submit value=Painted></span></center>";
     if ([path isEqual:@"/progress"]) html=@"<title>Progress</title><link rel=stylesheet href=assets/delayed.css><p>HTML visible before CSS</p><input id=live name=q value=initial>";
@@ -127,9 +135,14 @@ static int count(void) {
     sqlite3_stmt *s=NULL; assert(sqlite3_prepare_v2(mac_db,"SELECT count(*) FROM visits",-1,&s,NULL)==SQLITE_OK);
     assert(sqlite3_step(s)==SQLITE_ROW); int result=sqlite3_column_int(s,0); sqlite3_finalize(s); return result;
 }
+static uint64_t *metadata(NSString *identifier) {
+    uint64_t *doc=engine_document; unsigned char *meta=(void *)(uintptr_t)doc[9];
+    for(uint64_t i=0;i<doc[3];i++) { char *name=*(char **)(meta+i*2048); if(name && [identifier isEqualToString:[NSString stringWithUTF8String:name]]) return (uint64_t *)(meta+i*2048); }
+    abort();
+}
 static id control(NSString *identifier) {
     uint64_t *doc=engine_document; unsigned char *meta=(void *)(uintptr_t)doc[9];
-    for(uint64_t i=0;i<doc[3];i++) { char *name=*(char **)(meta+i*1024); if(name && [identifier isEqualToString:[NSString stringWithUTF8String:name]]) return engine_controls[@(i)]; }
+    for(uint64_t i=0;i<doc[3];i++) { char *name=*(char **)(meta+i*2048); if(name && [identifier isEqualToString:[NSString stringWithUTF8String:name]]) return engine_controls[@(i)]; }
     return nil;
 }
 static int denyInsert(void *ctx,int action,const char *a,const char *b,const char *c,const char *d) { (void)ctx;(void)a;(void)b;(void)c;(void)d;return action==SQLITE_INSERT ? SQLITE_DENY : SQLITE_OK; }
@@ -210,7 +223,9 @@ int main(void) {
         assert(foreground.redComponent<.001 && fabs(foreground.greenComponent-128.0/255)<.001);
         NSRange paragraph=[text.string rangeOfString:@"Colored"];
         NSParagraphStyle *ps=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:paragraph.location effectiveRange:NULL];
-        assert(ps.alignment==NSTextAlignmentCenter && ps.paragraphSpacingBefore==12 && ps.paragraphSpacing==16 && ps.headIndent==18 && ps.tailIndent==-14);
+        assert(ps.alignment==NSTextAlignmentCenter && ps.textBlocks.count==1 && ps.headIndent==0 && ps.tailIndent==0);
+        NSTextBlock *noticeBox=ps.textBlocks.lastObject;
+        assert([noticeBox widthForLayer:NSTextBlockMargin edge:NSMinXEdge]==18 && [noticeBox widthForLayer:NSTextBlockMargin edge:NSMaxXEdge]==14 && [noticeBox widthForLayer:NSTextBlockMargin edge:NSMinYEdge]==12 && [noticeBox widthForLayer:NSTextBlockMargin edge:NSMaxYEdge]==16);
         navigate(@"/second"); waitFor(^BOOL { return [window.title hasPrefix:@"Second — Assembly"]; });
         assert([text.backgroundColor isEqual:NSColor.textBackgroundColor]);
         NSFont *reset=[text.textStorage attribute:NSFontAttributeName atIndex:0 effectiveRange:NULL];
@@ -368,6 +383,94 @@ int main(void) {
         assert(control(@"signin")==signin && !signin.hidden && signin.frame.size.height==40);
         [signin performClick:nil]; waitFor(^BOOL { return [window.title hasPrefix:@"Second — Assembly"]; });
         assert([address.stringValue isEqual:@"https://engine.test/second"]);
+        navigate(@"/flow"); waitFor(^BOOL { return [window.title hasPrefix:@"Flow layout — Assembly"] && [status.stringValue containsString:@"ready."]; });
+        NSRange fl=[text.string rangeOfString:@"Flex left"],fm=[text.string rangeOfString:@"Flex middle"],fr=[text.string rangeOfString:@"Flex right"];
+        NSRect flr=[text.layoutManager boundingRectForGlyphRange:fl inTextContainer:text.textContainer],fmr=[text.layoutManager boundingRectForGlyphRange:fm inTextContainer:text.textContainer],frr=[text.layoutManager boundingRectForGlyphRange:fr inTextContainer:text.textContainer];
+        assert(fabs(flr.origin.y-fmr.origin.y)<1 && fabs(flr.origin.y-frr.origin.y)<1 && fmr.origin.x>NSMaxX(flr) && frr.origin.x>NSMaxX(fmr));
+        NSParagraphStyle *flowStyle=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:fm.location effectiveRange:NULL];
+        assert(flowStyle.textBlocks.count && fabs(flowStyle.textBlocks.lastObject.contentWidth-360)<1);
+        NSRange wrapOne=[text.string rangeOfString:@"Wrap one"],wrapThree=[text.string rangeOfString:@"Wrap three"];
+        NSRect wor=[text.layoutManager boundingRectForGlyphRange:wrapOne inTextContainer:text.textContainer],wtr=[text.layoutManager boundingRectForGlyphRange:wrapThree inTextContainer:text.textContainer]; assert(wtr.origin.y>wor.origin.y);
+        NSTextField *flexQuery=control(@"flexq"); NSButton *flexSend=control(@"flexsend");
+        assert(flexQuery && flexSend && fabs(flexQuery.frame.size.width-390)<1 && fabs(flexSend.frame.size.width-100)<1);
+        assert(fabs(flexQuery.frame.origin.y-flexSend.frame.origin.y)<5);
+        flexQuery.stringValue=@"kept after flex resize";
+        [window setContentSize:NSMakeSize(500,780)]; mac_engine_resize(nil,NULL,nil);
+        assert(control(@"flexq")==flexQuery && [flexQuery.stringValue isEqual:@"kept after flex resize"] && flexQuery.frame.size.width<390);
+        [window setContentSize:NSMakeSize(650,780)]; mac_engine_resize(nil,NULL,nil);
+        NSRange upper=[text.string rangeOfString:@"Upper"],lower=[text.string rangeOfString:@"Lower"],wide=[text.string rangeOfString:@"Wide footer"];
+        NSTextTableBlock *ub=(id)((NSParagraphStyle *)[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:upper.location effectiveRange:NULL]).textBlocks.lastObject;
+        NSTextTableBlock *lb=(id)((NSParagraphStyle *)[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:lower.location effectiveRange:NULL]).textBlocks.lastObject;
+        NSTextTableBlock *wb=(id)((NSParagraphStyle *)[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:wide.location effectiveRange:NULL]).textBlocks.lastObject;
+        assert(ub.table==lb.table && lb.table==wb.table && ub.startingColumn==1 && lb.startingRow==1 && wb.columnSpan==2);
+        navigate(@"/vectors"); waitFor(^BOOL { return [window.title hasPrefix:@"SVG integration — Assembly"] && [status.stringValue containsString:@"ready."]; });
+        NSMutableArray<NSTextAttachment *> *vectors=[NSMutableArray new];
+        [text.textStorage enumerateAttribute:NSAttachmentAttributeName inRange:NSMakeRange(0,text.string.length) options:0 usingBlock:^(id a,NSRange r,BOOL *stop){(void)r;(void)stop;if(a)[vectors addObject:a];}];
+        assert(vectors.count==2 && NSEqualSizes(vectors[0].image.size,NSMakeSize(48,48)) && NSEqualSizes(vectors[1].image.size,NSMakeSize(80,40)));
+        assert([text.string containsString:@"after vector"]);
+        NSRange svgLink=[text.string rangeOfString:@"\ufffc"]; assert([text.textStorage attribute:NSLinkAttributeName atIndex:svgLink.location effectiveRange:NULL]);
+        navigate(@"/floats"); waitFor(^BOOL { return [window.title hasPrefix:@"Float exclusions — Assembly"] && [status.stringValue containsString:@"ready."]; });
+        NSRange wrapped=[text.string rangeOfString:@"ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
+        NSRect wrappedStart=[text.layoutManager boundingRectForGlyphRange:[text.layoutManager glyphRangeForCharacterRange:NSMakeRange(wrapped.location,1) actualCharacterRange:NULL] inTextContainer:text.textContainer];
+        NSUInteger wrappedGlyph=[text.layoutManager glyphIndexForCharacterAtIndex:wrapped.location];
+        NSRect wrappedLine=[text.layoutManager lineFragmentRectForGlyphAtIndex:wrappedGlyph effectiveRange:NULL];
+        assert(wrappedLine.origin.x>=60 && wrappedStart.origin.x>=55); // glyph ink can overhang
+        BOOL recoveredWidth=NO;
+        for(NSUInteger k=wrapped.location;k<text.string.length;k++) {
+            NSRect r=[text.layoutManager boundingRectForGlyphRange:[text.layoutManager glyphRangeForCharacterRange:NSMakeRange(k,1) actualCharacterRange:NULL] inTextContainer:text.textContainer];
+            if(r.origin.y>=80 && r.origin.x<1) recoveredWidth=YES;
+        }
+        assert(recoveredWidth);
+        navigate(@"/paint-order"); waitFor(^BOOL { return [window.title hasPrefix:@"Paint order — Assembly"] && [status.stringValue containsString:@"ready."]; });
+        NSRect paintCapture=NSMakeRect(0,0,300,180); NSBitmapImageRep *paintBitmap=[text bitmapImageRepForCachingDisplayInRect:paintCapture]; [text cacheDisplayInRect:paintCapture toBitmapImageRep:paintBitmap];
+        NSColor *childColor=[[paintBitmap colorAtX:30*paintBitmap.pixelsWide/300 y:35*paintBitmap.pixelsHigh/180] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+        assert(childColor.redComponent>.8 && childColor.greenComponent>.6 && childColor.blueComponent<.2);
+        extern uint64_t *mac_display_list; extern uint64_t *engine_display_hit(void *,double,double);
+        extern void mac_display_replay(void *,NSRect); extern uint64_t mac_display_painted,mac_display_culled;
+        NSRange hitText=[text.string rangeOfString:@"Hit target"]; NSRect hitRect=[text.layoutManager boundingRectForGlyphRange:[text.layoutManager glyphRangeForCharacterRange:hitText actualCharacterRange:NULL] inTextContainer:text.textContainer];
+        NSPoint inset=text.textContainerOrigin; uint64_t *hit=engine_display_hit(mac_display_list,NSMidX(hitRect)+inset.x,NSMidY(hitRect)+inset.y);
+        assert(hit && hit[0]==4 && hit[120/8]==hitText.location);
+        NSUInteger typeCounts[5]={0}; for(uint64_t i=0;i<mac_display_list[0];i++){uint64_t *c=(uint64_t *)(uintptr_t)mac_display_list[2]+i*16;if(c[0]<5)typeCounts[c[0]]++;} assert(typeCounts[1]>=2 && typeCounts[2]>=2 && typeCounts[4]);
+        [NSGraphicsContext saveGraphicsState]; NSGraphicsContext.currentContext=[NSGraphicsContext graphicsContextWithBitmapImageRep:paintBitmap];
+        mac_display_replay(mac_display_list,NSMakeRect(200,150,5,5)); assert(mac_display_culled>=2 && mac_display_painted<typeCounts[1]);
+        [NSGraphicsContext restoreGraphicsState];
+        navigate(@"/float-hardening"); waitFor(^BOOL { return [window.title hasPrefix:@"Float hardening — Assembly"] && [status.stringValue containsString:@"ready."]; });
+        uint64_t *emptyMeta=metadata(@"empty"),*autoMeta=metadata(@"autofloat"),*afterMeta=metadata(@"afterauto"),*innerMeta=metadata(@"innerfloat");
+        const double *emptyRect=(const double *)(uintptr_t)emptyMeta[1752/8], *autoRect=(const double *)(uintptr_t)autoMeta[1752/8],*afterRect=(const double *)(uintptr_t)afterMeta[1752/8],*innerRect=(const double *)(uintptr_t)innerMeta[1752/8];
+        assert(emptyRect && emptyRect[3]>=10 && emptyRect[5]==40);
+        assert(autoRect && autoRect[3]>emptyRect[3] && autoRect[5]>40);
+        assert(afterRect && afterRect[3]>=autoRect[3]+autoRect[5]);
+        assert(innerRect && innerRect[2]>=20 && innerRect[2]+innerRect[4]<=220);
+        const double *percentRect=(const double *)(uintptr_t)metadata(@"percentfloat")[1752/8],*widthAuto=(const double *)(uintptr_t)metadata(@"widthauto")[1752/8];
+        assert(percentRect && fabs(percentRect[4]-100)<.01 && widthAuto && widthAuto[4]<=200);
+        const double *nestedRect=(const double *)(uintptr_t)metadata(@"nestedauto")[1752/8],*afterNested=(const double *)(uintptr_t)metadata(@"afternested")[1752/8];
+        assert(nestedRect && nestedRect[5]>=88 && afterNested[3]>=nestedRect[3]+nestedRect[5]);
+        const double *nextRow=(const double *)(uintptr_t)metadata(@"nextrow")[1752/8],*lastRow=(const double *)(uintptr_t)metadata(@"lastrow")[1752/8];
+        assert(nextRow && lastRow && lastRow[3]>=nextRow[3]);
+        navigate(@"/tallfloat"); waitFor(^BOOL { return [window.title hasPrefix:@"Tall float — Assembly"] && [status.stringValue containsString:@"ready."]; });
+        assert(text.frame.size.height>=1000);
+        navigate(@"/acid1"); waitFor(^BOOL { return [window.title hasPrefix:@"CSS Test: display/box/float/clear test — Assembly"] && [status.stringValue containsString:@"ready."]; });
+        assert(![text.string containsString:@"•"]);
+        NSRange toggle=[text.string rangeOfString:@"toggle"], acidFooter=[text.string rangeOfString:@"This is"];
+        NSFont *acidFont=[text.textStorage attribute:NSFontAttributeName atIndex:toggle.location effectiveRange:NULL];
+        assert([acidFont.fontName hasPrefix:@"Verdana"]);
+        NSRect tg=[text.layoutManager boundingRectForGlyphRange:[text.layoutManager glyphRangeForCharacterRange:toggle actualCharacterRange:NULL] inTextContainer:text.textContainer];
+        NSRect fg=[text.layoutManager boundingRectForGlyphRange:[text.layoutManager glyphRangeForCharacterRange:acidFooter actualCharacterRange:NULL] inTextContainer:text.textContainer];
+        NSUInteger footerGlyph=[text.layoutManager glyphIndexForCharacterAtIndex:acidFooter.location];
+        NSRect footerLine=[text.layoutManager lineFragmentRectForGlyphAtIndex:footerGlyph effectiveRange:NULL];
+        NSUInteger toggleGlyph=[text.layoutManager glyphIndexForCharacterAtIndex:toggle.location];
+        NSRect toggleLine=[text.layoutManager lineFragmentRectForGlyphAtIndex:toggleGlyph effectiveRange:NULL];
+        assert(fabs(toggleLine.origin.x-40)<.01 && fabs(toggleLine.size.height-10)<.01 && fabs(footerLine.origin.y-335)<.01 && fabs(fg.origin.y-335)<3 && tg.size.width>0);
+        NSRect capture=NSMakeRect(0,0,600,500);
+        NSBitmapImageRep *acidBitmap=[text bitmapImageRepForCachingDisplayInRect:capture];
+        [text cacheDisplayInRect:capture toBitmapImageRep:acidBitmap];
+        // Display-profile conversion can alter saturated channel values; the
+        // tolerance still distinguishes all five test colors and white gaps.
+        const int samples[][5]={{1,1,0,0,255},{10,10,0,0,255},{16,16,0,0,0},{45,60,204,0,0},{108,80,255,255,255},{145,80,255,204,0},{405,80,255,204,0},{250,80,0,0,0},{155,260,0,0,0},{290,280,255,204,0}};
+        for(size_t i=0;i<sizeof(samples)/sizeof(*samples);i++) {
+            const int *p=samples[i]; NSColor *c=[[acidBitmap colorAtX:p[0]*acidBitmap.pixelsWide/600 y:p[1]*acidBitmap.pixelsHigh/500] colorUsingColorSpace:acidBitmap.colorSpace];
+            assert(fabs(c.redComponent-p[2]/255.0)<.23 && fabs(c.greenComponent-p[3]/255.0)<.23 && fabs(c.blueComponent-p[4]/255.0)<.23);
+        }
         int beforeDenied=count();
         sqlite3_set_authorizer(mac_db,denyInsert,NULL);
         navigate(@"/second"); waitFor(^BOOL { return [window.title hasPrefix:@"Second — Assembly"] && [status.stringValue containsString:@"history could not be saved"]; });

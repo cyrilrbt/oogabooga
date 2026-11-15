@@ -7,14 +7,14 @@
 .globl _css_font_declarations
 _css_font_declarations:
     ENTER
-    sub sp, sp, #256
+    sub sp, sp, #512
     mov x19, x0
     mov x20, x1
     mov x21, x2
     mov x22, x3
     mov x0, sp
     mov x1, #0
-    mov x2, #240
+    mov x2, #400
     bl _memset
     // Shorthand resets omitted style, weight and line-height.
     mov x9, #400
@@ -120,7 +120,7 @@ Lfont_decl_merge:
     cmp x23, #5
     b.lo Lfont_decl_merge
 Lfont_decl_done:
-    add sp, sp, #256
+    add sp, sp, #512
     LEAVE
 .section __DATA,__const
 .p2align 3

@@ -34,6 +34,11 @@ _mac_css_color:
     fdiv d1, d1, d4
     fdiv d2, d2, d4
     fmov d3, #1.0
+    tbz x19, #40, Lrgb_alpha_ready
+    ubfx x9, x19, #32, #8
+    ucvtf d3, x9
+    fdiv d3, d3, d4
+Lrgb_alpha_ready:
     MSG sRGBColor
     LEAVE
 Lrgb_none:
@@ -54,6 +59,8 @@ _mac_css_font:
     b.lo Lfont_family
     fmov d1, #0.5
 Lfont_family:
+    cmp x22, #3
+    b.eq Lfont_verdana
     cmp x22, #1
     b.eq Lfont_sans
     cmp x22, #2
@@ -63,6 +70,9 @@ Lfont_family:
 Lfont_sans:
     MSG systemFontWeight
     b Lfont_italic
+Lfont_verdana:
+    STR verdana_regular
+    b Lfont_serif_named
 Lfont_serif:
     cmp x21, #600
     b.lo Lfont_serif_normal
@@ -119,6 +129,19 @@ _mac_css_attributes:
 Lattributes_foreground:
     mov x24, x0
     STYLE_ATTR _NSForegroundColorAttributeName, x24
+    // Block backgrounds belong to their boxes; text nodes must not repaint
+    // inherited ranges (which would apply alpha a second time).
+    cmp x23, #NODE_A
+    b.eq Lattributes_inline_background
+    cmp x23, #NODE_SPAN
+    b.eq Lattributes_inline_background
+    cmp x23, #NODE_STRONG
+    b.eq Lattributes_inline_background
+    cmp x23, #NODE_EM
+    b.ne Lattributes_underline
+Lattributes_inline_background:
+    ldr x9, [x20, #872]
+    cbnz x9, Lattributes_underline
     ldr x0, [x20, #40]
     bl _mac_css_color
     cbz x0, Lattributes_underline
@@ -176,7 +199,12 @@ _mac_css_canvas:
     mov x19, x1
     mov x20, x2
     mov x22, x0
-    ldr x9, [x0, #72]
+    mov x0, x19
+    LOAD x9, _engine_inset
+    scvtf d0, x9
+    fmov d1, d0
+    MSG setTextInset
+    ldr x9, [x22, #72]
     ldr x0, [x9, #40]
     bl _mac_css_color
     cbnz x0, Lcanvas_color
@@ -278,8 +306,14 @@ Lparagraph_alignment:
     scvtf d0, x25
     MSG setMinimumLine
     mov x0, x24
-    fmov d0, xzr                    // attachments may enlarge the line box
+    scvtf d0, x25
+    ldr x9, [x20, #NATIVE_HAS_REPLACED]
+    cbz x9, Lparagraph_max_line
+    fmov d0, xzr                    // replaced elements can enlarge line boxes
+Lparagraph_max_line:
     MSG setMaximumLine
 Lparagraph_done:
     mov x0, x24
     LEAVE
+
+verdana_regular: .asciz "Verdana"

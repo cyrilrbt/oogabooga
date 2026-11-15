@@ -335,7 +335,7 @@ Lposition_next:
     cmp x10, #NODE_A
     b.ne Lposition_visible_range
     ldr x10, [x19, #72]
-    add x10, x10, x21, lsl #10
+    add x10, x10, x21, lsl #11
     ldr x10, [x10, #872]
     cbnz x10, Lposition_visible_range
     mov x0, x22
@@ -357,7 +357,7 @@ Lposition_visible_range:
     mov x0, x22
     MSG setHidden
     ldr x9, [x19, #72]
-    add x9, x9, x21, lsl #10
+    add x9, x9, x21, lsl #11
     ldr x9, [x9, #88]
     cmp x9, #1
     b.eq Lposition_advance
@@ -386,7 +386,8 @@ Lposition_visible_range:
     fsub d1, d1, d0                // baseline measured up from the line bottom
     ldr d2, [sp, #152]
     fadd d1, d1, d2
-    NUM d4, 20
+    LOAD x9, _engine_inset
+    scvtf d4, x9
     fadd d1, d1, d4
     str d1, [sp, #184]
     mov x0, x24
@@ -394,7 +395,8 @@ Lposition_visible_range:
     MSG glyphLocation
     ldr d2, [sp, #144]
     fadd d0, d0, d2
-    NUM d4, 20
+    LOAD x9, _engine_inset
+    scvtf d4, x9
     fadd d0, d0, d4
     str d0, [sp, #144]
     mov x0, x22
@@ -415,7 +417,7 @@ Lposition_visible_range:
     mov x0, x22
     MSG setFrame
     ldr x0, [x19, #72]
-    add x0, x0, x21, lsl #10
+    add x0, x0, x21, lsl #11
     mov x1, #NODE_INPUT
     bl _mac_control_kind
     cmp x0, #5
@@ -536,7 +538,7 @@ Lsubmit_find_form:
 Lsubmit_form:
     str xzr, [sp, #176]
     ldr x23, [x20, #72]
-    add x23, x23, x22, lsl #10
+    add x23, x23, x22, lsl #11
     ldr x0, [x23, #ATTR_METHOD]
     cbz x0, Lsubmit_action
     ldrb w9, [x0]
@@ -604,7 +606,7 @@ Lsubmit_control:
     cmp x27, x9
     b.hs Lsubmit_navigate
     ldr x23, [x20, #72]
-    add x23, x23, x27, lsl #10
+    add x23, x23, x27, lsl #11
     ldr x9, [x23, #ATTR_DISABLED]
     cbnz x9, Lsubmit_next
     ldr x9, [x23, #ATTR_NAME]

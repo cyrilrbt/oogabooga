@@ -6,12 +6,19 @@
 // match(document,node,selector_start,selector_end) -> specificity+1, or zero.
 .globl _css_match
 _css_match:
+    mov x4, #0
+    b Lmatch_entry
+.globl _css_match_rule
+_css_match_rule:
+    mov x4, #1
+Lmatch_entry:
     ldr x9, [x0, #88]
     cbnz x9, Lmatch_budget
     mov x0, #0
     ret
 Lmatch_budget:
     ENTER
+    str x4, [sp, #144]
     mov x19, x0
     mov x20, x1
     mov x21, x2
@@ -34,6 +41,7 @@ Lselector_try:
     mov x1, x20
     mov x2, x21
     mov x3, x24
+    ldr x4, [sp, #144]
     bl _css_match_one
     cmp x0, x23
     csel x23, x0, x23, hi
@@ -45,6 +53,7 @@ Lselector_result:
 
 _css_match_one:
     ENTER
+    str x4, [sp, #144]
     mov x19, x0
     mov x20, x1
     mov x0, x2
@@ -54,6 +63,8 @@ _css_match_one:
     mov x22, x1
     cmp x21, x22
     b.hs Lmatch_no
+    ldr x9, [sp, #144]
+    cbnz x9, Lselector_rightmost
     // Reject unsupported combinators/pseudo/attribute/escape syntax, not partial matches.
     mov x23, x21
 Lselector_validate:
@@ -209,7 +220,7 @@ _css_compound:
     sub x9, x9, #1
     str x9, [x19, #88]
     ldr x23, [x19, #72]
-    add x23, x23, x1, lsl #10
+    add x23, x23, x1, lsl #11
     ldr x24, [x23, #24]
     cbz x24, Lcompound_no
     cmp x20, x21
@@ -256,6 +267,21 @@ Lcompound_suffix:
     b.ne Lcompound_no
     b Lcompound_identifier
 Lcompound_link_state:
+    mov x25, x20
+    mov x0, x20
+    mov x1, x21
+    bl _css_ident_end
+    mov x20, x0
+    mov x1, x0
+    mov x0, x25
+    ADDR x2, pseudo_root
+    bl _css_eq
+    cbz w0, Lcompound_anchor_state
+    ldr x9, [sp, #144]
+    cmp x9, #1
+    b.ne Lcompound_no
+    b Lcompound_state_yes
+Lcompound_anchor_state:
     ldr x9, [sp, #144]
     ldr x10, [x19, #16]
     mov x11, #40
@@ -265,13 +291,8 @@ Lcompound_link_state:
     b.ne Lcompound_no
     ldr x9, [x10, #32]
     cbz x9, Lcompound_no
-    mov x25, x20
-    mov x0, x20
-    mov x1, x21
-    bl _css_ident_end
-    mov x20, x0
-    mov x1, x0
     mov x0, x25
+    mov x1, x20
     ADDR x2, pseudo_link
     bl _css_eq
     cbnz w0, Lcompound_unvisited
@@ -302,6 +323,16 @@ Lcompound_identifier:
     b.eq Lcompound_id
     ldr x27, [x23, #8]
     cbz x27, Lcompound_no
+    ldr x9, [x19, #88]
+    cmp x9, x26
+    b.lo Lcompound_exhausted
+    sub x9, x9, x26
+    str x9, [x19, #88]
+    mov x0, x23
+    mov x1, x25
+    mov x2, x20
+    bl _css_class_filter_maybe
+    cbz x0, Lcompound_no
 Lcompound_class_next:
     ldr x9, [x19, #88]
     cbz x9, Lcompound_no
@@ -427,3 +458,6 @@ Lidentifier_equal_no:
 .section __TEXT,__cstring,cstring_literals
 pseudo_link: .asciz "link"
 pseudo_visited: .asciz "visited"
+
+.section __TEXT,__cstring,cstring_literals
+pseudo_root: .asciz "root"

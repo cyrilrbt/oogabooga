@@ -31,7 +31,7 @@ Llinks_next:
     cmp x10, #6
     b.ne Llinks_advance
     ldr x24, [x19, #72]
-    add x24, x24, x21, lsl #10
+    add x24, x24, x21, lsl #11
     mov x25, #0
     ldr x0, [x9, #32]
     cbz x0, Llinks_store

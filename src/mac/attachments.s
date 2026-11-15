@@ -7,6 +7,7 @@
 .p2align 2
 // Resolve CSS dimensions first, then legacy HTML integer dimensions. Auto=-1.
 // metadata -> width x0, height x1, each bounded to 4096 points.
+.globl _mac_element_dimensions
 _mac_element_dimensions:
     ENTER
     mov x19, x0
@@ -68,6 +69,8 @@ Lattachment_next:
     mov x9, #40
     madd x23, x22, x9, x23
     ldr x24, [x23]
+    cmp x24, #NODE_SVG
+    b.eq Lattachment_element
     cmp x24, #NODE_A
     b.eq Lattachment_inline_candidate
     cmp x24, #NODE_IMG
@@ -83,7 +86,7 @@ Lattachment_next:
     b Lattachment_element
 Lattachment_inline_candidate:
     ldr x9, [x19, #72]
-    add x9, x9, x22, lsl #10
+    add x9, x9, x22, lsl #11
     ldr x9, [x9, #872]
     cbz x9, Lattachment_advance
 Lattachment_element:
@@ -95,13 +98,31 @@ Lattachment_element:
     cmp x25, x10
     b.eq Lattachment_advance
     ldr x26, [x19, #72]
-    add x26, x26, x22, lsl #10
+    add x26, x26, x22, lsl #11
     CLASS NSTextAttachment
     MSG new
     mov x27, x0
     mov x0, x26
     bl _mac_element_dimensions
+    ldr x9, [x26, #FLOW_OWNER]
+    cbz x9, Lattachment_flow_dimensions_done
+    cmp x24, #NODE_A
+    b.eq Lattachment_flow_dimensions_done
+    ldr x10, [x26, #FLOW_WIDTH]
+    cbz x10, Lattachment_flow_dimensions_done
+    mov x0, x10
+    sub x9, x9, #1
+    ldr x10, [x19, #72]
+    add x10, x10, x9, lsl #11
+    ldr x10, [x10, #(32+CSS_DIRECTION*8)]
+    tbz x10, #0, Lattachment_flow_dimensions_done
+    ldr x10, [x26, #FLOW_HEIGHT]
+    cmp x10, #0
+    csel x1, x1, x10, le
+Lattachment_flow_dimensions_done:
     stp x0, x1, [sp, #144]
+    cmp x24, #NODE_SVG
+    b.eq Lattachment_svg
     cmp x24, #NODE_IMG
     b.eq Lattachment_image
     mov x0, x26
@@ -250,6 +271,18 @@ Lattachment_hidden:
     MSG initSize
     mov x28, x0
     b Lattachment_set_image
+Lattachment_svg:
+    ldr x0, [x23, #32]
+    cbz x0, Lattachment_alt
+    mov x28, x0
+    bl _strlen
+    mov x1, x0
+    mov x0, x28
+    mov x2, x26
+    bl _mac_svg_image
+    cbz x0, Lattachment_alt
+    mov x28, x0
+    b Lattachment_image_size
 Lattachment_image:
     CLASS NSNumber
     mov x2, x22
@@ -260,6 +293,8 @@ Lattachment_image:
     cbz x0, Lattachment_alt
     MSG copyObject
     mov x28, x0
+Lattachment_image_size:
+    mov x0, x28
     MSG size
     // Validate dimensions before arithmetic and retain natural aspect ratio when
     // exactly one dimension is specified. Large images fit the text viewport.
@@ -359,6 +394,8 @@ Lattachment_attribute:
     mov x4, x25
     mov x5, #1
     MSG addAttribute
+    cmp x24, #NODE_SVG
+    b.eq Lattachment_release
     cmp x24, #NODE_IMG
     b.eq Lattachment_release
     mov x0, x21

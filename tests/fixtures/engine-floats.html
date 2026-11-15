@@ -1,0 +1,12 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Float and paint-order lab</title>
+<style>body{margin:24px;font:16px/1.3 sans-serif;color:#17243b;background:#f7f8fc}p{margin:0 0 12px}.left{float:left;width:180px;background:#245bc0;color:white;padding:12px;margin:0 16px 12px 0}.right{float:right;width:140px;height:110px;background:#ffe09a;padding:12px;margin-left:16px}.child{background:#fff1a8;color:#17243b;padding:8px}.empty{float:left;width:70px;height:70px;background:#df574b;margin-right:14px}.padded{width:400px;padding:20px;border:2px solid #245bc0}.half{float:right;width:50%;height:60px;background:#b8d3fa}.clear{clear:both}</style></head>
+<body><h1>Floats and retained painting</h1>
+<div class="left">Auto-height float<p class="child">This child background paints above its blue parent.</p>More text grows this box.</div>
+<div class="right">A right float</div>
+<p>Ordinary text flows beside both boxes, then regains the full width underneath them. Resize the window and scroll to check that only visible commands are painted. <a href="/engine/acid1">Acid1 reference fixture</a>.</p>
+<p>More ordinary content separates the floats in source order. The next box must follow this content rather than jumping back to the first row.</p>
+<div class="empty"></div><p>An empty red float still occupies space and paints its background.</p>
+<p class="clear">Clearance uses measured heights, including nested floats.</p>
+<div class="padded"><div class="half">Half of the padded content width.</div><p>This paragraph uses the remaining space inside the bordered container.</p><p class="clear">Back to full width.</p></div>
+<p class="clear"><a href="/engine/layout">Flex/table/SVG lab</a> · <a href="/engine/acid1">Acid1</a></p></body></html>

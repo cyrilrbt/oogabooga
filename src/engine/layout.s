@@ -25,13 +25,14 @@ Llayout_allocate:
     bl _calloc
     cbz x0, Llayout_nil
     mov x20, x0
+    str xzr, [sp, #208]
     ldr x21, [x19]
     ldr x22, [x19, #8]
     mov x9, #ENGINE_MAX_INPUT
     cmp x22, x9
     b.hi Llayout_error
-    lsl x0, x22, #1
-    add x0, x0, #2
+    lsl x0, x22, #2
+    add x0, x0, #32
     bl _malloc
     str x0, [x20]
     cbz x0, Llayout_error
@@ -42,6 +43,15 @@ Llayout_allocate:
     str x0, [x20, #16]
     cbz x0, Llayout_error
     str x0, [sp, #192]
+    ldr x1, [x19, #8]
+    add x1, x1, #1
+    mov x0, #1
+    bl _calloc
+    str x0, [sp, #208]
+    cbz x0, Llayout_error
+    mov x1, x0
+    mov x0, x19
+    bl _engine_flow_breaks
     add x22, x21, x22
     mov x24, #0                      // output bytes
     mov x25, #0                      // output UTF-16 units
@@ -55,6 +65,26 @@ Llayout_allocate:
 Llayout_next:
     cmp x21, x22
     b.hs Llayout_done
+    ldr x9, [sp, #208]
+    ldrb w10, [x9, x28]
+    cbz w10, Llayout_no_flow_event
+    strb wzr, [x9, x28]
+    cbz x24, Llayout_no_flow_event
+    sub x10, x24, #1
+    ldrb w10, [x23, x10]
+    cmp w10, #10
+    b.eq Llayout_no_flow_event
+    mov w10, #10
+    strb w10, [x23, x24]
+    add x24, x24, #1
+    add x25, x25, #1
+    mov x27, #0
+    mov x10, #-1
+    str x10, [sp, #144]
+    ldr x10, [sp, #160]
+    add x10, x10, #1
+    str x10, [sp, #160]
+Llayout_no_flow_event:
     ldr x9, [x19, #80]
     cbz x9, Llayout_visible
     ldrb w9, [x9, x28]
@@ -234,6 +264,9 @@ Llayout_newline_copy:
     str x9, [sp, #144]
     b Llayout_next
 Llayout_done:
+    ldr x0, [sp, #208]
+    bl _free
+    str xzr, [sp, #208]
     ldr x10, [sp, #192]
     str x25, [x10, x28, lsl #3]
     strb wzr, [x23, x24]
@@ -243,6 +276,8 @@ Llayout_done:
     mov x0, x20
     LEAVE
 Llayout_error:
+    ldr x0, [sp, #208]
+    bl _free
     mov x0, x20
     bl _engine_layout_free
 Llayout_nil:
