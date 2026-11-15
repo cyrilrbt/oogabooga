@@ -154,6 +154,9 @@ static NSRect blockRect(NSTextView *text,NSRange characters) {
     [manager ensureLayoutForTextContainer:text.textContainer];
     NSParagraphStyle *style=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:characters.location effectiveRange:NULL];
     assert(style.textBlocks.count);
+    NSUInteger tableCells=0;
+    for(NSTextBlock *block in style.textBlocks) if([block isKindOfClass:NSTextTableBlock.class]) tableCells++;
+    assert(tableCells==1); // flex fixture has one real cell, no artificial outer table
     NSRange glyphs=[manager glyphRangeForCharacterRange:characters actualCharacterRange:NULL];
     assert(glyphs.length);
     NSRect rect=[manager layoutRectForTextBlock:style.textBlocks.lastObject atIndex:glyphs.location effectiveRange:NULL];

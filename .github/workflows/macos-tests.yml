@@ -1,0 +1,29 @@
+name: macOS compatibility tests
+
+on:
+  push:
+    branches: ['ci/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: Record runner and SDK
+        run: |
+          sw_vers
+          xcodebuild -version
+      - name: Test assembly browser
+        run: ./build.sh test
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: macos-layout-diagnostics
+          path: build/acid1-assembly.png
+          if-no-files-found: ignore

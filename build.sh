@@ -44,6 +44,7 @@ if [ "$mode" = test ]; then
     build/mac-delegates-test
     xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-shortcuts.m $test_objects -framework Cocoa -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-shortcuts-test
     build/mac-shortcuts-test
+    sh ./tools/probe-mac-layout.sh
     xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-engine.m $test_objects -framework Cocoa -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-engine-test
     build/mac-engine-test
     xcrun clang $flags -Wall -Wextra -Werror -fobjc-arc tests/mac-svg.m $test_objects -framework Cocoa -framework ImageIO -framework WebKit -lsqlite3 -o build/mac-svg-test

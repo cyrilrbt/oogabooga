@@ -122,31 +122,14 @@ Lblock_non_background:
     orr x9, x9, x10
     cbz x9, Lblock_create_next
 Lblock_make:
-    ldr x9, [x19, #72]
-    ldr x9, [x9, #FLOAT_ACTIVE]
-    cbz x9, Lblock_make_table
+    // Ordinary CSS boxes are not table cells. Wrapping a real flex/table/Grid
+    // row in an artificial one-cell table can make TextKit return the whole
+    // containing rectangle for every nested cell. Use our normal block adapter
+    // for all ordinary containers, including documents without floats.
     mov x0, x24
     ldr x1, [sp, #144]
     bl _mac_css_block
     mov x25, x0
-    b Lblock_store
-Lblock_make_table:
-    CLASS NSTextTable
-    MSG new
-    mov x27, x0
-    mov x2, #1
-    MSG tableColumns
-    CLASS NSTextTableBlock
-    MSG alloc
-    mov x2, x27
-    mov x3, #0
-    mov x4, #1
-    mov x5, #0
-    mov x6, #1
-    MSG tableBlock
-    mov x25, x0
-    mov x0, x27
-    MSG release
 Lblock_store:
     mov x0, x25
     str x0, [x22, x23, lsl #3]

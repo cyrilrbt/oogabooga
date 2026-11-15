@@ -8,6 +8,10 @@ behavior changes, and fixes. Historical entries summarize the repository history
 
 ### Fixed
 
+- Render ordinary CSS containers with the assembly CSS-block adapter instead of
+  artificial one-cell native tables, which can make nested flex/table/Grid cells
+  all receive the entire text-container rectangle. Add a standalone reproducer
+  and regression checks for the corrected wrapper geometry.
 - Explicitly select TextKit's table-capable typesetter compatibility mode before
   layout instead of inheriting a linked-framework-dependent default.
 - Initialize the custom layout manager as its actual class, rather than changing
