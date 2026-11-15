@@ -95,6 +95,7 @@ Use **⌘ (Command) on macOS** and **Ctrl on Linux** for the same shortcuts:
 | Reload/stop | ⌘R | Ctrl+R |
 | Back / forward | ⌘[ / ⌘] | Ctrl+[ / Ctrl+] |
 | History | ⌘Y | Ctrl+Y |
+| Hide app | ⌘H | Desktop/window-manager shortcut |
 | Quit | ⌘Q | Ctrl+Q |
 | Cut / copy / paste | ⌘X / ⌘C / ⌘V | Ctrl+X / Ctrl+C / Ctrl+V |
 | Select all | ⌘A | Ctrl+A |

@@ -1503,6 +1503,8 @@ _sel_atomicSelectionBackground: .quad name_atomicSelectionBackground
 _sel_atomicSelectionForeground: .quad name_atomicSelectionForeground
 .globl _sel_inputSetBezeled
 _sel_inputSetBezeled: .quad input_set_bezeled
+.globl _sel_hideApp
+_sel_hideApp: .quad hide_app_name
 selector_end:
 selectors_ready: .quad 0
 .section __TEXT,__cstring,cstring_literals
@@ -1670,3 +1672,6 @@ name_atomicSelectionForeground: .asciz "selectedTextColor"
 
 .section __TEXT,__cstring,cstring_literals
 input_set_bezeled: .asciz "setBezeled:"
+
+.section __TEXT,__cstring,cstring_literals
+hide_app_name: .asciz "hide:"

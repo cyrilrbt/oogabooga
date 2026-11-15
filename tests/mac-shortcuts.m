@@ -5,6 +5,18 @@ extern void mac_init_selectors(void);
 extern void mac_menus(void);
 extern void mac_address_configure(NSTextField *);
 extern __unsafe_unretained id mac_app,mac_delegate;
+// Exercise real menu dispatch without hiding the test process or exiting it.
+@interface ShortcutApplication : NSApplication
+@property NSUInteger hideCalls,quitCalls;
+@end
+@implementation ShortcutApplication
+- (void)hide:(id)sender { (void)sender;self.hideCalls++; }
+- (void)terminate:(id)sender { (void)sender;self.quitCalls++; }
+- (BOOL)validateMenuItem:(NSMenuItem *)item {
+    if(item.action==@selector(hide:) || item.action==@selector(terminate:)) return YES;
+    return [super validateMenuItem:item];
+}
+@end
 @interface ShortcutTarget : NSObject
 @property SEL lastAction;
 @end
@@ -22,7 +34,7 @@ static NSEvent *key(NSString *text,NSEventModifierFlags flags) {
 }
 int main(void) {
     @autoreleasepool {
-        NSApplication *app=NSApplication.sharedApplication;
+        ShortcutApplication *app=ShortcutApplication.sharedApplication;
         ShortcutTarget *target=[ShortcutTarget new];
         mac_app=app; mac_delegate=target;
         mac_init_selectors(); mac_menus();
@@ -59,8 +71,18 @@ int main(void) {
             assert(item.keyEquivalentModifierMask==expected);
         }
         NSMenuItem *quit=[[main itemAtIndex:0].submenu itemWithTitle:@"Quit Oogabooga"];
-        assert([quit.keyEquivalent isEqual:@"q"] && quit.keyEquivalentModifierMask==NSEventModifierFlagCommand);
-        puts("PASS: centered single-line address field, long URL clipping/scrolling, native Command menu routing, Control/extra-modifier rejection, responder-chain editing, and Shift-Command-Z redo binding");
+        assert([quit.keyEquivalent isEqual:@"q"] && quit.keyEquivalentModifierMask==NSEventModifierFlagCommand && quit.target==app);
+        NSMenuItem *hide=[[main itemAtIndex:0].submenu itemWithTitle:@"Hide Oogabooga"];
+        assert(hide.action==@selector(hide:) && [hide.keyEquivalent isEqual:@"h"] && hide.keyEquivalentModifierMask==NSEventModifierFlagCommand && hide.target==app);
+        assert([main performKeyEquivalent:key(@"h",NSEventModifierFlagCommand)] && app.hideCalls==1);
+        assert([main performKeyEquivalent:key(@"q",NSEventModifierFlagCommand)] && app.quitCalls==1);
+        for(NSString *letter in @[@"h",@"q"]) {
+            assert(![main performKeyEquivalent:key(letter,NSEventModifierFlagControl)]);
+            assert(![main performKeyEquivalent:key(letter,NSEventModifierFlagCommand|NSEventModifierFlagOption)]);
+            assert(![main performKeyEquivalent:key(letter,NSEventModifierFlagCommand|NSEventModifierFlagShift)]);
+        }
+        assert(app.hideCalls==1 && app.quitCalls==1);
+        puts("PASS: centered single-line address field, long URL clipping/scrolling, native Command hide/quit and menu routing, Control/extra-modifier rejection, responder-chain editing, and Shift-Command-Z redo binding");
     }
     return 0;
 }

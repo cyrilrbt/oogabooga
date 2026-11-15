@@ -4,6 +4,14 @@ Record user-visible changes here whenever `VERSION` changes. Keep the newest
 version first, use the same SemVer as `VERSION`, and distinguish added features,
 behavior changes, and fixes. Historical entries summarize the repository history.
 
+## 0.14.2 — 2026-11-15
+
+### Fixed
+
+- Add the native macOS Hide menu item (Command-H) and route Hide/Quit
+  (Command-Q) directly to the application. Retain Linux Control-Q and
+  desktop-managed window hiding/minimizing.
+
 ## 0.14.1 — 2026-11-15
 
 ### Fixed

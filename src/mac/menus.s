@@ -56,7 +56,7 @@ _mac_submenu:
     mov x0, x22
     LEAVE
 
-// Each item: C title, selector slot, C key, target flag, native modifier mask.
+// Each item: title, selector, key, target (0 responder, 1 delegate, 2 app), mask.
 _mac_menu_items:
     ENTER
     mov x19, x21
@@ -85,7 +85,13 @@ Lmenu_modifiers:
     ldr x9, [x19, #24]
     cbz x9, Lmenu_advance
     mov x0, x22
+    cmp x9, #2
+    b.eq Lmenu_app_target
     LOAD x2, _mac_delegate
+    b Lmenu_set_target
+Lmenu_app_target:
+    LOAD x2, _mac_app
+Lmenu_set_target:
     MSG setTarget
 Lmenu_advance:
     add x19, x19, #40
@@ -95,7 +101,8 @@ Lmenu_done:
 .section __DATA,__const
 .p2align 3
 app_items:
-.quad quit_text, _sel_terminate, q_key, 0, 0x100000
+.quad hide_text, _sel_hideApp, h_key, 2, 0x100000
+.quad quit_text, _sel_terminate, q_key, 2, 0x100000
 .quad 0, 0, 0, 0, 0
 edit_items:
 .quad undo_text, _sel_undo, z_key, 0, 0x100000
@@ -119,6 +126,7 @@ e_key: .asciz "e"
 app_text: .asciz "Oogabooga"
 edit_text: .asciz "Edit"
 nav_text: .asciz "Navigate"
+hide_text: .asciz "Hide Oogabooga"
 quit_text: .asciz "Quit Oogabooga"
 undo_text: .asciz "Undo"
 redo_text: .asciz "Redo"
@@ -131,6 +139,7 @@ reload_text: .asciz "Reload"
 back_text: .asciz "Back"
 forward_text: .asciz "Forward"
 history_text: .asciz "History"
+h_key: .asciz "h"
 q_key: .asciz "q"
 z_key: .asciz "z"
 x_key: .asciz "x"
