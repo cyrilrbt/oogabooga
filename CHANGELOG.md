@@ -4,6 +4,16 @@ Record user-visible changes here whenever `VERSION` changes. Keep the newest
 version first, use the same SemVer as `VERSION`, and distinguish added features,
 behavior changes, and fixes. Historical entries summarize the repository history.
 
+## Unreleased
+
+### Fixed
+
+- Preserve native TextKit table-block identity when capturing retained box
+  painting, rather than changing initialized cells into a custom subclass.
+  Keep the original native painter for blocks outside the assembly engine.
+- Test flex cell geometry directly and cover native table identity and painting
+  fallback to catch compatibility regressions across macOS versions.
+
 ## 0.12.0 — 2026-11-14
 
 ### Added

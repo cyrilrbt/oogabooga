@@ -100,30 +100,51 @@ _mac_display_bind:
     CLASS NSTextTableBlock
     cmp x0, x21
     b.ne Lbind_done
-    ADDR x0, display_table_name
-    bl _objc_getClass
-    cbnz x0, Lbind_class_ready
-    CLASS NSTextTableBlock
-    ADDR x1, display_table_name
-    mov x2, #0
-    bl _objc_allocateClassPair
+    // Preserve native table-block identity. Older TextKit versions do not
+    // reliably lay out instances whose isa is changed after initialization.
+    // Intercept only painting; unbound native blocks keep their original IMP.
+    LOAD x9, display_table_original
+    cbnz x9, Lbind_done
     mov x21, x0
     ADDR x0, display_box_name
     bl _sel_registerName
+    mov x22, x0
     mov x1, x0
     mov x0, x21
-    ADDR x2, _mac_display_box
+    bl _class_getMethodImplementation
+    STORE x0, display_table_original
+    mov x0, x21
+    mov x1, x22
+    ADDR x2, display_table_draw
     ADDR x3, display_box_encoding
-    bl _class_addMethod
-    mov x0, x21
-    bl _objc_registerClassPair
-    mov x0, x21
-Lbind_class_ready:
-    mov x1, x0
-    mov x0, x19
-    bl _object_setClass
+    // class_replaceMethod adds a class-local override if the method is
+    // inherited, without modifying NSTextBlock or any of its other subclasses.
+    bl _class_replaceMethod
 Lbind_done:
     add sp, sp, #128
+    LEAVE
+
+display_table_draw:
+    ENTER
+    stp x0, x1, [sp, #144]
+    stp x2, x3, [sp, #160]
+    stp x4, x5, [sp, #176]
+    stp d0, d1, [sp, #192]
+    stp d2, d3, [sp, #208]
+    ADDR x1, paint_descriptor_key
+    bl _objc_getAssociatedObject
+    mov x19, x0
+    ldp x0, x1, [sp, #144]
+    ldp x2, x3, [sp, #160]
+    ldp x4, x5, [sp, #176]
+    ldp d0, d1, [sp, #192]
+    ldp d2, d3, [sp, #208]
+    cbz x19, Ltable_draw_native
+    bl _mac_display_box
+    LEAVE
+Ltable_draw_native:
+    LOAD x16, display_table_original
+    blr x16
     LEAVE
 
 // NSTextBlock background callback: record, don't paint out of source order.
@@ -310,7 +331,6 @@ Lreplay_done:
     LEAVE
 .section __TEXT,__cstring,cstring_literals
 paint_descriptor_key: .asciz "displayPaintDescriptor"
-display_table_name: .asciz "OogaDisplayTableBlock"
 display_box_name: .asciz "drawBackgroundWithFrame:inView:characterRange:layoutManager:"
 display_box_encoding: .asciz "v@:{CGRect={CGPoint=dd}{CGSize=dd}}@{_NSRange=QQ}@"
 .globl _mac_display_key
@@ -322,6 +342,7 @@ _mac_display_list: .space 8
 _mac_display_data: .space 8
 _mac_display_painted: .space 8
 _mac_display_culled: .space 8
+display_table_original: .space 8
 
 .text
 .p2align 2
