@@ -151,7 +151,21 @@ OOGABOOGA_ENGINE=webkit ./build/linux/oogabooga https://example.com
 
 The shared assembly engine tokenizes static HTML into a bounded flow tree, supplies implied `html`/`body` elements, decodes named/numeric entities, collapses whitespace, and maps UTF-8 byte offsets to native UTF-16 ranges. CSS parsing, selector matching, inheritance, and the cascade are handwritten assembly; native text layout measures styled glyphs and wraps them inside assembly-created, nested content boxes. It supports paragraphs, headings, lists, preformatted text, titles, legacy `<center>` alignment, and relative HTTP(S) links. Inline span/emphasis tags stay in text flow; inline-blocks have independent nested shaping contexts with retained source text. Native AppKit or Pango/Cairo services supply glyph shaping and drawing; assembly retains source maps, selection/hit regions and scene scrolling; WebKit is not used to parse or render this mode. Back/forward/reload and SQLite history work in both modes, with independent in-window navigation stacks. Clickable links show the pointing-hand cursor; authored link colors remain authoritative, including sites that intentionally use purple for unvisited links.
 
-The custom adapters use AppKit on macOS and GTK/Pango/Cairo on Linux. The Linux backend emits native x86-64 assembly from the shared source; Python is never used at runtime. Both run the same 20 saved-page fixtures and Acid1 geometry reference, excluding glyph/widget regions and allowing a one-pixel edge tolerance. Native fonts and widgets can differ between platforms. It does **not** implement full HTML5 tree-construction rules, JavaScript, fragment anchors, file uploads, or modern login flows. Comments and inert script bodies are retained in a separate mutable document tree and excluded from rendering; style blocks are parsed as CSS and never displayed. Layout supports normal text flow, nested boxes, bounded flexbox/Grid subsets, and HTML tables. Relative/absolute/fixed positioning, stacking contexts, group opacity, clipping, and contained wheel scrolling have regression coverage; sticky positioning and full CSS box behavior remain incomplete. Unsupported pages can be opened in WebKit with ⌘E / Ctrl+E.
+The custom adapters use AppKit on macOS and GTK/Pango/Cairo on Linux. The Linux backend emits native x86-64 assembly from the shared source; Python is never used at runtime. Both run the same 20 saved-page fixtures and Acid1 geometry reference, excluding glyph/widget regions and allowing a one-pixel edge tolerance. Native fonts and widgets can differ between platforms. It does **not** implement full HTML5 tree-construction rules, JavaScript, file uploads, or modern login flows. Comments and inert script bodies are retained in a separate mutable document tree and excluded from rendering; style blocks are parsed as CSS and never displayed. Layout supports normal text flow, nested boxes, bounded flexbox/Grid subsets, and HTML tables. Relative/absolute/fixed positioning, stacking contexts, group opacity, clipping, and contained wheel scrolling have regression coverage; sticky positioning and full CSS box behavior remain incomplete. Unsupported pages can be opened in WebKit with ⌘E / Ctrl+E.
+
+The current engine also supports ordinary inline decoration across wrapped lines,
+live interaction pseudo-classes, Unicode fragment links and same-document history
+with viewport restoration. The first `<base href>` supplies the document's relative
+URL base. Native regression coverage includes retained focus, edited values and
+selection during state-triggered reflow. Try `/engine/foundations` in the local lab.
+
+CSS dimension math is deliberately bounded: `calc()`, `min()`, `max()` and
+`clamp()` support nesting up to eight levels and expressions up to 256 bytes,
+with compatible dimensions and scalar multiplication/division. Width, height,
+min/max constraints and flex basis retain containing-block percentages until
+layout. `vw`, `vh`, `vmin` and `vmax` use the current viewport. General math in
+shorthands, complete inline padding/bidi decoration, full flex/Grid conformance,
+and incremental per-property style invalidation remain roadmap work.
 
 Website-styled submit buttons use assembly-configured native cells with CSS
 background/text colors, uniform borders, corner radii and title padding. Native
@@ -257,7 +271,7 @@ Scene coordinates cover box/glyph painting, link hit testing, cursor regions,
 mouse selection, native widget clips, and contained wheel scrolling. Contained
 scroll offsets survive reflow by stable DOM identity. Native controls still use
 platform views: arbitrary sibling overlap/compositing with glyphs and controls,
-complete keyboard scroll routing and ordinary inline-fragment border/padding layout remain
+complete keyboard scroll routing and full inline-fragment padding/bidi decoration remain
 in the [engine backlog](ENGINE_TODO.md). These are bounded static-page features,
 not complete CSS conformance.
 
@@ -288,8 +302,8 @@ objects, and the complete HTML table-sizing algorithm remain unsupported.
 
 ### Styled inline links
 
-Short, single-line `<a>` elements with backgrounds, padding, borders, or a minimum
-height use measured native inline boxes. They support all four padding/margin
+Short text-only `<a>` elements with `display:inline-block` use measured native
+inline boxes; ordinary inline links remain wrappable text. They support all four padding/margin
 edges, solid borders, single-value `border-radius` (pixels or percentages),
 `width`/`height`, `min-width`/`min-height`, `max-width`, `box-sizing`, `text-align`,
 and `vertical-align:baseline`/`middle`. The full box activates the link and shows
@@ -299,7 +313,7 @@ label. Website text/background colors are preserved.
 This path handles text-only link contents up to 2 KiB, including simple nested
 text markup. Links with hidden content, line breaks, images, or form controls
 retain ordinary text flow. Nested text is drawn using the anchor’s computed text
-style. General inline-block containers use the independent formatting contexts above; this short styled-link adapter remains a separate optimized path. Multiline ordinary-inline box fragmentation remains unsupported. Resize and progressive stylesheet updates preserve native link
+style. General inline-block containers use the independent formatting contexts above; this short styled-link adapter remains a separate optimized path. Ordinary inline links and spans now split backgrounds and border edges across lines; complete padding/bidi decoration remains unfinished. Resize and progressive stylesheet updates preserve native link
 controls and update their geometry or return them to ordinary text as needed.
 
 ### Images and forms

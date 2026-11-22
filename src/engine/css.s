@@ -447,6 +447,9 @@ Lcascade_done:
 
 // Resolve one length token. Font size uses parent font; other lengths use current font.
 _css_length:
+    lsr x9, x0, #60
+    cmp x9, #10
+    b.eq Llength_math
     mov x5, x0
     cmp x1, #CSS_LINE
     b.ne Llength_raw
@@ -487,6 +490,8 @@ Llength_reference:
     orr x0, x6, #0x100000000
     ret
 Llength_font_reference:
+    cmp x7, #5
+    b.hs Llength_viewport
     ldr x8, [x3, #48]
     cmp x1, #CSS_SIZE
     b.ne Llength_rem
@@ -528,6 +533,33 @@ Llength_spacing_clamp:
     cmp x0, x8
     csel x0, x8, x0, hi
     ret
+Llength_viewport:
+    ldr x8, [x4, #856]
+    ldr x9, [x4, #1776]
+    cmp x7, #5
+    b.eq Llength_viewport_scale
+    cmp x7, #6
+    b.eq Llength_viewport_height
+    cmp x8, x9
+    csel x10, x8, x9, lt
+    csel x8, x8, x9, gt
+    cmp x7, #7
+    csel x8, x10, x8, eq
+    b Llength_viewport_scale
+Llength_viewport_height:
+    mov x8, x9
+Llength_viewport_scale:
+    mul x6, x6, x8
+    mov x8, #0x86a0
+    movk x8, #1, lsl #16
+    udiv x0, x6, x8
+    b Llength_clamp
+Llength_math:
+    // Bind font and viewport context, retaining percentages for the box pass.
+    mov x1, x2
+    mov x2, x3
+    mov x3, x4
+    b _css_math_bind
 Llength_line_unitless:
     ldr x7, [x3, #48]
     mul x0, x6, x7

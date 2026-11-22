@@ -174,6 +174,9 @@ _mac_dom_rebuild:
     mov x0, x19
     bl mac_dom_transfer
     cbz x0, Ldom_rebuild_free
+    mov x0, x19
+    mov x1, x20
+    bl _engine_interaction_transfer
     bl _mac_engine_cancel
     mov x0, x20
     bl _mac_resources_rebind

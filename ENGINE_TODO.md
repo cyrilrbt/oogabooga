@@ -1,6 +1,6 @@
 # Assembly Engine Roadmap
 
-Working checklist, updated against the repository on 2026-11-21. This covers the
+Working checklist, updated against the repository on 2026-11-22. This covers the
 engine rather than browser chrome. It is a comprehensive backlog, not a promise
 to implement every web standard before JavaScript. Unchecked items can have
 partial groundwork; parsing a value does not mean rendering it correctly.
@@ -48,6 +48,13 @@ partial groundwork; parsing a value does not mean rendering it correctly.
 - Grid sparse placement, structural selectors and nested stylesheet imports are
   covered. Basic TrueType/OpenType font loading and reflow are covered;
   WOFF/WOFF2, broader flex/table cases and representative pages remain.
+
+The 0.18.0 foundation round adds wrapped ordinary inline decorations, bounded
+CSS dimension math and viewport units, live pseudo-class state, first-base URL
+resolution, Unicode fragment navigation and per-entry viewport restoration.
+The `/engine/foundations` fixture runs in both native adapters. These are supported
+subsets: complete bidi/padding decoration, all flex/Grid sizing rules, incremental
+style invalidation and restoration of every nested scroller remain unfinished.
 
 ## Linux port milestones
 
@@ -128,13 +135,15 @@ Python, and shell without shipping those implementations as the engine.
   selector lists, and malformed-selector rejection.
 - [ ] Add `:nth-child`, `:nth-of-type`, `:is`, `:where`, and state selectors;
   defer expensive relational selectors until matching budgets are measured.
-- [ ] Connect `:hover`, `:active`, `:focus`, `:focus-visible`, and `:checked` to
-  current interaction state and targeted style invalidation.
+- [x] Connect `:hover`, `:active`, `:focus`, `:focus-visible`, and `:checked` to
+  live native state with coalesced restyling and retained editor state.
+- [ ] Replace full restyles with dependency-aware targeted style invalidation.
 - [ ] Define user-agent defaults, presentational hints, cascade origins/layers,
   shorthand resets, and `revert` behavior.
 - [ ] Complete custom-property cycles, fallbacks, invalid-at-computed-value
   behavior, and dependency tracking across style changes.
-- [ ] Add `calc`, `min`, `max`, `clamp`, viewport units, and consistent percentage,
+- [x] Add bounded `calc`, `min`, `max`, `clamp` for dimensions and viewport units.
+- [ ] Complete general math/shorthand support and consistent percentage,
   em/rem and absolute-length resolution, including negative values where valid.
 - [ ] Expand media queries and add `@supports` with honest capability answers.
 - [ ] Remove incidental property-count/packed-value constraints where they block

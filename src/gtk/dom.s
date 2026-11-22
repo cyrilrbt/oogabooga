@@ -98,6 +98,9 @@ _gtk_dom_rebuild:
     mov x0, x19
     bl gtk_dom_transfer
     cbz x0, Lgtk_dom_new_free
+    mov x0, x19
+    mov x1, x20
+    bl _engine_interaction_transfer
     bl _gtk_selection_reset
     bl _gtk_engine_cancel_load
     bl _g_cancellable_new

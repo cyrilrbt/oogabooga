@@ -18,11 +18,20 @@ _gtk_engine_post:
 _gtk_engine_load_uri:
     STORE xzr, gtk_request_body
     STORE xzr, _gtk_nav_pending
-    b _gtk_engine_load_target
+    ENTER
+    mov x19, x0
+    bl _gtk_fragment_navigate
+    cbnz x0, Lgtk_uri_fragment_done
+    mov x0, x19
+    bl _gtk_engine_load_target
+Lgtk_uri_fragment_done:
+    LEAVE
 .globl _gtk_engine_load_target
 _gtk_engine_load_target:
     ENTER
     mov x19, x0
+    bl _gtk_navigation_save
+    mov x0, x19
     bl _g_uri_parse_scheme
     cbz x0, Lgtk_load_reject
     mov x20, x0
@@ -198,12 +207,21 @@ Lgtk_loaded_show:
     bl _soup_message_get_uri
     bl _g_uri_to_string
     STORE x0, _gtk_uri
+    STORE x23, _gtk_doc
+    bl _gtk_base_update
     mov x0, x23
     bl _gtk_engine_show_document
     ldr x9, [x19, #24]
     STORE x9, _gtk_nav_pending
     bl _gtk_navigation_commit
     bl _gtk_engine_committed
+    ldr x9, [x19, #24]
+    cbz x9, Lgtk_commit_fragment
+    bl _gtk_navigation_restore
+    b Lgtk_commit_resources
+Lgtk_commit_fragment:
+    bl _gtk_fragment_scroll
+Lgtk_commit_resources:
     bl _gtk_resources_begin
     b Lgtk_loaded_cleanup
 Lgtk_loaded_decode_error:

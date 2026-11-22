@@ -147,6 +147,32 @@ Lcontrol_connect:
     bl _gtk_engine_connect
 Lcontrol_show:
     mov x0, x23
+    ADDR x1, gtk_live_key_signal
+    CALLBACK x2, _gtk_state_keyboard
+    mov x3, #0
+    bl _gtk_engine_connect
+    mov x0, x23
+    ADDR x1, gtk_live_pointer_signal
+    CALLBACK x2, _gtk_state_pointer
+    mov x3, #0
+    bl _gtk_engine_connect
+    mov x0, x23
+    ADDR x1, gtk_live_state_signal
+    CALLBACK x2, _gtk_state_schedule
+    mov x3, #0
+    bl _gtk_engine_connect
+    cmp x25, #4
+    b.eq Lcontrol_toggle_signal
+    cmp x25, #5
+    b.ne Lcontrol_state_wired
+Lcontrol_toggle_signal:
+    mov x0, x23
+    ADDR x1, gtk_live_toggle_signal
+    CALLBACK x2, _gtk_state_schedule
+    mov x3, #0
+    bl _gtk_engine_connect
+Lcontrol_state_wired:
+    mov x0, x23
     bl _gtk_widget_show
     mov x0, x23
     bl _g_object_ref_sink
@@ -300,3 +326,11 @@ _gtk_control_host_destroyed:
 
 .section __TEXT,__cstring,cstring_literals
 gtk_control_node_key: .asciz "oogabooga-control-node"
+
+.section __TEXT,__cstring,cstring_literals
+gtk_live_state_signal: .asciz "state-flags-changed"
+gtk_live_toggle_signal: .asciz "toggled"
+
+.section __TEXT,__cstring,cstring_literals
+gtk_live_key_signal: .asciz "key-press-event"
+gtk_live_pointer_signal: .asciz "button-press-event"

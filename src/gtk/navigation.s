@@ -25,7 +25,7 @@ Lgtk_navigation_prune:
     b Lgtk_navigation_prune
 Lgtk_navigation_allocate:
     mov x0, #1
-    mov x1, #24
+    mov x1, #40
     bl _calloc
     mov x20, x0
     LOAD x0, _gtk_uri
@@ -79,8 +79,18 @@ _gtk_engine_reload:
  gtk_navigation_target:
     cbz x9, Lgtk_navigation_no_target
     STORE x9, _gtk_nav_pending
-    ldr x0, [x9]
-    b _gtk_engine_load_target
+    ENTER
+    mov x19, x9
+    bl _gtk_navigation_save
+    mov x0, x19
+    STORE x0, _gtk_nav_pending
+    ldr x0, [x19]
+    bl _gtk_fragment_navigate
+    cbnz x0, Lgtk_target_loaded
+    ldr x0, [x19]
+    bl _gtk_engine_load_target
+Lgtk_target_loaded:
+    LEAVE
 Lgtk_navigation_no_target:
     ret
 .section __DATA,__bss
@@ -88,3 +98,37 @@ Lgtk_navigation_no_target:
 .globl _gtk_nav_current,_gtk_nav_pending
 _gtk_nav_current: .space 8
 _gtk_nav_pending: .space 8
+
+.text
+.globl _gtk_navigation_save
+_gtk_navigation_save:
+    ENTER
+    LOAD x19, _gtk_nav_current
+    cbz x19, Lgtk_nav_saved
+    LOAD x0, _gtk_view
+    cbz x0, Lgtk_nav_saved
+    bl _gtk_scrolled_window_get_hadjustment
+    bl _gtk_adjustment_get_value
+    str d0, [x19, #24]
+    LOAD x0, _gtk_view
+    bl _gtk_scrolled_window_get_vadjustment
+    bl _gtk_adjustment_get_value
+    str d0, [x19, #32]
+Lgtk_nav_saved:
+    LEAVE
+.globl _gtk_navigation_restore
+_gtk_navigation_restore:
+    ENTER
+    LOAD x19, _gtk_nav_current
+    cbz x19, Lgtk_nav_restored
+    LOAD x0, _gtk_view
+    cbz x0, Lgtk_nav_restored
+    bl _gtk_scrolled_window_get_hadjustment
+    ldr d0, [x19, #24]
+    bl _gtk_adjustment_set_value
+    LOAD x0, _gtk_view
+    bl _gtk_scrolled_window_get_vadjustment
+    ldr d0, [x19, #32]
+    bl _gtk_adjustment_set_value
+Lgtk_nav_restored:
+    LEAVE

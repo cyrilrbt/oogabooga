@@ -73,7 +73,9 @@
 // Scratch box metrics +768: content width,L/R/T/B margins,L/R/T/B padding,border.
 .set ATTR_CSS_DATA, 680
 
-// Metadata scratch: +696 HTML hidden flag, +856 root viewport, +864 visited link.
+// Metadata scratch: +696 HTML hidden flag; +744 live interaction flags,
+// +752 candidate state; root +760 viewport-height cache; +856 viewport width,
+// +864 visited link. Root BOX_HEIGHT supplies the initial containing height.
 
 .set CSS_RADIUS, 24
 .set CSS_MIN_HEIGHT, 25

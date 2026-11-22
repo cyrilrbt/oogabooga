@@ -16,6 +16,20 @@ _mac_scene_begin:
     mov x19, x0
     ldr x20, [x19, #72]
     ldr x21, [x19, #24]
+    ldr x0, [x19, #56]
+    cbz x0, Lscene_needed_start
+    ADDR x1, scene_hover_token
+    bl _strcasestr
+    cbnz x0, Lscene_allocate
+    ldr x0, [x19, #56]
+    ADDR x1, scene_active_token
+    bl _strcasestr
+    cbnz x0, Lscene_allocate
+    ldr x0, [x19, #56]
+    ADDR x1, scene_focus_token
+    bl _strcasestr
+    cbnz x0, Lscene_allocate
+Lscene_needed_start:
     mov x22, #1
 Lscene_needed:
     cmp x22, x21
@@ -26,6 +40,14 @@ Lscene_needed:
     ldr x10, [x9, #(32+CSS_BG_IMAGE*8)]
     cbnz x10, Lscene_allocate
     ldr x10, [x9, #88]
+    cmp x10, #2
+    b.ne Lscene_needed_atomic
+    ldr x11, [x9, #40]
+    cmn x11, #1
+    b.ne Lscene_allocate
+    ldr x11, [x9, #192]
+    cbnz x11, Lscene_allocate
+Lscene_needed_atomic:
     cmp x10, #5
     b.eq Lscene_allocate
     ldr x10, [x9, #(1840+(CSS_POSITION-48)*8)]
@@ -256,3 +278,8 @@ Lscene_measure_done:
 _mac_scene: .space 8
 .section __TEXT,__cstring,cstring_literals
 scene_owner_key: .asciz "assemblySceneOwner"
+
+.section __TEXT,__cstring,cstring_literals
+scene_hover_token: .asciz ":hover"
+scene_active_token: .asciz ":active"
+scene_focus_token: .asciz ":focus"

@@ -62,6 +62,7 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(data)
             return
         fixture_files = {
+            '/engine/foundations': ('fixtures/engine-foundations.html', 'text/html; charset=utf-8'),
             '/engine/inputs': ('fixtures/engine-inputs.html', 'text/html; charset=utf-8'),
             '/engine/backgrounds': ('fixtures/engine-backgrounds.html', 'text/html; charset=utf-8'),
             '/engine/backgrounds.css': ('fixtures/engine-backgrounds.css', 'text/css; charset=utf-8'),

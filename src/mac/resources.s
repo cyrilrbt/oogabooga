@@ -138,7 +138,7 @@ Lresource_url:
     mov x24, x0
     CLASS NSURL
     mov x2, x24
-    LOAD x3, _engine_pending_url
+    LOAD x3, _engine_render_base
     MSG relativeURL
     MSG absoluteURL
     cbz x0, Lresource_next
@@ -170,11 +170,11 @@ Lresource_embedded:
     bl _strlen
     mov x1, x0
     mov x0, x23
-    LOAD x2, _engine_pending_url
+    LOAD x2, _engine_render_base
     bl _mac_fonts_add_sheet
     ldr x0, [x21, #32]
     mov x1, x20
-    LOAD x2, _engine_pending_url
+    LOAD x2, _engine_render_base
     bl _mac_imports_add
     b Lresources_imports
 Lresources_finish:

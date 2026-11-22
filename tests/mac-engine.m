@@ -92,6 +92,7 @@ static BOOL slowStarted;
     NSDictionary *headers=@{@"Content-Type":@"text/html; charset=utf-8"};
     NSInteger status=200;
     NSString *html=@"<title>First</title><h1>Hello 🌐</h1><p><a href='/second?a=1&amp;b=2'>next café</a> <a href='javascript:alert(1)'>bad link</a></p><script>SHOULD NOT RENDER</script>";
+    if([path isEqual:@"/foundations"]) html=[NSString stringWithContentsOfFile:@"tests/fixtures/engine-foundations.html" encoding:NSUTF8StringEncoding error:NULL];
     if([path isEqual:@"/atomic"]) html=[NSString stringWithContentsOfFile:@"tests/fixtures/compat-inline-boxes.html" encoding:NSUTF8StringEncoding error:NULL];
     if([path isEqual:@"/backgrounds"]) html=@"<title>Background images</title><link rel=stylesheet media='handheld, all' href='/bg-assets/sheet.css'><link rel=stylesheet media='screen and (min-width:900px)' href='/bg-assets/wide.css'><link rel=stylesheet media='print, speech' href='/must-not-load.css'><div id=bgpaint></div><div id=bgtile></div><div id=bgmissing></div><form id=bgform action='/form-result' style='position:relative;width:300px;height:50px;padding:0;border:1px solid gray'><input type=submit id=bgsubmit name=go value='' style='position:absolute;right:2px;top:0;width:60px;height:30px'></form>";
     if([path isEqual:@"/bg-assets/sheet.css"]) {html=@"body{margin:0;background:white}#bgpaint{width:100px;height:60px;background-image:url(tile.svg);background-size:20px 10px;background-position:center;background-repeat:no-repeat}#bgtile{width:100px;height:60px;background:url(tile.svg);background-size:20px 10px;background-repeat:repeat}#bgmissing{width:100px;height:30px;background:green;background-image:url(missing.png)}#bgsubmit{background-image:url(tile.svg);background-size:20px 10px;background-position:center;background-repeat:no-repeat;border:none}";headers=@{@"Content-Type":@"text/css"};}
@@ -829,6 +830,27 @@ int main(void) {
             const int *p=samples[i]; NSColor *c=[[acidBitmap colorAtX:p[0]*acidBitmap.pixelsWide/600 y:p[1]*acidBitmap.pixelsHigh/500] colorUsingColorSpace:acidBitmap.colorSpace];
             assert(fabs(c.redComponent-p[2]/255.0)<.23 && fabs(c.greenComponent-p[3]/255.0)<.23 && fabs(c.blueComponent-p[4]/255.0)<.23);
         }
+        navigate(@"/foundations");waitFor(^BOOL{return [window.title hasPrefix:@"Inline, sizing, state and navigation — Assembly"]&&[status.stringValue containsString:@"ready."];});
+        NSRange foundationWrapped=[text.string rangeOfString:@"a long styled link that should wrap naturally across several lines 🌐"];
+        assert(foundationWrapped.location!=NSNotFound);
+        assert(![text.textStorage attribute:NSAttachmentAttributeName atIndex:foundationWrapped.location effectiveRange:NULL]);
+        NSRange foundationWrappedGlyphs=[text.layoutManager glyphRangeForCharacterRange:foundationWrapped actualCharacterRange:NULL];
+        NSUInteger firstLineEnd=0;NSRange firstLine;
+        [text.layoutManager lineFragmentRectForGlyphAtIndex:foundationWrappedGlyphs.location effectiveRange:&firstLine];firstLineEnd=NSMaxRange(firstLine);
+        assert(firstLineEnd<NSMaxRange(foundationWrappedGlyphs));
+        NSURL *baseLink=[text.textStorage attribute:NSLinkAttributeName atIndex:[text.string rangeOfString:@"Relative link uses base URL"].location effectiveRange:NULL];
+        assert([baseLink.absoluteString isEqual:@"https://engine.test/engine/features"]);
+        NSTextField *liveEditor=control(@"editor");liveEditor.stringValue=@"preserved café";
+        [window makeFirstResponder:liveEditor];
+        waitFor(^BOOL{return metadata(@"editor")[5]==0xfff2cc;});
+        assert([liveEditor.stringValue isEqual:@"preserved café"]&&liveEditor.currentEditor);
+        int beforeFragment=count();void *fragmentDoc=engine_document;NSPoint beforeFragmentScroll=text.visibleRect.origin;
+        navigate(@"/foundations#caf%C3%A9");
+        assert(engine_document==fragmentDoc&&count()==beforeFragment+1);
+        assert(text.visibleRect.origin.y>300);
+        mac_engine_back();
+        if(engine_document!=fragmentDoc||fabs(text.visibleRect.origin.y-beforeFragmentScroll.y)>1) NSLog(@"Fragment restoration: expected %@ actual %@ same document %d",NSStringFromPoint(beforeFragmentScroll),NSStringFromPoint(text.visibleRect.origin),engine_document==fragmentDoc);
+        assert(engine_document==fragmentDoc&&fabs(text.visibleRect.origin.y-beforeFragmentScroll.y)<1);
         int beforeDenied=count();
         sqlite3_set_authorizer(mac_db,denyInsert,NULL);
         navigate(@"/second"); waitFor(^BOOL { return [window.title hasPrefix:@"Second — Assembly"] && [status.stringValue containsString:@"history could not be saved"]; });

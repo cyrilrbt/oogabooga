@@ -1,0 +1,24 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Inline, sizing, state and navigation</title>
+<base href="/engine/">
+<style>
+body { font-family:Arial,sans-serif; font-size:16px; background:white; color:#223344; margin:24px; }
+h1 { font-size:28px; }
+.card { width:clamp(180px, calc(100% - 48px), 640px); padding:12px; border:1px solid #556677; margin-bottom:20px; }
+.wrap { width:220px; line-height:1.6; }
+.decorated { background:#fff2cc; border:2px solid #c00000; }
+a:hover { color:#c00000; }
+a:active { background:#ffff00; }
+input:focus { background:#fff2cc; }
+input:focus-visible { color:#0000ff; }
+input:checked { background:#00ff00; }
+.tall { height:800px; }
+</style></head><body>
+<h1>Engine foundations</h1>
+<div class="card"><p>Resize the window: this card uses nested clamp/calc and percentages.</p>
+<p class="wrap">Before <a id="wrapped" class="decorated" href="foundations#café">a long styled link that should wrap naturally across several lines 🌐</a> after.</p>
+<p><input id="editor" value="Keep my edited text"><input id="check" type="checkbox">Toggle, focus, and hover.</p>
+<p><a href="foundations#café">Jump to Unicode target</a> · <a href="features">Relative link uses base URL</a></p></div>
+<div class="tall"></div><h2 id="café">Unicode fragment target</h2>
+<p><a href="foundations#top">Back to top</a></p>
+</body></html>

@@ -366,6 +366,9 @@ _mac_display_compile_impl:
     mov x21, x2
     mov x22, x3
     stp x21, x22, [sp, #160]
+    mov x0, x19
+    mov x1, x20
+    bl _mac_inline_fragments
     mov x24, #0
 Lcompile_node:
     ldp x21, x22, [sp, #160]

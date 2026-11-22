@@ -46,6 +46,8 @@ Lcursor_class:
     mov x1, x0
     mov x0, x19
     bl _object_setClass
+    mov x0, x19
+    bl _mac_live_tracking_install
     LEAVE
 
 display_cursors:
@@ -114,6 +116,9 @@ scene_mouse_encoding: .asciz "v@:@"
 .section __DATA,__const
 .p2align 3
 scene_mouse_methods:
+.quad live_move_name,_mac_scene_cursor_update
+.quad live_enter_name,_mac_scene_cursor_update
+.quad live_exit_name,_mac_live_mouse_exit
 .quad scene_down_name,_mac_scene_mouse_down
 .quad scene_drag_name,_mac_scene_mouse_dragged
 .quad scene_up_name,_mac_scene_mouse_up
@@ -121,3 +126,8 @@ scene_mouse_methods:
 .quad scene_scroll_name,_mac_scene_scroll_wheel
 .quad scene_key_name,_mac_scene_key_down
 .quad 0,0
+
+.section __TEXT,__cstring,cstring_literals
+live_move_name: .asciz "mouseMoved:"
+live_enter_name: .asciz "mouseEntered:"
+live_exit_name: .asciz "mouseExited:"

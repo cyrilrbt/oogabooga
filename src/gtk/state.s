@@ -28,6 +28,12 @@ _gtk_engine_prepare:
     STORE x20, _gtk_width
     ldr x9, [x19, #72]
     str x20, [x9, #856]
+    LOAD x10, _gtk_viewport_height
+    cbnz x10, Lgtk_prepare_height
+    mov x10, #768
+Lgtk_prepare_height:
+    str x10, [x9, #1776]
+    bl _gtk_base_update
     mov x0, x19
     bl _gtk_link_states
     mov x0, x19
@@ -128,6 +134,19 @@ Lgtk_prepare_measure:
     bl _gtk_layout_node
     STORE x0, _gtk_height
     bl _gtk_engine_scene
+    // The viewport is a definite containing block, not a cap on document
+    // overflow. Use the shared scene's propagated, clipped content extent.
+    LOAD x9, _gtk_scene
+    cbz x9, Lgtk_prepare_extent_ready
+    ldr x9, [x9, #8]
+    ldr d0, [x9, #SC_CONTENT_H]
+    fcvtzs x10, d0
+    add x10, x10, #1
+    LOAD x11, _gtk_height
+    cmp x10, x11
+    csel x10, x10, x11, gt
+    STORE x10, _gtk_height
+Lgtk_prepare_extent_ready:
     bl _gtk_engine_commands
     mov x0, #1
     LEAVE

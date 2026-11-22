@@ -23,6 +23,19 @@ Lgtk_command_node:
     ldr x9, [x9]
     cmp x9, #NODE_TEXT
     b.eq Lgtk_command_advance
+    LOAD x10, _gtk_doc
+    ldr x10, [x10, #72]
+    add x10, x10, x20, lsl #11
+    ldr x10, [x10, #88]
+    cmp x10, #2
+    b.ne Lgtk_command_inline_ready
+    LOAD x10, _gtk_nodes
+    add x10, x10, x20, lsl #8
+    ldr x11, [x10, #GN_WIDGET]
+    ldr x12, [x10, #GN_IMAGE]
+    orr x11, x11, x12
+    cbz x11, Lgtk_command_advance
+Lgtk_command_inline_ready:
     LOAD x0, _gtk_display
     bl _engine_display_append
     cbz x0, Lgtk_command_done
@@ -167,6 +180,9 @@ Lgtk_replay_command:
     bl _gtk_paint_node
     b Lgtk_replay_restore
 Lgtk_replay_text:
+    mov x0, x19
+    ldr x1, [x23, #120]
+    bl _gtk_inline_paint
     mov x0, x19
     ldr x1, [x23, #120]
     bl _gtk_selection_paint

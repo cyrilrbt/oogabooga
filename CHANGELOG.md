@@ -4,6 +4,32 @@ Record user-visible changes here whenever `VERSION` changes. Keep the newest
 version first, use the same SemVer as `VERSION`, and distinguish added features,
 behavior changes, and fixes. Historical entries summarize the repository history.
 
+## 0.18.0 — 2026-11-22
+
+### Added
+
+- Shared assembly CSS dimension arithmetic: bounded nested `calc()`, `min()`,
+  `max()` and `clamp()` for widths, heights, min/max constraints and flex basis.
+  Percentages resolve against the actual containing block. Add `vw`, `vh`,
+  `vmin` and `vmax` lengths, including viewport-height resize updates.
+- Ordinary styled inline links and spans can wrap with per-line backgrounds
+  and sliced border edges on both platforms; explicit inline-block links retain
+  their independent native box behavior.
+- Live `:hover`, `:active`, `:focus`, `:focus-visible` and checked-state matching,
+  with coalesced native restyling that retains edited controls and selection.
+- Unicode fragment targets, named anchors, same-document history traversal,
+  saved viewport positions and first-`<base href>` resolution for relative
+  links, forms and document resources.
+- `/engine/foundations` manual fixture and native regressions covering these
+  features together on macOS and Linux.
+
+### Fixed
+
+- Keep visible document overflow scrollable when the Linux root has a definite
+  viewport height; retain control placement during live-state restyling.
+- Traverse back from a fragment to the original hashless history entry without
+  reloading the document or losing its live editor state.
+
 ## 0.17.0 — 2026-11-21
 
 ### Fixed

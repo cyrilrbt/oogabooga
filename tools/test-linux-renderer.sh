@@ -13,7 +13,7 @@ if [ "${1:-}" != --existing ]; then
     "$cc" -g -c build/linux/engine/gtk.s -o build/linux/engine/gtk.o
 fi
 python3 tools/asm/compat_cases.py
-for name in renderer session svg compatibility auth acid1 interaction layout dom; do
+for name in renderer session svg compatibility auth acid1 interaction layout dom foundations; do
     "$cc" -g -Wall -Wextra -Werror -Wno-misleading-indentation -Ibuild/linux/engine \
         "tests/linux-$name.c" build/linux/engine/gtk.o src/linux/engine/runtime.s \
         build/linux/engine/storage.o -Wl,--defsym,browser_main=0 -lsqlite3 \

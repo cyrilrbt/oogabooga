@@ -127,6 +127,7 @@ _mac_form_toggle:
     mov x1, x2
     LOAD x0, _engine_document
     bl _mac_radio_group
+    bl _mac_state_schedule
     LEAVE
 // document, sender control: checkbox state is native; radio exclusivity follows
 // the HTML form owner and exact name, independent of native sibling grouping.

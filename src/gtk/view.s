@@ -17,6 +17,11 @@ _gtk_engine_view_new:
     bl _gtk_container_add
     bl _gtk_drawing_area_new
     STORE x0, _gtk_drawing
+    ADDR x1, gtk_live_leave_signal
+    CALLBACK x2, _gtk_state_leave
+    mov x3, #0
+    bl _gtk_engine_connect
+    LOAD x0, _gtk_drawing
     mov x1, x0
     LOAD x0, _gtk_canvas
     mov x2, #0
@@ -87,14 +92,18 @@ _gtk_engine_draw:
 .globl _gtk_engine_allocate
 _gtk_engine_allocate:
     ENTER
-    ldr w9, [x1, #12]
-    STORE x9, _gtk_viewport_height
+    LOAD x20, _gtk_viewport_height
+    ldr w21, [x1, #12]
+    STORE x21, _gtk_viewport_height
     ldr w19, [x1, #8]
     cmp x19, #64
     b.lt Lgtk_allocate_done
     LOAD x9, _gtk_width
     cmp x19, x9
+    b.ne Lgtk_allocate_reflow
+    cmp x20, x21
     b.eq Lgtk_allocate_done
+Lgtk_allocate_reflow:
     LOAD x0, _gtk_doc
     cbz x0, Lgtk_allocate_done
     mov x1, x19
@@ -292,3 +301,6 @@ gtk_sig_scroll_changed: .asciz "value-changed"
 gtk_sig_wheel: .asciz "scroll-event"
 
 gtk_sig_host_destroy: .asciz "destroy"
+
+.section __TEXT,__cstring,cstring_literals
+gtk_live_leave_signal: .asciz "leave-notify-event"

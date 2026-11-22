@@ -100,6 +100,7 @@ method_table:
 .quad _sel_formToggle, _mac_form_toggle, encoding_0
 .quad _sel_selectToggle, _mac_select_toggle, encoding_0
 .quad _sel_windowResize, _mac_engine_resize, encoding_0
+.quad _sel_liveRestyle, _mac_state_restyle, encoding_0
 .quad _sel_engineResponse, _mac_engine_response, engine_encoding_2
 .quad _sel_engineData, _mac_engine_data, engine_encoding_3
 .quad _sel_engineComplete, _mac_engine_complete, engine_encoding_4
@@ -1573,6 +1574,15 @@ Lselector_next:
     str x0, [x19], #8
     b Lselector_next
 Lselector_finished:
+    ADDR x19, engine_extra_selectors
+Lselector_extra_next:
+    ldr x20, [x19], #8
+    cbz x20, Lselector_extra_done
+    ldr x0, [x20]
+    bl _sel_registerName
+    str x0, [x20]
+    b Lselector_extra_next
+Lselector_extra_done:
     mov x0, #1
     STORE x0, selectors_ready
 Lselectors_done:
@@ -1726,3 +1736,12 @@ input_convert_rect_name: .asciz "convertRect:toView:"
 input_frame_origin_name: .asciz "setFrameOrigin:"
 input_line_padding_name: .asciz "setLineFragmentPadding:"
 input_scroll_point_name: .asciz "scrollToPoint:"
+
+.section __DATA,__const
+.p2align 3
+engine_extra_selectors:
+.quad _sel_navFragment,_sel_navDecode,_sel_navPoint,_sel_navPointValue
+.quad _sel_liveTrackingInit,_sel_liveTrackingAdd
+.quad _sel_liveLater,_sel_liveRestyle,_sel_liveFirstResponder
+.quad _sel_currentEvent,_sel_type,_sel_responds,_sel_liveBecome,_sel_liveResign
+.quad 0

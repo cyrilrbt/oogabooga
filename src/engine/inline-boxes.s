@@ -37,8 +37,8 @@ Linline_box_next:
     ldr x9, [x8, #32]
     cbz x9, Linline_box_advance
     ldr x9, [x7, #88]
-    cmp x9, #1
-    b.eq Linline_box_advance
+    cmp x9, #5
+    b.ne Linline_box_advance
     ldr x9, [x7, #40]
     cmn x9, #1
     b.ne Linline_box_candidate

@@ -30,7 +30,7 @@ Lgtk_links_next:
     cbz x20, Lgtk_links_advance
     ldr x1, [x2, #32]
     cbz x1, Lgtk_links_advance
-    LOAD x0, _gtk_uri
+    LOAD x0, _gtk_base
     mov x2, #0
     mov x3, #0
     bl _g_uri_resolve_relative

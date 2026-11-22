@@ -24,13 +24,13 @@ static void wait_title(const char *title) {
 static uint64_t submitter(void) {Doc *d=gtk_doc;for(uint64_t i=0;i<d->count;i++)if(d->nodes[i*5]==34)return i;assert(0);return 0;}
 static void serve(SoupServer *s,SoupServerMessage *m,const char *path,GHashTable *q,gpointer u) {
     (void)s;(void)q;(void)u; requests++;
-    const char *body="<title>Linux assembly fixture</title><link rel=stylesheet href=/style.css><body><p id=message>café 🌐</p><form action=/result><input name=q value='café + 🌐'><input type=checkbox name=check checked><input type=checkbox name=omit><select name=flavor><option value=vanilla>Vanilla</option><option selected value=chocolate>Chocolate</option></select><button name=send value=yes>Send</button></form></body>";
+    const char *body="<title>Linux assembly fixture</title><base href=/base/><base href=/ignored/><link rel=stylesheet href=style.css><body><p id=message>café 🌐</p><form action=result><input name=q value='café + 🌐'><input type=checkbox name=check checked><input type=checkbox name=omit><select name=flavor><option value=vanilla>Vanilla</option><option selected value=chocolate>Chocolate</option></select><button name=send value=yes>Send</button></form></body>";
     const char *type="text/html; charset=UTF-8";
-    if(!strcmp(path,"/style.css")) { body="@import 'relative/child.css' screen; body {background:#fafafa;font-family:Arial}";type="text/css"; }
-    if(!strcmp(path,"/relative/child.css")){body="@font-face {font-family:'Ooga Web';src:url(../ooga.ttf) format('truetype')} #message {font-family:'Ooga Web',Arial;color:#123456;background:url(../pixel.svg) no-repeat}";type="text/css";}
-    if(!strcmp(path,"/ooga.ttf")){char *font=NULL;gsize size=0;assert(g_file_get_contents("tests/fixtures/ooga-test.ttf",&font,&size,NULL));soup_server_message_set_status(m,200,NULL);soup_server_message_set_response(m,"font/ttf",SOUP_MEMORY_TAKE,font,size);return;}
-    if(!strcmp(path,"/pixel.svg")){body="<svg width='8' height='8'><rect width='8' height='8' fill='green'/></svg>";type="image/svg+xml";}
-    if(!strcmp(path,"/result")) {
+    if(!strcmp(path,"/base/style.css")) { body="@import 'relative/child.css' screen; body {background:#fafafa;font-family:Arial}";type="text/css"; }
+    if(!strcmp(path,"/base/relative/child.css")){body="@font-face {font-family:'Ooga Web';src:url(../ooga.ttf) format('truetype')} #message {font-family:'Ooga Web',Arial;color:#123456;background:url(../pixel.svg) no-repeat}";type="text/css";}
+    if(!strcmp(path,"/base/ooga.ttf")){char *font=NULL;gsize size=0;assert(g_file_get_contents("tests/fixtures/ooga-test.ttf",&font,&size,NULL));soup_server_message_set_status(m,200,NULL);soup_server_message_set_response(m,"font/ttf",SOUP_MEMORY_TAKE,font,size);return;}
+    if(!strcmp(path,"/base/pixel.svg")){body="<svg width='8' height='8'><rect width='8' height='8' fill='green'/></svg>";type="image/svg+xml";}
+    if(!strcmp(path,"/base/result")) {
         assert(q && !strcmp(g_hash_table_lookup(q,"q"),"café + 🌐"));
         assert(!strcmp(g_hash_table_lookup(q,"check"),"on"));
         assert(!g_hash_table_contains(q,"omit"));

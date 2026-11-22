@@ -189,6 +189,9 @@ _mac_engine_open_url:
     bl _mac_allowed_scheme
     cbz w0, Lengine_open_done
     STORE xzr, engine_traversal
+    mov x0, x19
+    bl _mac_fragment_navigate
+    cbnz x0, Lengine_open_done
     STORE xzr, _engine_cache_policy
     mov x0, x19
     bl _mac_engine_request
@@ -199,6 +202,7 @@ Lengine_open_done:
 _mac_engine_request:
     ENTER
     mov x19, x0
+    bl _mac_navigation_save
     bl _mac_engine_cancel
     bl _mac_resources_reset
     LOAD x0, _engine_charset
@@ -277,6 +281,10 @@ Lengine_traverse:
     LOAD x0, engine_history
     mov x2, x19
     MSG objectAtIndex
+    mov x20, x0
+    bl _mac_fragment_navigate
+    cbnz x0, Lengine_back_done
+    mov x0, x20
     bl _mac_engine_request
 Lengine_back_done:
     LEAVE
@@ -528,6 +536,15 @@ _mac_engine_commit:
     STORE x0, _engine_url
     STORE xzr, _engine_history_failed
     bl _mac_engine_record
+    mov x20, x0
+    LOAD x9, engine_traversal
+    cbz x9, Lcommit_fragment_scroll
+    bl _mac_navigation_restore
+    b Lcommit_scroll_done
+Lcommit_fragment_scroll:
+    bl _mac_fragment_scroll
+Lcommit_scroll_done:
+    mov x0, x20
     cbnz w0, Lcommit_history_error
     STR ready_text
     bl _mac_status_text
@@ -638,9 +655,16 @@ _mac_engine_display_impl:
     ENTER
     mov x19, x0
     STORE x19, _engine_render_document
-    mov x20, x1
+    bl _mac_document_base
+    mov x20, x0
     STORE x20, _engine_render_base
     bl _mac_engine_measure
+    LOAD x9, _engine_document
+    cmp x19, x9
+    b.ne Ldisplay_new_state
+    mov x0, x19
+    bl _mac_state_sync
+Ldisplay_new_state:
     mov x0, x19
     mov x1, x20
     bl _mac_link_states
@@ -650,9 +674,18 @@ _mac_engine_display_impl:
     LOAD x11, _engine_viewport
     cmp x10, x11
     b.ne Ldisplay_update_styles
+    ldr x10, [x9, #1776]
+    ldr x13, [x9, #760]
+    cmp x10, x13
+    b.ne Ldisplay_update_styles
+    LOAD x10, _mac_style_dirty
+    orr x12, x12, x10
     cbz x12, Ldisplay_viewport_ready
 Ldisplay_update_styles:
+    STORE xzr, _mac_style_dirty
     str x11, [x9, #856]
+    ldr x10, [x9, #1776]
+    str x10, [x9, #760]
     mov x0, x19
     bl _engine_css_apply
 Ldisplay_viewport_ready:
@@ -925,3 +958,7 @@ _engine_cache_policy: .space 8
 .p2align 3
 .globl _engine_render_base
 _engine_render_base: .quad 0
+
+.globl engine_index,engine_traversal,engine_pending_index
+
+.globl _mac_engine_record

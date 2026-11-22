@@ -22,36 +22,27 @@ _engine_box_height:
 Lheight_edges_done:
     mov x22, #-1
     ldr x0, [x19, #(32+CSS_HEIGHT*8)]
-    tbnz x0, #63, Lheight_minimum
-    tbz x0, #32, Lheight_resolve
-    tbnz x20, #63, Lheight_minimum
-Lheight_resolve:
     mov x1, x20
-    bl _engine_box_length
+    bl height_length
+    tbnz x0, #63, Lheight_minimum
     sub x22, x0, x21
     cmp x22, #0
     csel x22, xzr, x22, lt
 Lheight_minimum:
     mov x23, #0
     ldr x0, [x19, #(32+CSS_MIN_HEIGHT*8)]
-    tbnz x0, #63, Lheight_store
-    tbz x0, #32, Lheight_min_resolve
-    tbnz x20, #63, Lheight_store
-Lheight_min_resolve:
     mov x1, x20
-    bl _engine_box_length
+    bl height_length
+    tbnz x0, #63, Lheight_store
     sub x23, x0, x21
     cmp x23, #0
     csel x23, xzr, x23, lt
 Lheight_store:
     mov x24, #-1
     ldr x0, [x19, #(1840+(CSS_MAX_HEIGHT-48)*8)]
-    tbnz x0, #63, Lheight_limit_ready
-    tbz x0, #32, Lheight_max_resolve
-    tbnz x20, #63, Lheight_limit_ready
-Lheight_max_resolve:
     mov x1, x20
-    bl _engine_box_length
+    bl height_length
+    tbnz x0, #63, Lheight_limit_ready
     sub x24, x0, x21
     cmp x24, #0
     csel x24, xzr, x24, lt
@@ -68,4 +59,30 @@ Lheight_auto:
     str x22, [x19, #BOX_HEIGHT]
     str x23, [x19, #BOX_MIN_HEIGHT]
     mov x0, x22
+    LEAVE
+
+// Indefinite containing heights make only percentage-dependent values auto.
+height_length:
+    ENTER
+    mov x19, x0
+    mov x20, x1
+    tbnz x19, #63, Lheight_length_auto
+    tbz x20, #63, Lheight_length_ready
+    tbnz x19, #61, Lheight_length_math
+    tbnz x19, #32, Lheight_length_auto
+    b Lheight_length_ready
+Lheight_length_math:
+    and x9, x19, #0x1fffffffffffffff
+    ldr x0, [x9]
+    mov x1, #37
+    bl _strchr
+    cbnz x0, Lheight_length_auto
+    mov x20, #0
+Lheight_length_ready:
+    mov x0, x19
+    mov x1, x20
+    bl _engine_box_length
+    LEAVE
+Lheight_length_auto:
+    mov x0, #-1
     LEAVE

@@ -47,6 +47,17 @@ _css_pseudo_match:
     ADDR x2, p_checked
     bl _css_eq
     cbnz x0, Lpseudo_checked
+    mov x24, #0
+    ADDR x25, live_names
+Lpseudo_live_name:
+    mov x0, x21
+    mov x1, x22
+    ldr x2, [x25, x24, lsl #3]
+    bl _css_eq
+    cbnz x0, Lpseudo_live
+    add x24, x24, #1
+    cmp x24, #4
+    b.lo Lpseudo_live_name
     mov x0, x21
     mov x1, x22
     ADDR x2, p_not
@@ -138,9 +149,21 @@ Lpseudo_enabled_control:
     ldr x9, [x9, #ATTR_DISABLED]
     cbnz x9, Lpseudo_no
     b Lpseudo_yes
+Lpseudo_live:
+    ldr x9, [x19, #72]
+    add x9, x9, x20, lsl #11
+    ldr x9, [x9, #744]
+    lsr x9, x9, x24
+    tbz x9, #0, Lpseudo_no
+    b Lpseudo_yes
 Lpseudo_checked:
     ldr x9, [x19, #72]
     add x9, x9, x20, lsl #11
+    ldr x10, [x9, #744]
+    tbz x10, #4, Lpseudo_checked_default
+    tbz x10, #5, Lpseudo_no
+    b Lpseudo_yes
+Lpseudo_checked_default:
     ldr x10, [x9, #ATTR_CHECKED]
     ldr x9, [x9, #ATTR_SELECTED]
     orr x9, x9, x10
@@ -223,3 +246,12 @@ nth_one: .asciz "1"
 .section __DATA,__const
 .p2align 3
 nth_names: .quad p_nth,p_nth_last,p_nth_type,p_nth_last_type
+
+.section __TEXT,__cstring,cstring_literals
+p_hover: .asciz "hover"
+p_active: .asciz "active"
+p_focus: .asciz "focus"
+p_focus_visible: .asciz "focus-visible"
+.section __DATA,__const
+.p2align 3
+live_names: .quad p_hover,p_active,p_focus,p_focus_visible

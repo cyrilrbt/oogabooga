@@ -151,6 +151,26 @@ Lnumber_suffix:
     ADDR x2, rem_text
     bl _css_eq
     cbnz w0, Lnumber_rem
+    mov x0, x19
+    mov x1, x20
+    ADDR x2, math_unit_vw
+    bl _css_eq
+    cbnz w0, Lnumber_vw
+    mov x0, x19
+    mov x1, x20
+    ADDR x2, math_unit_vh
+    bl _css_eq
+    cbnz w0, Lnumber_vh
+    mov x0, x19
+    mov x1, x20
+    ADDR x2, math_unit_vmin
+    bl _css_eq
+    cbnz w0, Lnumber_vmin
+    mov x0, x19
+    mov x1, x20
+    ADDR x2, math_unit_vmax
+    bl _css_eq
+    cbnz w0, Lnumber_vmax
     sub x9, x20, x19
     cmp x9, #1
     b.ne Lnumber_bad
@@ -170,6 +190,19 @@ Lnumber_em:
     b Lnumber_good
 Lnumber_rem:
     mov x1, #4
+    b Lnumber_good
+Lnumber_vw:
+    mov x1, #5
+    b Lnumber_good
+Lnumber_vh:
+    mov x1, #6
+    b Lnumber_good
+Lnumber_vmin:
+    mov x1, #7
+    b Lnumber_good
+Lnumber_vmax:
+    mov x1, #8
+    b Lnumber_good
 Lnumber_good:
     mov x0, x21
     mov x2, #1
@@ -548,6 +581,26 @@ Lvalue_length_normal:
     mov x0, #0
     b Lvalue_good
 Lvalue_length_number:
+    cmp x19, #CSS_WIDTH
+    b.eq Lvalue_math_try
+    cmp x19, #CSS_HEIGHT
+    b.eq Lvalue_math_try
+    cmp x19, #CSS_MAX_WIDTH
+    b.eq Lvalue_math_try
+    cmp x19, #CSS_MIN_WIDTH
+    b.eq Lvalue_math_try
+    cmp x19, #CSS_MIN_HEIGHT
+    b.eq Lvalue_math_try
+    cmp x19, #CSS_MAX_HEIGHT
+    b.eq Lvalue_math_try
+    cmp x19, #CSS_BASIS
+    b.ne Lvalue_number_plain
+Lvalue_math_try:
+    mov x0, x20
+    mov x1, x21
+    bl _css_math_parse
+    cbnz x1, Lvalue_good
+Lvalue_number_plain:
     mov x0, x20
     mov x1, x21
     bl _css_number
@@ -1430,3 +1483,9 @@ p_background_image: .asciz "background-image"
 p_background_size: .asciz "background-size"
 p_background_position: .asciz "background-position"
 p_background_repeat: .asciz "background-repeat"
+
+.section __TEXT,__cstring,cstring_literals
+math_unit_vw: .asciz "vw"
+math_unit_vh: .asciz "vh"
+math_unit_vmin: .asciz "vmin"
+math_unit_vmax: .asciz "vmax"

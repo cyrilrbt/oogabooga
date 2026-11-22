@@ -333,6 +333,16 @@ _mac_input_field_class:
     ADDR x3, input_size_encoding
     bl _class_addMethod
     mov x0, x19
+    SELECT x1, liveBecome
+    ADDR x2, input_live_focus
+    ADDR x3, live_focus_encoding
+    bl _class_addMethod
+    mov x0, x19
+    SELECT x1, liveResign
+    ADDR x2, input_live_focus
+    ADDR x3, live_focus_encoding
+    bl _class_addMethod
+    mov x0, x19
     bl _objc_registerClassPair
     mov x0, x19
 Linput_field_class_ready:
@@ -370,3 +380,27 @@ _class_OogaboogaInputField: .asciz "OogaboogaInputField"
 input_field_class: .asciz "OogaboogaInputField"
 input_frame_encoding: .asciz "v@:{CGRect={CGPoint=dd}{CGSize=dd}}"
 input_size_encoding: .asciz "v@:{CGSize=dd}"
+
+.text
+input_live_focus:
+    ENTER
+    mov x19, x0
+    mov x20, x1
+    CLASS NSTextField
+    stp x19, x0, [sp]
+    mov x0, sp
+    mov x1, x20
+    bl _objc_msgSendSuper
+    mov x19, x0
+    bl _mac_state_schedule
+    mov x0, x19
+    LEAVE
+.section __TEXT,__cstring,cstring_literals
+live_become_name: .asciz "becomeFirstResponder"
+live_resign_name: .asciz "resignFirstResponder"
+live_focus_encoding: .asciz "B@:"
+.section __DATA,__data
+.p2align 3
+.globl _sel_liveBecome,_sel_liveResign
+_sel_liveBecome: .quad live_become_name
+_sel_liveResign: .quad live_resign_name

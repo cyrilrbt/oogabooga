@@ -157,6 +157,15 @@ _mac_scene_mouse_down:
     bl _mac_scene_pick
     cbz x0, Lscene_mouse_done
     mov x22, x0
+    ldr x1, [x22, #8]
+    LOAD x0, _engine_render_document
+    mov x2, #3
+    mov x3, #3
+    bl _engine_interaction_set
+    cbz x0, Lscene_down_state_ready
+    bl _mac_state_schedule
+Lscene_down_state_ready:
+    mov x0, x22
     bl _mac_scene_command_link
     cbz x0, Lscene_mouse_select
     bl _mac_engine_open_url
@@ -233,7 +242,16 @@ _mac_scene_mouse_up:
     LOAD x9, _mac_scene
     cbz x9, Lscene_up_legacy
     STORE xzr, _mac_scene_anchor
-    ret
+    ENTER
+    LOAD x0, _engine_render_document
+    mov x1, #0
+    mov x2, #2
+    mov x3, #0
+    bl _engine_interaction_set
+    cbz x0, Lscene_up_state_done
+    bl _mac_state_schedule
+Lscene_up_state_done:
+    LEAVE
 Lscene_up_legacy:
     ENTER
     mov x19, x0
@@ -266,6 +284,21 @@ Lscene_cursor_active:
     bl scene_event_point
     bl _mac_scene_pick
     mov x19, x0
+    mov x1, #0
+    cbz x19, Lscene_hover_set
+    ldr x1, [x19, #8]
+Lscene_hover_set:
+    LOAD x0, _engine_render_document
+    mov x2, #1
+    mov x3, #1
+    cbnz x19, Lscene_hover_apply
+    mov x3, #0
+Lscene_hover_apply:
+    bl _engine_interaction_set
+    cbz x0, Lscene_hover_ready
+    bl _mac_state_schedule
+Lscene_hover_ready:
+    mov x0, x19
     bl _mac_scene_command_link
     cbz x0, Lscene_cursor_plain
     CLASS NSCursor

@@ -83,11 +83,11 @@ Lgtk_resource_embedded:
     bl _strlen
     mov x1, x0
     mov x0, x23
-    LOAD x2, _gtk_uri
+    LOAD x2, _gtk_base
     bl _gtk_fonts_add_sheet
     mov x0, x23
     mov x1, x20
-    LOAD x2, _gtk_uri
+    LOAD x2, _gtk_base
     bl _gtk_imports_add
     b Lgtk_resources_imports
 Lgtk_resource_css:
@@ -104,7 +104,7 @@ Lgtk_resource_css:
     b Lgtk_resource_url
 Lgtk_resource_css_cached:
     ldr x1, [x2, #32]
-    LOAD x0, _gtk_uri
+    LOAD x0, _gtk_base
     mov x2, #0
     mov x3, #0
     bl _g_uri_resolve_relative
@@ -132,7 +132,7 @@ Lgtk_resource_url:
     cmp x9, x10
     b.hs Lgtk_resources_done
     cbz x23, Lgtk_resources_scan
-    LOAD x0, _gtk_uri
+    LOAD x0, _gtk_base
     mov x1, x23
     mov x2, #0
     mov x3, #0

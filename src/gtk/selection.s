@@ -33,8 +33,14 @@ _gtk_engine_click:
     bl _gtk_widget_grab_focus
     mov x0, x20
     bl gtk_event_xy
+    STORE xzr, _gtk_keyboard_mode
     STORE x0, gtk_press_x
     STORE x1, gtk_press_y
+    mov x2, #3
+    mov x3, #3
+    bl _gtk_state_point
+    LOAD x0, gtk_press_x
+    LOAD x1, gtk_press_y
     bl _gtk_engine_text_at
     cbz x1, Lgtk_press_clear
     STORE x0, _gtk_selection_anchor
@@ -73,6 +79,11 @@ _gtk_engine_motion:
 Lgtk_motion_hover:
     mov x0, x20
     mov x1, x21
+    mov x2, #1
+    mov x3, #1
+    bl _gtk_state_point
+    mov x0, x20
+    mov x1, x21
     bl _gtk_engine_link_at
     mov x22, x0
     mov x0, x19
@@ -101,6 +112,12 @@ _gtk_engine_release:
     cbz x9, Lgtk_release_done
     STORE xzr, gtk_press_armed
     STORE xzr, gtk_selection_drag
+    LOAD x0, _gtk_doc
+    mov x1, #0
+    mov x2, #2
+    mov x3, #0
+    bl _engine_interaction_set
+    bl _gtk_state_schedule
     mov x0, x19
     add x1, sp, #144
     bl _gdk_event_get_button
@@ -126,7 +143,7 @@ _gtk_engine_release:
     bl _gtk_engine_link_at
     cbz x0, Lgtk_release_done
     mov x1, x0
-    LOAD x0, _gtk_uri
+    LOAD x0, _gtk_base
     mov x2, #0
     mov x3, #0
     bl _g_uri_resolve_relative
@@ -168,6 +185,8 @@ Lgtk_copy_done:
 .globl _gtk_engine_key
 _gtk_engine_key:
     ENTER
+    mov x9, #1
+    STORE x9, _gtk_keyboard_mode
     mov x19, x1
     mov x0, x1
     add x1, sp, #144

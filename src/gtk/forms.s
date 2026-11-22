@@ -190,13 +190,19 @@ Lgtk_submit_navigate:
     bl _gtk_engine_node
     mov x24, x0
     ldr x1, [x24, #ATTR_ACTION]
-    cbnz x1, Lgtk_submit_action
-    ADDR x1, gtk_form_empty
+    cbz x1, Lgtk_submit_current_url
+    ldrb w9, [x1]
+    cbz w9, Lgtk_submit_current_url
 Lgtk_submit_action:
-    LOAD x0, _gtk_uri
+    LOAD x0, _gtk_base
     mov x2, #0
     mov x3, #0
     bl _g_uri_resolve_relative
+    b Lgtk_submit_resolved
+Lgtk_submit_current_url:
+    LOAD x0, _gtk_uri
+    bl _g_strdup
+Lgtk_submit_resolved:
     mov x25, x0
     cbz x25, Lgtk_submit_free
     ldr x0, [x24, #ATTR_METHOD]

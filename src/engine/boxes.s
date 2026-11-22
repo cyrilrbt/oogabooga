@@ -7,6 +7,7 @@
 .globl _engine_box_length
 _engine_box_length:
     tbnz x0, #63, Lbox_zero
+    tbnz x0, #61, Lbox_math
     tbz x0, #32, Lbox_length_done
     and x0, x0, #0xffffffff
     mul x0, x0, x1
@@ -21,12 +22,22 @@ Lbox_length_done:
     cmp x0, x2
     csel x0, x2, x0, hi
     ret
+Lbox_math:
+    ENTER
+    bl _css_math_resolve
+    cmp x0, #0
+    csel x0, xzr, x0, lt
+    LEAVE
 Lbox_zero:
     mov x0, #0
     ret
 
 .globl _engine_box_signed_length
 _engine_box_signed_length:
+    tbnz x0, #63, Lsigned_regular
+    tbz x0, #61, Lsigned_regular
+    b _css_math_resolve
+Lsigned_regular:
     ENTER
     mov x19, x0
     bic x0, x0, #0x10000000000

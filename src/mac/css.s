@@ -147,6 +147,7 @@ Lattributes_foreground:
     cmp x23, #NODE_EM
     b.ne Lattributes_underline
 Lattributes_inline_background:
+    b Lattributes_underline // per-line retained fragment commands own this paint
     ldr x9, [x20, #88]
     cmp x9, #2
     b.ne Lattributes_underline

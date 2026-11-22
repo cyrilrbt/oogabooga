@@ -21,3 +21,8 @@ gtk_widget_get_toplevel gtk_window_get_focus gtk_widget_get_visible gtk_entry_ge
 memmove
 history_update_title sqlite3_last_insert_rowid
 sqlite3_prepare_v2 sqlite3_bind_text sqlite3_step sqlite3_reset sqlite3_finalize
+
+g_idle_add
+gtk_widget_get_state_flags
+
+g_uri_unescape_string

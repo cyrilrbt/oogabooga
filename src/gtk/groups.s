@@ -68,9 +68,11 @@ _gtk_group_append:
     bl _gtk_layout_node
     b Lgroup_append_object
 Lgroup_append_container:
+    ldr x9, [x19, #GG_LENGTH]
+    str x9, [sp, #144]
     ldr x24, [x22, #GN_FIRST]
 Lgroup_append_children:
-    cbz x24, Lgroup_append_done
+    cbz x24, Lgroup_container_done
     mov x0, x19
     mov x1, x24
     bl _gtk_group_append
@@ -78,6 +80,14 @@ Lgroup_append_children:
     add x9, x9, x24, lsl #8
     ldr x24, [x9, #GN_NEXT]
     b Lgroup_append_children
+Lgroup_container_done:
+    ldr x9, [sp, #144]
+    str x9, [x22, #GN_TEXT_START]
+    ldr x10, [x19, #GG_LENGTH]
+    sub x10, x10, x9
+    str x10, [x22, #GN_TEXT_LEN]
+    str x19, [x22, #GN_PANGO]
+    b Lgroup_append_done
 Lgroup_append_text:
     ldr x0, [x23, #16]
     bl _gtk_engine_byte

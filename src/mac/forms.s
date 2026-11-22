@@ -603,11 +603,13 @@ Lsubmit_unsupported:
 Lsubmit_action:
     ldr x0, [x23, #ATTR_ACTION]
     cbz x0, Lsubmit_current_url
+    ldrb w9, [x0]
+    cbz w9, Lsubmit_current_url
     bl _mac_string
     mov x24, x0
     CLASS NSURL
     mov x2, x24
-    LOAD x3, _engine_url
+    LOAD x3, _engine_render_base
     MSG relativeURL
     MSG absoluteURL
     b Lsubmit_url

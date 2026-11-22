@@ -22,6 +22,9 @@ Lgtk_shutdown_fonts:
     bl _gtk_imports_reset
     mov x0, x19
     bl _engine_document_free
+    LOAD x0, _gtk_base
+    bl _g_free
+    STORE xzr, _gtk_base
     LOAD x0, _gtk_uri
     bl _g_free
     STORE xzr, _gtk_uri
