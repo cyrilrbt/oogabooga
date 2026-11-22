@@ -16,8 +16,13 @@
     {
       "name": "oogabooga",
       "buildsystem": "simple",
+      "run-tests": true,
+      "test-rule": "",
+      "test-commands": ["./build.sh test"],
+      "build-options": {
+        "test-args": ["--socket=x11"]
+      },
       "build-commands": [
-        "./build.sh test",
         "./build.sh release",
         "install -Dm755 build/linux/oogabooga /app/bin/oogabooga",
         "install -Dm644 VERSION /app/share/oogabooga/VERSION",

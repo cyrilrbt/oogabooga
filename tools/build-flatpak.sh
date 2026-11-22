@@ -2,6 +2,15 @@
 # CI's GNOME image already contains the SDK/runtime. Do not update its layered OSTree install.
 set -eu
 cd "$(dirname "$0")/.."
+# Xvfb belongs to the CI container, not the SDK sandbox. Flatpak's test-args
+# expose this display only while tests run. Re-enter once with a live display.
+if [ -z "${DISPLAY:-}" ]; then
+    command -v xvfb-run >/dev/null 2>&1 || {
+        echo 'Install xvfb and xauth to run Flatpak GUI tests.' >&2
+        exit 1
+    }
+    exec xvfb-run -a "$0" "$@"
+fi
 version=$(./tools/version.sh)
 mkdir -p build/dist
 flatpak-builder \

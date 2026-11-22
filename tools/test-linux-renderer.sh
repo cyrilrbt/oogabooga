@@ -19,5 +19,11 @@ for name in renderer session svg compatibility auth acid1 interaction layout dom
         build/linux/engine/storage.o -Wl,--defsym,browser_main=0 -lsqlite3 \
         $(pkg-config --cflags --libs gtk+-3.0 pangocairo libsoup-3.0 fontconfig pangoft2) \
         -lm -o "build/linux/engine/$name-renderer-test"
-    xvfb-run -a timeout 90 "build/linux/engine/$name-renderer-test"
+    # Flatpak tests use the host Xvfb exposed through --socket=x11.
+    # Native headless runs still create an isolated display when needed.
+    if [ -n "${DISPLAY:-}" ]; then
+        timeout 90 "build/linux/engine/$name-renderer-test"
+    else
+        xvfb-run -a timeout 90 "build/linux/engine/$name-renderer-test"
+    fi
 done

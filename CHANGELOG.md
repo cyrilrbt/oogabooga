@@ -6,6 +6,11 @@ behavior changes, and fixes. Historical entries summarize the repository history
 
 ## 0.17.0 — 2026-11-21
 
+### Fixed
+
+- Run Flatpak GUI regressions on the container-provided Xvfb display during
+  the SDK test phase; the GNOME SDK does not include `xvfb-run`.
+
 ### Added
 
 - Native Linux x86-64 build of the shared assembly engine core: HTML/DOM,
