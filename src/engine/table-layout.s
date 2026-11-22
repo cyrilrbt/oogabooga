@@ -24,8 +24,14 @@ Ltable_owner_missing:
 
 .globl _engine_table_owner
 _engine_table_owner:
+    mov x2, #0
+    b _engine_table_tracks
+// doc,table,optional widths[64] -> used column count. Existing owner ABI stays.
+.globl _engine_table_tracks
+_engine_table_tracks:
     ENTER
     sub sp, sp, #1664              // 64 occupancy values and 64 column widths
+    str x2, [sp, #1640]
     mov x19, x0
     mov x20, x1
     ldr x21, [x19, #72]
@@ -270,5 +276,12 @@ Ltable_apply_advance:
     add x25, x25, #1
     b Ltable_apply_next
 Ltable_done:
+    ldr x0, [sp, #1640]
+    cbz x0, Ltable_tracks_copied
+    add x1, sp, #512
+    mov x2, #512
+    bl _memcpy
+Ltable_tracks_copied:
+    mov x0, x24
     add sp, sp, #1664
     LEAVE

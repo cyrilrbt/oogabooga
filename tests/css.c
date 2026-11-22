@@ -23,6 +23,8 @@ extern void engine_margin_reset(Doc *);
 extern void engine_margin_tree(Doc *);
 extern void engine_box_tree(Doc *,uint64_t);
 extern void engine_position_tree(Doc *);
+extern uint64_t engine_table_tracks(Doc *,uint64_t,uint64_t *);
+extern uint64_t engine_grid_geometry(Doc *,uint64_t,uint64_t *);
 typedef struct { int64_t width,height; } ReplacedSize;
 extern ReplacedSize engine_replaced_size(Meta *,int64_t,int64_t,int64_t,int64_t);
 extern uint64_t engine_box_metrics(Meta *,uint64_t);
@@ -205,6 +207,8 @@ int main(void) {
     assert(((uint64_t *)&d->meta[id(d,"fleft")])[1464/8]==100 && ((uint64_t *)&d->meta[id(d,"fgrow")])[1464/8]==360);
     assert(((uint64_t *)&d->meta[id(d,"fright")])[1440/8]==2);
     assert(((uint64_t *)&d->meta[id(d,"table")])[1496/8]==2);
+    uint64_t tableTracks[64];memset(tableTracks,0xa5,sizeof(tableTracks));
+    assert(engine_table_tracks(d,id(d,"table"),tableTracks)==2 && tableTracks[0]>0 && tableTracks[1]>0 && tableTracks[0]+tableTracks[1]<=500);
     assert(((uint64_t *)&d->meta[id(d,"span")])[1456/8]==2 && ((uint64_t *)&d->meta[id(d,"bottom")])[1432/8]==1 && ((uint64_t *)&d->meta[id(d,"bottom")])[1440/8]==1);
     assert(((uint64_t *)&d->meta[id(d,"wide")])[1448/8]==2);
     l=engine_layout(d,0); assert(l && strstr(l->text,"Left\n") && strstr(l->text,"Middle\n")); engine_layout_free(l); engine_document_free(d);
@@ -249,6 +253,9 @@ int main(void) {
     d=parse("<div id=grid style='display:grid;width:600px;grid-template-columns:100px 1fr 2fr;gap:10px;grid-auto-rows:50px'><div id=g1>a</div><div id=g2 style='grid-column:2 / span 2'>b</div><div id=g3 style='grid-row:2 / span 2'>c</div><div id=g4>d</div></div>");
     engine_box_tree(d,800); engine_flow_tree(d);
     assert(d->meta[id(d,"grid")].value[7]==4);
+    uint64_t gridGeometry[82];memset(gridGeometry,0xa5,sizeof(gridGeometry));
+    assert(engine_grid_geometry(d,id(d,"grid"),gridGeometry)==3);
+    assert(gridGeometry[0]==3 && gridGeometry[1]>=2 && gridGeometry[2]==100 && gridGeometry[3]>100 && gridGeometry[4]>gridGeometry[3] && gridGeometry[18]>=50);
     uint64_t *gg1=(uint64_t *)&d->meta[id(d,"g1")],*gg2=(uint64_t *)&d->meta[id(d,"g2")],*gg3=(uint64_t *)&d->meta[id(d,"g3")];
     assert(gg1[1464/8]==100 && gg2[1464/8]==490 && gg2[1448/8]==2 && gg3[1456/8]==2 && gg3[1432/8]==1 && gg3[1472/8]>=110);
     engine_document_free(d);

@@ -4,6 +4,41 @@ Record user-visible changes here whenever `VERSION` changes. Keep the newest
 version first, use the same SemVer as `VERSION`, and distinguish added features,
 behavior changes, and fixes. Historical entries summarize the repository history.
 
+## 0.17.0 — 2026-11-21
+
+### Added
+
+- Native Linux x86-64 build of the shared assembly engine core: HTML/DOM,
+  CSS, layout calculations, stylesheet/font metadata, display lists and scenes.
+  A bounded build-time assembly backend keeps the handwritten core shared;
+  generated machine code has no ARM emulator or WebKit dependency.
+- Run the shared core suites, cross-architecture instruction/ABI probes and
+  Linux profiling checks from `./build.sh test`. Keep generated code under
+  `build/linux/engine/`; unknown assembly instructions fail the build.
+- Add the assembly-only `build/linux/engine-inspect FILE [COLUMNS]` headless
+  UTF-8 flow probe (also included in the native Linux archive) and enable
+  geometry benchmarks on Linux.
+
+- Native GTK/Pango/Cairo adapter: shaped Unicode text, inline formatting contexts,
+  flex/Grid/table tracks and spans, floats, retained scene painting, clipping,
+  stacking/group opacity, fixed positioning and contained scrolling.
+- Independent libsoup HTTP/TLS session with ephemeral cookies, native HTTP auth,
+  redirects, charset decoding, cancellable progressive CSS/import/image/font loads,
+  and URL-encoded GET/POST forms. Shared assembly SVG and background geometry run
+  on Cairo; native GTK editors retain values, selection and focus across reflow.
+- Source-based selection/copy, scene-aware links and pointer cursors, stable DOM
+  rebuilds/resource reuse, visited-link CSS and title-only history updates.
+- Linux regressions cover the same 20 saved-page fixtures and Acid1 geometry
+  comparison used on macOS, plus native transport, forms, editors and DOM checks.
+
+### Changed
+
+- Default Linux to the assembly engine, matching macOS. Ctrl+E switches to
+  WebKitGTK; `OOGABOOGA_ENGINE=webkit` retains an explicit fallback launch path.
+- Include the central version in Linux window titles and index history URLs for
+  bound visited-link lookups on both platforms.
+- Run custom-engine Linux checks from `./build.sh test`, including Flatpak builds.
+
 ## 0.16.2 — 2026-11-15
 
 ### Fixed

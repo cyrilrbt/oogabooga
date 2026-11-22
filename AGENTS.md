@@ -4,6 +4,7 @@
 
 - `src/core.s` implements the macOS ARM64 entry point and SQLite storage; `src/Browser.m` bridges AppKit and WebKit.
 - `src/linux/` contains the Linux x86-64 application, written in assembly and linked directly to GTK 3, WebKitGTK 4.1, and SQLite.
+- `src/engine/` is the shared handwritten core. `tools/asm/engine_x86.py` emits native x86-64 code for Linux; `src/linux/engine/` supplies the native profiler shim and headless probe. Generated assembly stays under `build/`. `src/gtk/` implements the assembly GTK/Pango/Cairo/libsoup adapter; both platforms default to the custom engine with a WebKit fallback.
 - `src/history.inc` defines shared SQLite schema and insert SQL. Keep platform storage behavior consistent.
 - `tests/` contains C assertion-based harnesses and a Python HTTP fixture. C harnesses are not shipped with the Linux app.
 - `assets/` holds metadata templates, desktop integration, and icons; `tools/` holds build, packaging, and metadata scripts.
@@ -15,14 +16,16 @@ Run commands from the repository root:
 
 - `./build.sh`: build the native debug application.
 - `./build.sh release`: build the optimized release; supports Apple silicon macOS 12+ and x86-64 Linux.
-- `./build.sh test`: run storage, engine/DOM/CSS/scene, native browser, Acid1, and offline compatibility checks on macOS.
+- `./build.sh test`: run storage, engine/DOM/CSS/scene, native adapters, Acid1, and offline compatibility checks on macOS and Linux (Xvfb required on Linux).
 - `sh tools/compatibility-report.sh`: regenerate `build/compatibility/index.html` from saved fixtures and independent geometry references.
+- `./tools/build-linux-engine.sh test`: build/test the native x86-64 core without GTK/WebKit; `build/linux/engine-inspect FILE [COLUMNS]` prints wrapped UTF-8 flow.
+- `./tools/test-linux-renderer.sh`: run the independent GTK engine, HTTP/form/DOM, SVG and geometry suites.
 - `./tools/test-linux.sh`: run Linux browser integration checks after a test build; requires Xvfb, Xauth, D-Bus, and Python 3.
 - `open build/Oogabooga.app` or `./build/linux/oogabooga https://github.com`: launch locally.
 - `python3 tests/server.py`: serve manual cookie, authentication, navigation, and popup checks at `http://localhost:8765`.
 - `./tools/package-mac.sh` or `./tools/package-linux.sh`: package an existing release build.
 
-Install Xcode tools on macOS; Linux requires GTK/WebKitGTK/SQLite development packages and `pkg-config`.
+Install Xcode tools on macOS; Linux requires GTK/WebKitGTK/SQLite, libsoup 3, Pango/Cairo and Fontconfig development packages, Python 3 and `pkg-config`.
 
 ## Coding Style & Naming
 

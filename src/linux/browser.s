@@ -189,8 +189,44 @@ browser_main:
     xor ecx, ecx
     mov r8d, 4
     call gtk_box_pack_start@PLT
+    call gtk_engine_view_new@PLT
+    mov [rip + assembly_view], rax
+    mov rdi, [rip + root]
+    mov rsi, rax
+    mov edx, 1
+    mov ecx, 1
+    xor r8d, r8d
+    call gtk_box_pack_start@PLT
+    mov rdi, [rip + root]
+    mov rsi, [rip + assembly_view]
+    mov edx, 1
+    call gtk_box_reorder_child@PLT
+    mov rdi, [rip + window]
+    mov rsi, [rip + address]
+    mov rdx, [rip + status]
+    mov rcx, [rip + db]
+    lea r8, [rip + app_title]
+    lea r9, [rip + back_button]
+    call gtk_engine_bind@PLT
     mov rdi, [rip + window]
     call gtk_widget_show_all@PLT
+    mov rdi, [rip + assembly_view]
+    call gtk_widget_hide@PLT
+    mov rdi, [rip + assembly_view]
+    mov esi, 1
+    call gtk_widget_set_no_show_all@PLT
+    lea rdi, [rip + engine_env]
+    call g_getenv@PLT
+    test rax, rax
+    jz .Lstart_assembly
+    mov rdi, rax
+    lea rsi, [rip + webkit_name]
+    call strcmp@PLT
+    test eax, eax
+    jz .Lengine_initialized
+.Lstart_assembly:
+    call toggle_engine
+.Lengine_initialized:
     lea rsi, [rip + homepage]
     cmp ebx, 1
     jle .Linitial
@@ -200,6 +236,7 @@ browser_main:
     call gtk_entry_set_text@PLT
     call navigate
     call gtk_main@PLT
+    call gtk_engine_shutdown@PLT
     mov rdi, [rip + db]
     call sqlite3_close@PLT
     mov rdi, [rip + context]
@@ -290,12 +327,18 @@ toolbar_button:
 quit:
     jmp gtk_main_quit@PLT
 back_clicked:
+    cmp QWORD PTR [rip + assembly_active], 0
+    jne gtk_engine_back@PLT
     mov rdi, [rip + web]
     jmp webkit_web_view_go_back@PLT
 forward_clicked:
+    cmp QWORD PTR [rip + assembly_active], 0
+    jne gtk_engine_forward@PLT
     mov rdi, [rip + web]
     jmp webkit_web_view_go_forward@PLT
 reload_clicked:
+    cmp QWORD PTR [rip + assembly_active], 0
+    jne gtk_engine_reload@PLT
     enter
     mov rdi, [rip + web]
     call webkit_web_view_is_loading@PLT
@@ -306,6 +349,39 @@ reload_clicked:
     leave
 .Lreload:
     call webkit_web_view_reload@PLT
+    leave
+
+# Explicit comparison toggle. Reuse the current address on a user switch.
+toggle_engine:
+    enter
+    xor QWORD PTR [rip + assembly_active], 1
+    cmp QWORD PTR [rip + assembly_active], 0
+    je .Lengine_webkit
+    mov rdi, [rip + web]
+    call webkit_web_view_stop_loading@PLT
+    mov rdi, [rip + web]
+    call gtk_widget_hide@PLT
+    mov rdi, [rip + assembly_view]
+    xor esi, esi
+    call gtk_widget_set_no_show_all@PLT
+    mov rdi, [rip + assembly_view]
+    call gtk_widget_show_all@PLT
+    jmp .Lengine_switch_done
+.Lengine_webkit:
+    call gtk_engine_cancel_load@PLT
+    mov rdi, [rip + assembly_view]
+    call gtk_widget_hide@PLT
+    mov rdi, [rip + assembly_view]
+    mov esi, 1
+    call gtk_widget_set_no_show_all@PLT
+    mov rdi, [rip + web]
+    call gtk_widget_show_all@PLT
+.Lengine_switch_done:
+    leave
+switch_engine:
+    enter
+    call toggle_engine
+    call navigate
     leave
 
 # char *destination(const char *input): owned result, HTTP(S) only or search.
@@ -417,9 +493,16 @@ navigate:
     mov rbx, rax
     test rax, rax
     jz .Linvalid
+    cmp QWORD PTR [rip + assembly_active], 0
+    je .Lnavigate_webkit
+    mov rdi, rbx
+    call gtk_engine_load_uri@PLT
+    jmp .Lnavigate_free
+.Lnavigate_webkit:
     mov rdi, [rip + web]
     mov rsi, rbx
     call webkit_web_view_load_uri@PLT
+.Lnavigate_free:
     mov rdi, rbx
     call g_free@PLT
     leave
@@ -454,6 +537,12 @@ setup_web:
 
 # Keep controls and title current, including asynchronous document.title changes.
 sync_view:
+    cmp QWORD PTR [rip + assembly_active], 0
+    je .Lsync_view_enabled
+    cmp rdi, [rip + web]
+    jne .Lsync_view_enabled
+    ret
+.Lsync_view_enabled:
     enter
     mov rbx, rdi
     call webkit_web_view_get_title@PLT
@@ -466,7 +555,18 @@ sync_view:
     jnz .Ltitle
     lea rsi, [rip + app_title]
 .Ltitle:
+    mov [rbp - 24], rdi
+    mov rdi, rsi
+    lea rsi, [rip + ooga_web_title_suffix]
+    xor edx, edx
+    xor eax, eax
+    call g_strconcat@PLT
+    mov [rbp - 32], rax
+    mov rsi, rax
+    mov rdi, [rbp - 24]
     call gtk_window_set_title@PLT
+    mov rdi, [rbp - 32]
+    call g_free@PLT
     cmp rbx, [rip + web]
     jne .Lsync_done
     mov rdi, rbx
@@ -491,6 +591,12 @@ sync_view:
     leave
 
 title_changed:
+    cmp QWORD PTR [rip + assembly_active], 0
+    je .Ltitle_changed_enabled
+    cmp rdi, [rip + web]
+    jne .Ltitle_changed_enabled
+    ret
+.Ltitle_changed_enabled:
     enter
     mov rbx, rdi
     call sync_view
@@ -533,6 +639,12 @@ title_changed:
     leave
 
 load_changed:
+    cmp QWORD PTR [rip + assembly_active], 0
+    je .Lload_changed_enabled
+    cmp rdi, [rip + web]
+    jne .Lload_changed_enabled
+    ret
+.Lload_changed_enabled:
     enter
     mov rbx, rdi
     mov r12d, esi
@@ -607,6 +719,12 @@ load_changed:
 
 # load-failed(view,event,uri,GError*,data); GError.message at +8 on x86-64.
 load_failed:
+    cmp QWORD PTR [rip + assembly_active], 0
+    je .Lload_failed_enabled
+    cmp rdi, [rip + web]
+    jne .Lload_failed_enabled
+    ret
+.Lload_failed_enabled:
     enter
     mov rbx, rdi
     mov r12, rcx
@@ -916,20 +1034,29 @@ open_history:
     call g_object_get_data@PLT
     test rax, rax
     jz .Lopen_history_done
+    cmp QWORD PTR [rip + assembly_active], 0
+    je .Lhistory_webkit
+    mov rdi, rax
+    call gtk_engine_load_uri@PLT
+    jmp .Lhistory_open_present
+.Lhistory_webkit:
     mov rdi, [rip + web]
     mov rsi, rax
     call webkit_web_view_load_uri@PLT
+.Lhistory_open_present:
     mov rdi, [rip + window]
     call gtk_window_present@PLT
 .Lopen_history_done:
     leave
 
 .section .rodata
+engine_env: .asciz "OOGABOOGA_ENGINE"
+webkit_name: .asciz "webkit"
 app_dir: .asciz "oogabooga"
 icon_name: .asciz "dev.oogabooga.Browser"
 icon_file: .asciz "oogabooga.png"
 executable_link: .asciz "/proc/self/exe"
-app_title: .asciz "Oogabooga"
+.set app_title, ooga_app_title
 history_file: .asciz "history.sqlite3"
 cookie_file: .asciz "cookies.sqlite3"
 prop_data: .asciz "base-data-directory"
@@ -982,12 +1109,15 @@ shortcut_table:
 .quad 108, focus_address             # Ctrl+L
 .quad 114, reload_clicked            # Ctrl+R
 .quad 121, show_history              # Ctrl+Y
+.quad 101, switch_engine             # Ctrl+E
 .quad 113, quit                      # Ctrl+Q
 .quad 91, back_clicked               # Ctrl+[
 .quad 93, forward_clicked            # Ctrl+]
 .quad 0, 0
 .section .bss
 .p2align 3
+assembly_view: .zero 8
+assembly_active: .zero 8
 shortcuts: .zero 8
 window: .zero 8
 web: .zero 8

@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 mode=${1:-debug}
 case "$mode" in debug|release|test) ;; *) echo 'Usage: ./build.sh [debug|release|test]' >&2; exit 1 ;; esac
 cc=${CC:-cc}
-pkg-config --exists gtk+-3.0 webkit2gtk-4.1 sqlite3 || { echo 'Install GTK 3, WebKitGTK 4.1, and SQLite development packages.' >&2; exit 1; }
+pkg-config --exists gtk+-3.0 webkit2gtk-4.1 sqlite3 pangocairo libsoup-3.0 fontconfig pangoft2 || { echo 'Install GTK 3, WebKitGTK 4.1, SQLite, Pango/Cairo, libsoup 3 and Fontconfig development packages.' >&2; exit 1; }
 ./tools/generate-metadata.sh
 mkdir -p build/linux/obj
 install -m644 assets/oogabooga-512.png build/linux/oogabooga.png
@@ -13,10 +13,14 @@ flags='-g'
 [ "$mode" != release ] || flags=''
 "$cc" $flags -c src/linux/core.s -o build/linux/obj/core.o
 "$cc" $flags -c src/linux/browser.s -o build/linux/obj/browser.o
-"$cc" -pie -Wl,-z,relro,-z,now,-z,noexecstack build/linux/obj/core.o build/linux/obj/browser.o $(pkg-config --libs gtk+-3.0 webkit2gtk-4.1 sqlite3) -o build/linux/oogabooga
+./tools/build-linux-engine.sh "$mode"
+python3 tools/asm/engine_x86.py --gtk build/linux/engine/gtk.s
+"$cc" $flags -c build/linux/engine/gtk.s -o build/linux/engine/gtk.o
+"$cc" -pie -Wl,-z,relro,-z,now,-z,noexecstack build/linux/obj/core.o build/linux/obj/browser.o build/linux/engine/gtk.o build/linux/engine/runtime.o $(pkg-config --libs gtk+-3.0 webkit2gtk-4.1 sqlite3 pangocairo libsoup-3.0 fontconfig pangoft2) -lm -o build/linux/oogabooga
 [ "$mode" != release ] || strip build/linux/oogabooga
 if [ "$mode" = test ]; then
     "$cc" -Wall -Wextra -Werror tests/history.c build/linux/obj/core.o -lsqlite3 -o build/linux/history-test
     build/linux/history-test
+    ./tools/test-linux-renderer.sh --existing
 fi
 printf 'Built %s/build/linux/oogabooga\n' "$PWD"

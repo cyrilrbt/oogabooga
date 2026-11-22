@@ -274,6 +274,9 @@ Lsvg_paint_done:
 // CGContext,state -> fill/stroke the path with inherited paint and opacity.
 .globl _mac_svg_draw_path
 _mac_svg_draw_path:
+    .ifdef OOGA_GTK
+    b _gtk_svg_draw_path
+    .else
     ENTER
     mov x19, x0
     mov x20, x1
@@ -349,6 +352,7 @@ Lsvg_draw_empty:
     mov x0, x19
     bl _CGContextBeginPath
     LEAVE
+.endif
 .section __DATA,__const
 .p2align 3
 svg_line_attributes: .quad svg_linecap,svg_linejoin

@@ -86,7 +86,13 @@ Lgrid_tracks_done:
 
 .globl _engine_grid_owner
 _engine_grid_owner:
+    mov x2, #0
+    b _engine_grid_geometry
+// doc,grid,optional {columns,rows,widths[16],heights[64]} -> column count.
+.globl _engine_grid_geometry
+_engine_grid_geometry:
     ENTER
+    mov x28, x2
     sub sp, sp, #4096
     mov x19, x0
     mov x20, x1
@@ -96,6 +102,7 @@ _engine_grid_owner:
     mov x1, #0
     mov x2, #4096
     bl _memset
+    str x28, [sp, #3896]
     ldr x24, [x21, #(32+CSS_GAP*8)]
     ldr x9, [x21, #(32+CSS_COLUMN_GAP*8)]
     cmp x9, #0
@@ -453,6 +460,19 @@ Lgrid_height_ready:
     add x25, x25, #1
     b Lgrid_assign_item
 Lgrid_done:
+    ldr x25, [sp, #3896]
+    cbz x25, Lgrid_geometry_copied
+    stp x22, x24, [x25]
+    add x0, x25, #16
+    add x1, sp, #2560
+    mov x2, #128
+    bl _memcpy
+    add x0, x25, #144
+    add x1, sp, #2688
+    mov x2, #512
+    bl _memcpy
+Lgrid_geometry_copied:
+    mov x0, x22
     add sp, sp, #4096
     LEAVE
 

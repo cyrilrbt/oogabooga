@@ -27,7 +27,7 @@ flatpak install --user ./Oogabooga-VERSION-linux-x86_64.flatpak
 flatpak run dev.oogabooga.Browser
 ```
 
-Replace `VERSION` with the version in the downloaded filename. Install Flatpak through your distribution first. The bundle references the GNOME 50 runtime on Flathub and installs the runtime as needed; this does not publish Oogabooga to Flathub. Bundles are downloaded from GitHub and installed manually. The app has network, display, GPU, and audio access, with no blanket access to your home directory. Its profile lives under `~/.var/app/dev.oogabooga.Browser/`. The optional native archive requires Ubuntu 24.04+ or a compatible x86-64 distribution with GTK 3, WebKitGTK 4.1, SQLite, and a sufficiently recent glibc.
+Replace `VERSION` with the version in the downloaded filename. Install Flatpak through your distribution first. The bundle references the GNOME 50 runtime on Flathub and installs the runtime as needed; this does not publish Oogabooga to Flathub. Bundles are downloaded from GitHub and installed manually. The app has network, display, GPU, and audio access, with no blanket access to your home directory. Its profile lives under `~/.var/app/dev.oogabooga.Browser/`. The optional native archive requires Ubuntu 24.04+ or a compatible x86-64 distribution with GTK 3, WebKitGTK 4.1, SQLite, libsoup 3, Pango/Cairo, Fontconfig, and a sufficiently recent glibc.
 
 ## Versioning
 
@@ -42,14 +42,30 @@ Builds generate macOS bundle versions and Flatpak release metadata from this fil
 On Ubuntu 24.04:
 
 ```sh
-sudo apt-get install build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libsqlite3-dev
+sudo apt-get install build-essential python3 pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libsqlite3-dev libsoup-3.0-dev libfontconfig1-dev libpango1.0-dev
 ./build.sh release
 ./build/linux/oogabooga https://github.com
 ```
 
-`./build.sh test` runs the same assembly SQLite tests as macOS. `./tools/package-linux.sh` makes the native archive. Linux currently targets x86-64 only, using the System V ABI. Run in an X11 or Wayland desktop session. The native archive includes `oogabooga.png`; keep it beside the executable for the window icon. To use the supplied desktop launcher, also install that PNG as `~/.local/share/icons/hicolor/512x512/apps/dev.oogabooga.Browser.png` and put the executable on your PATH.
+`./build.sh test` runs shared SQLite/core suites, native instruction/ABI probes, and the custom-engine GTK rendering, networking, forms, DOM, SVG, Acid1 and saved-page checks under Xvfb. `./tools/package-linux.sh` makes the native archive. Linux currently targets x86-64 only, using the System V ABI. Run in an X11 or Wayland desktop session. The native archive includes `engine-inspect FILE [COLUMNS]` for headless core inspection and `oogabooga.png`; keep the PNG beside the browser executable for the window icon. To use the supplied desktop launcher, also install that PNG as `~/.local/share/icons/hicolor/512x512/apps/dev.oogabooga.Browser.png` and put the executable on your PATH.
 
-To run browser integration tests, install `xvfb xauth dbus-x11 python3`, run `./build.sh test`, then `./tools/test-linux.sh`. The harness checks real WebKit rendering, cookie persistence across process restart, HTTP authentication, popup opener/close behavior, navigation, history search/reopening, and failed-load history exclusion. Its small C harness is test-only; no C application code is linked into the shipped Linux executable. It requires a working WebKit process sandbox and uses an isolated temporary profile and localhost fixture.
+The native x86-64 engine core can also be built without GTK/WebKit:
+
+```sh
+./tools/build-linux-engine.sh test
+./build/linux/engine-inspect tests/fixtures/compat-docs-page.html 80
+./tools/benchmark-layout.sh
+```
+
+This developer probe outputs wrapped UTF-8 flow, not a rendered page. The core
+library is `build/linux/engine/liboogabooga-engine.a`. A build-time
+[assembly backend](tools/asm/README.md) lowers the shared handwritten ARM64
+engine into native Intel-syntax x86-64 code. Python is a build dependency only;
+the probe uses libc and has no ARM emulator, GTK or WebKit dependency.
+`src/gtk/` supplies the assembly GTK/Pango/Cairo adapter and independent libsoup
+HTTP session; neither HTML nor SVG parsing is delegated to WebKit.
+
+To run browser integration tests, install `xvfb xauth dbus-x11 python3`, run `./build.sh test`, then `./tools/test-linux.sh`. The harness checks real WebKit rendering, cookie persistence across process restart, HTTP authentication, popup opener/close behavior, navigation, history search/reopening, and failed-load history exclusion. It also checks the default assembly engine, toolbar/history navigation, versioned titles and switching to and from WebKit. Its C harnesses are test-only; no C application code is linked into the shipped Linux executable. It requires a working WebKit process sandbox and uses an isolated temporary profile and localhost fixture.
 
 To build a Flatpak locally, install `flatpak` and `flatpak-builder`, then:
 
@@ -101,9 +117,9 @@ Use **⌘ (Command) on macOS** and **Ctrl on Linux** for the same shortcuts:
 | Select all | ⌘A | Ctrl+A |
 | Undo / redo | ⌘Z / ⇧⌘Z | Ctrl+Z / Ctrl+Shift+Z |
 
-Editing commands act on the focused field/page and depend on that widget's editing support. Browser commands also work from history and popup windows; Open Location brings the main address bar forward. The experimental engine toggle is macOS-only (⌘E). Linux uses the standard WebKitGTK HTTP authentication and JavaScript dialogs.
+Editing commands act on the focused field/page and depend on that widget's editing support. Browser commands also work from history and popup windows; Open Location brings the main address bar forward. Switch engines with ⌘E on macOS or Ctrl+E on Linux. The assembly engine has its own session-only cookies and HTTP authentication; WebKit supplies JavaScript and modern login flows in fallback mode.
 
-## Experimental assembly renderer (macOS)
+## Experimental assembly renderer
 
 See [the engine roadmap](ENGINE_TODO.md) for the audited feature backlog,
 recommended implementation order, and prerequisites for starting JavaScript.
@@ -124,17 +140,18 @@ recommended implementation order, and prerequisites for starting JavaScript.
 | Networking & authentication | Partial | HTTPS, redirects and HTTP auth; persistent assembly cookies and modern login flows remain. |
 | Compatibility testing | Partial | Acid1 geometry checks and saved-page regressions; broader standards coverage remains. |
 | JavaScript & web APIs | Todo | No JavaScript execution or script-facing browser APIs yet. |
-| Assembly engine on Linux | Todo | Custom renderer is macOS ARM64 only; Linux uses WebKitGTK. |
+| Assembly engine on Linux | Done | Shared native core, GTK/Pango/Cairo adapter, independent transport, controls and browser integration; the supported experimental subset runs on both platforms. |
 
-Choose **Navigate → Use Assembly Engine (Experimental)** or press **⌘E** to switch the current page between the assembly renderer and WebKit. The assembly engine is the macOS default. Both applications open [DuckDuckGo's HTML homepage](https://html.duckduckgo.com/html/) at startup; typed URLs are loaded as entered. To launch with WebKit instead:
+On macOS choose **Navigate → Use Assembly Engine (Experimental)** or press **⌘E**; on Linux press **Ctrl+E**. Both platforms default to the assembly engine. Both applications open [DuckDuckGo's HTML homepage](https://html.duckduckgo.com/html/) at startup; typed URLs are loaded as entered. To launch with WebKit instead:
 
 ```sh
 OOGABOOGA_ENGINE=webkit build/Oogabooga.app/Contents/MacOS/oogabooga https://example.com
+OOGABOOGA_ENGINE=webkit ./build/linux/oogabooga https://example.com
 ```
 
-The ARM64 engine tokenizes static HTML into a bounded flow tree, supplies implied `html`/`body` elements, decodes named/numeric entities, collapses whitespace, and maps UTF-8 byte offsets to native UTF-16 ranges. CSS parsing, selector matching, inheritance, and the cascade are handwritten assembly; native text layout measures styled glyphs and wraps them inside assembly-created, nested content boxes. It supports paragraphs, headings, lists, preformatted text, titles, legacy `<center>` alignment, and relative HTTP(S) links. Inline span/emphasis tags stay in text flow; inline-blocks have independent nested shaping contexts with retained source text. Native AppKit text services supply glyph shaping, drawing, text selection, link hit testing, and scrolling; WebKit is not used to parse or render this mode. Back/forward/reload and SQLite history work in both modes, with independent in-window navigation stacks. Clickable links show the pointing-hand cursor; authored link colors remain authoritative, including sites that intentionally use purple for unvisited links.
+The shared assembly engine tokenizes static HTML into a bounded flow tree, supplies implied `html`/`body` elements, decodes named/numeric entities, collapses whitespace, and maps UTF-8 byte offsets to native UTF-16 ranges. CSS parsing, selector matching, inheritance, and the cascade are handwritten assembly; native text layout measures styled glyphs and wraps them inside assembly-created, nested content boxes. It supports paragraphs, headings, lists, preformatted text, titles, legacy `<center>` alignment, and relative HTTP(S) links. Inline span/emphasis tags stay in text flow; inline-blocks have independent nested shaping contexts with retained source text. Native AppKit or Pango/Cairo services supply glyph shaping and drawing; assembly retains source maps, selection/hit regions and scene scrolling; WebKit is not used to parse or render this mode. Back/forward/reload and SQLite history work in both modes, with independent in-window navigation stacks. Clickable links show the pointing-hand cursor; authored link colors remain authoritative, including sites that intentionally use purple for unvisited links.
 
-This first engine is macOS-only. Linux continues to use WebKitGTK. It does **not** implement full HTML5 tree-construction rules, JavaScript, fragment anchors, file uploads, or modern login flows. Comments and inert script bodies are retained in a separate mutable document tree and excluded from rendering; style blocks are parsed as CSS and never displayed. Layout supports normal text flow, nested boxes, bounded flexbox/Grid subsets, and HTML tables. Relative/absolute/fixed positioning, stacking contexts, group opacity, clipping, and contained wheel scrolling have regression coverage; sticky positioning and full CSS box behavior remain incomplete. Unsupported pages can be opened in WebKit with ⌘E.
+The custom adapters use AppKit on macOS and GTK/Pango/Cairo on Linux. The Linux backend emits native x86-64 assembly from the shared source; Python is never used at runtime. Both run the same 20 saved-page fixtures and Acid1 geometry reference, excluding glyph/widget regions and allowing a one-pixel edge tolerance. Native fonts and widgets can differ between platforms. It does **not** implement full HTML5 tree-construction rules, JavaScript, fragment anchors, file uploads, or modern login flows. Comments and inert script bodies are retained in a separate mutable document tree and excluded from rendering; style blocks are parsed as CSS and never displayed. Layout supports normal text flow, nested boxes, bounded flexbox/Grid subsets, and HTML tables. Relative/absolute/fixed positioning, stacking contexts, group opacity, clipping, and contained wheel scrolling have regression coverage; sticky positioning and full CSS box behavior remain incomplete. Unsupported pages can be opened in WebKit with ⌘E / Ctrl+E.
 
 Website-styled submit buttons use assembly-configured native cells with CSS
 background/text colors, uniform borders, corner radii and title padding. Native
@@ -324,17 +341,18 @@ Rhun builds native assembly and links system libraries. Both Oogabooga applicati
 - `src/mac/start.s` and `src/core.s`: macOS executable entry and ARM64 SQLite operations.
 - `src/linux/browser.s` and `core.s`: x86-64 GTK application and SQLite operations. Both platform cores expose search callbacks and updates by visit ID, using `src/history.inc` for shared SQL.
 - `build.sh`: dispatches by OS, assembles handwritten `.s` files, and links the native libraries. Linux uses PIE, RELRO, immediate binding, and a non-executable stack; macOS packages and ad-hoc signs the `.app`.
-- `flatpak/dev.oogabooga.Browser.json`: builds the Linux assembly app inside the GNOME 50 SDK, reusing the runtime's maintained WebKitGTK engine.
+- `src/gtk/`: assembly text/scene adapter, native controls, resources and HTTP session; common SVG/background geometry is shared with macOS.
+- `flatpak/dev.oogabooga.Browser.json`: builds and tests both Linux rendering paths inside the GNOME 50 SDK.
 
 C and Objective-C sources under `tests/` are assertion harnesses only. They are not linked into either shipped application. On macOS, `OOGABOOGA_PROFILE=/path/to/profile` selects an alternate SQLite history directory for isolated testing; WebKit website data still follows the app's bundle identity.
 
-macOS defaults to the assembly renderer described above, with the OS WebKit installation available through ⌘E. Linux defaults to WebKitGTK, including the maintained GNOME runtime version in Flatpak. Assembly does not make HTML, JavaScript, TLS, or web compatibility inexpensive to reimplement; reusing the maintained system engine keeps the application small. WebKit helper processes still consume memory separately from the executable.
+Both platforms default to the experimental assembly renderer. WebKit remains available through ⌘E / Ctrl+E, including the maintained GNOME runtime engine in Flatpak. Native libraries provide UI, glyph shaping, raster codecs and HTTP/TLS; our assembly owns HTML/CSS/SVG parsing, layout, scenes and application behavior. WebKit helper processes consume memory separately when the fallback is used.
 
 ## Storage
 
 History uses SQLite WAL. On macOS: `~/Library/Application Support/Oogabooga/history.sqlite3`. Native Linux: `$XDG_DATA_HOME/oogabooga/history.sqlite3` (default `~/.local/share/oogabooga/history.sqlite3`), with website data beside it, persistent cookies in `cookies.sqlite3`, and cache under `$XDG_CACHE_HOME/oogabooga`. Flatpak redirects these paths into its private app directory. Each successful HTTP(S) page load creates a visit, including repeated visits and popup loads. Redirects record the final URL. Failed loads are not recorded. Same-document hash/history API changes are not separately recorded.
 
-Schema: `visits(id INTEGER PRIMARY KEY, url TEXT, title TEXT, visited_at INTEGER)`; timestamps are Unix seconds. History is plaintext on disk. Cookies are managed separately by WebKit, not duplicated into the history database. macOS uses bundle identity `dev.oogabooga.browser`; Flatpak uses `dev.oogabooga.Browser`. macOS HTTP credentials are session-only; Linux uses WebKitGTK's authentication dialog and credential policy. No application password manager is included.
+Schema: `visits(id INTEGER PRIMARY KEY, url TEXT, title TEXT, visited_at INTEGER)`; timestamps are Unix seconds. History is plaintext on disk. Cookies are managed separately by WebKit, not duplicated into the history database. macOS uses bundle identity `dev.oogabooga.browser`; Flatpak uses `dev.oogabooga.Browser`. Assembly HTTP credentials and cookies are session-only on both platforms. Linux uses a separate libsoup session; WebKitGTK retains its own cookie profile and authentication policy in fallback mode. No application password manager is included.
 
 ## Local integration fixture
 

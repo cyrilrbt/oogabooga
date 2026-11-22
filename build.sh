@@ -24,6 +24,9 @@ cp LICENSE CHANGELOG.md build/Oogabooga.app/Contents/Resources/
 ./tools/build-mac-icon.sh
 codesign --force --sign - build/Oogabooga.app
 if [ "$mode" = test ]; then
+    xcrun clang $flags -g -c tests/engine-abi.s -o build/engine-abi.o
+    xcrun clang $flags -Wall -Wextra -Werror tests/engine-abi.c build/engine-abi.o -o build/engine-abi-test
+    build/engine-abi-test
     xcrun clang $flags -Wall -Wextra -Werror tests/history.c build/obj/core.o -lsqlite3 -o build/history-test
     build/history-test
     xcrun clang $flags -Wall -Wextra -Werror tests/engine.c build/obj/engine_*.o -o build/engine-test

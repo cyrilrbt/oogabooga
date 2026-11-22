@@ -1,5 +1,9 @@
 // Darwin ARM64 / Objective-C ABI helpers. Every function reserves a 224-byte
 // frame: outgoing variadic arguments [0,48), saved registers [48,144), locals [144,224).
+// Declare integer arity only for shared-core C entries with stack arguments
+// on System V. Native ARM64 needs no extra code for these declarations.
+.macro CORE_C_ABI_ARGS name, count
+.endm
 .macro ENTER
     sub sp, sp, #224
     stp x29, x30, [sp, #128]

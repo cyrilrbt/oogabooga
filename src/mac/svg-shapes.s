@@ -87,6 +87,14 @@ Lshape_rect:
     bl _CGContextAddRect
     b Lshape_draw
 Lshape_rounded_rect:
+    .ifdef OOGA_GTK
+    mov x0, x19
+    ldp d0, d1, [sp]
+    ldp d2, d3, [sp, #16]
+    ldp d4, d5, [sp, #32]
+    bl _gtk_cairo_rounded_rect
+    b Lshape_draw
+    .else
     bl _CGPathCreateMutable
     mov x26, x0
     ldp d0, d1, [sp]
@@ -105,6 +113,7 @@ Lshape_rounded_rect:
     mov x0, x26
     bl _CGPathRelease
     b Lshape_draw
+    .endif
 Lshape_line:
     mov x0, x19
     ldp d0, d1, [sp]

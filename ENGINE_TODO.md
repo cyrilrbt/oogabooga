@@ -1,6 +1,6 @@
 # Assembly Engine Roadmap
 
-Working checklist, audited against the repository on 2026-11-15. This covers the
+Working checklist, updated against the repository on 2026-11-21. This covers the
 engine rather than browser chrome. It is a comprehensive backlog, not a promise
 to implement every web standard before JavaScript. Unchecked items can have
 partial groundwork; parsing a value does not mean rendering it correctly.
@@ -25,7 +25,9 @@ partial groundwork; parsing a value does not mean rendering it correctly.
   assembly scene for transforms, clips, stacking contexts, opacity and hits.
   Native painting, mouse interaction, widget clipping and contained wheel
   scrolling are integrated; full native-widget stacking remains unfinished.
-- The custom engine is macOS ARM64 only. Linux still uses WebKitGTK.
+- The core builds for macOS ARM64 and Linux x86-64 from shared assembly.
+  Native adapters use AppKit on macOS and GTK/Pango/Cairo on Linux, with
+  independent platform HTTP sessions and a selectable WebKit fallback.
 
 ## Current implementation work
 
@@ -46,6 +48,19 @@ partial groundwork; parsing a value does not mean rendering it correctly.
 - Grid sparse placement, structural selectors and nested stylesheet imports are
   covered. Basic TrueType/OpenType font loading and reflow are covered;
   WOFF/WOFF2, broader flex/table cases and representative pages remain.
+
+## Linux port milestones
+
+- [x] Native x86-64 core, shared HTML/DOM/CSS/resource-parser/display/scene tests,
+  instruction/ABI parity probes, monotonic profiling and a headless flow probe.
+- [x] GTK/Pango/Cairo text measurement and scene painting adapter.
+- [x] Custom-engine links, selection, scrolling, native GTK controls, resource
+  loading and session/navigation integration.
+- [x] Browser engine toggle and Linux visual regressions of the custom rendering
+  path, including shared Acid1 and saved-page references, plus WebKit fallback.
+- [ ] Complete Flatpak bundle validation on a native x86-64 runner. Local OrbStack
+  AMD64 emulation cannot create the bubblewrap user namespace; CI runs the same
+  test and release commands inside the GNOME SDK.
 
 ## Recommended order
 
@@ -255,8 +270,9 @@ Python, and shell without shipping those implementations as the engine.
 - [ ] Record unsupported/fallback behavior explicitly; never mark parsing-only
   support as a rendered conformance pass.
 - [ ] Separate platform-neutral engine contracts from AppKit implementation details.
-- [ ] Bring the custom engine to Linux: x86-64 implementations and native shaping,
-  painting, input, and accessibility adapters with shared fixtures.
+- [x] Bring the custom engine to Linux: x86-64 implementation with native shaping,
+  painting and input adapters, GTK controls and shared fixtures.
+- [ ] Expand custom page-text accessibility on both native adapters.
 - [ ] Decide later whether ARM64 Linux and Windows are separate supported targets.
 
 ## JavaScript entry gate

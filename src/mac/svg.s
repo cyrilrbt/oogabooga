@@ -153,6 +153,16 @@ Lsvg_viewport_ready:
     b.hi Lsvg_nil
     fcmp d1, d2
     b.hi Lsvg_nil
+    .ifdef OOGA_GTK
+    fcvtzs x1, d0
+    fcvtzs x2, d1
+    mov x0, #0
+    bl _cairo_image_surface_create
+    mov x22, x0
+    bl _cairo_create
+    mov x23, x0
+    bl _cairo_save
+    .else
     CLASS NSImage
     MSG alloc
     ldr d0, [sp, #2144]
@@ -174,6 +184,7 @@ Lsvg_viewport_ready:
     fmov d0, #1.0
     fmov d1, #-1.0
     bl _CGContextScaleCTM
+    .endif
     ldr d0, [sp, #2144]
     ldr d1, [sp, #2152]
     ldr d2, [sp, #2128]
@@ -446,9 +457,26 @@ Lsvg_finish:
 Lsvg_restore_root:
     mov x0, x23
     bl _CGContextRestoreGState
+    .ifdef OOGA_GTK
+    mov x0, x22
+    mov x1, #0
+    mov x2, #0
+    ldr d0, [sp, #2144]
+    fcvtzs x3, d0
+    ldr d0, [sp, #2152]
+    fcvtzs x4, d0
+    bl _gdk_pixbuf_get_from_surface
+    mov x24, x0
+    mov x0, x23
+    bl _cairo_destroy
+    mov x0, x22
+    bl _cairo_surface_destroy
+    mov x0, x24
+    .else
     mov x0, x22
     MSG unlockFocus
     mov x0, x22
+    .endif
     add sp, sp, #2560
     LEAVE
 Lsvg_nil:

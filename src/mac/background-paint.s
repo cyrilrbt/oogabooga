@@ -10,12 +10,18 @@ _mac_background_paint:
     ENTER
     sub sp, sp, #160
     mov x19, x0
+    .ifdef OOGA_GTK
+    mov x28, x1
+    LOAD x9, _gtk_doc
+    .else
     LOAD x9, _engine_document
+    .endif
     cbz x9, Lbg_paint_done
     ldr x10, [x19, #8]
     ldr x11, [x9, #24]
     cmp x10, x11
     b.hs Lbg_paint_done
+.ifndef OOGA_GTK
     ldr x11, [x19]
     cmp x11, #99
     b.eq Lbg_paint_native_ready
@@ -27,11 +33,29 @@ _mac_background_paint:
     b.eq Lbg_paint_done
     cmp x11, #34
     b.eq Lbg_paint_done
+.endif
 Lbg_paint_native_ready:
     ldr x21, [x9, #72]
     add x21, x21, x10, lsl #11
     ldr x24, [x21, #CSS_BG_SIDECAR]
     cbz x24, Lbg_paint_done
+    .ifdef OOGA_GTK
+    ldr x1, [x21, #(32+CSS_BG_IMAGE*8)]
+    cmp x1, #0
+    b.le Lbg_paint_done
+    LOAD x0, _gtk_images
+    cbz x0, Lbg_paint_done
+    bl _g_hash_table_lookup
+    cbz x0, Lbg_paint_done
+    mov x23, x0
+    bl _gdk_pixbuf_get_width
+    scvtf d0, x0
+    str d0, [sp, #32]
+    mov x0, x23
+    bl _gdk_pixbuf_get_height
+    scvtf d1, x0
+    ldr d0, [sp, #32]
+    .else
     mov x0, x21
     bl _mac_background_url
     cbz x0, Lbg_paint_done
@@ -48,6 +72,7 @@ Lbg_paint_native_ready:
     cbz x0, Lbg_paint_done
     mov x0, x23
     MSG size
+    .endif
     stp d0, d1, [sp, #32] // natural dimensions
     fcmp d0, #0.0
     b.le Lbg_paint_done
@@ -159,9 +184,13 @@ Lbg_paint_size_ready:
     ldr d1, [sp, #56]
     fadd d0, d0, d1
     str d0, [sp, #104]
+    .ifdef OOGA_GTK
+    mov x0, x28
+    .else
     CLASS NSGraphicsContext
     MSG currentContext
     MSG CGContext
+    .endif
     mov x22, x0
     bl _CGContextSaveGState
     ldp d0, d1, [sp, #128]
@@ -175,6 +204,16 @@ Lbg_paint_size_ready:
     bl _engine_box_length
     cmp x0, #0
     b.le Lbg_paint_clip_ready
+    .ifdef OOGA_GTK
+    scvtf d4, x0
+    fmov d5, d4
+    ldp d0, d1, [sp, #128]
+    ldp d2, d3, [sp, #144]
+    mov x0, x22
+    bl _gtk_cairo_rounded_rect
+    mov x0, x22
+    bl _cairo_clip
+    .else
     scvtf d0, x0
     fmov d1, d0
     add x0, sp, #128
@@ -188,6 +227,7 @@ Lbg_paint_size_ready:
     bl _CGContextClip
     mov x0, x25
     bl _CGPathRelease
+    .endif
 Lbg_paint_clip_ready:
     ldr x26, [x24, #32]
     // Move repeated axes to the first tile intersecting the box.
@@ -225,6 +265,11 @@ Lbg_paint_tile:
     ldr d0, [sp, #112]
     ldr d1, [sp, #120]
     ldp d2, d3, [sp, #80]
+    .ifdef OOGA_GTK
+    mov x0, x23
+    mov x1, x22
+    bl _gtk_pixbuf_draw
+    .else
     fmov d4, xzr
     fmov d5, xzr
     fmov d6, xzr
@@ -236,6 +281,7 @@ Lbg_paint_tile:
     mov x3, #1 // respect flipped scene coordinates
     mov x4, #0
     MSG bgDrawImage
+    .endif
     subs x27, x27, #1
     b.eq Lbg_paint_restore
     cmp x26, #1
@@ -285,6 +331,7 @@ Lbg_axis_pixels:
     scvtf d0, x0
     ret
 
+.ifndef OOGA_GTK
 .globl _mac_background_control_paint
 _mac_background_control_paint:
     ENTER
@@ -302,3 +349,5 @@ _mac_background_control_paint:
     bl _mac_background_paint
     add sp, sp, #128
     LEAVE
+
+.endif
