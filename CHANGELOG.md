@@ -8,6 +8,8 @@ behavior changes, and fixes. Historical entries summarize the repository history
 
 ### Fixed
 
+- Decode the Acid1 reference PNG with Cairo so its pixel comparison does not
+  depend on portal-backed GdkPixbuf loaders inside the Flatpak build sandbox.
 - Run Flatpak GUI regressions on the container-provided Xvfb display during
   the SDK test phase; the GNOME SDK does not include `xvfb-run`.
 
