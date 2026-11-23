@@ -1,14 +1,14 @@
 // CSS metadata: one 2048-byte record per node. id*, classes*, inline*, tag*;
 // Computed values use CSS_VALUE_ADDR; priorities use CSS_PRIORITY_ADDR.
 // Owned attributes begin at +512. Extension fields preserve the 2 KiB node ABI.
-// Rules contain selector/length, a 624-byte declaration, raw source and flags.
+// Rules contain selector/length, a 640-byte declaration, raw source and flags.
 .set CSS_META_SIZE, 2048
-.set CSS_RULE_SIZE, 688
-.set CSS_DECL_SIZE, 624
-.set CSS_RULE_SOURCE, 640
-.set CSS_RULE_FLAGS, 656
-.set CSS_RULE_VISITED, 664
-.set CSS_PROPERTIES, 73
+.set CSS_RULE_SIZE, 704
+.set CSS_DECL_SIZE, 640
+.set CSS_RULE_SOURCE, 656
+.set CSS_RULE_FLAGS, 672
+.set CSS_RULE_VISITED, 680
+.set CSS_PROPERTIES, 75
 .set CSS_VERTICAL_ALIGN, 64
 .set CSS_WHITE_SPACE, 65
 .set CSS_WORD_SPACING, 66
@@ -206,7 +206,7 @@ Lcss_value_ready_\@:
     b.lo Lcss_priority_non_bg_\@
     ldr \dst, [\meta, #720]
     add \dst, \dst, \prop, lsl #3
-    sub \dst, \dst, #504
+    sub \dst, \dst, #480
     b Lcss_priority_ready_\@
 Lcss_priority_non_bg_\@:
     cmp \prop, #64
@@ -246,3 +246,6 @@ Lcss_priority_ready_\@:
 .set CSS_BG_REPEAT, 72
 .set CSS_BG_SIDECAR, 720
 .set CSS_BG_POOL, 728
+
+.set CSS_GRID_AREAS, 73
+.set CSS_GRID_AREA_NAME, 74

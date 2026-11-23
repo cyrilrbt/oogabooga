@@ -287,7 +287,8 @@ Lreplay_command:
     MSG setFill
     ldp d0, d1, [x22, #16]
     ldp d2, d3, [x22, #32]
-    bl _NSRectFill
+    mov x0, #2                    // source-over: alpha zero must not erase pixels
+    bl _NSRectFillUsingOperation
 Lreplay_border:
     mov x0, x22
     bl _mac_background_paint
@@ -324,7 +325,8 @@ Lreplay_bottom:
     fsub d1, d1, d4
     fmov d3, d4
 Lreplay_fill:
-    bl _NSRectFill
+    mov x0, #2                    // source-over: alpha zero must not erase pixels
+    bl _NSRectFillUsingOperation
 Lreplay_edge_next:
     add x23, x23, #1
     cmp x23, #4
@@ -491,12 +493,13 @@ Lcompile_link:
     sub x9, x0, x23
     cmp x28, x9
     csel x28, x9, x28, hi
-    mov x0, x21
+    LOAD x0, _engine_text
     MSG textStorage
     adrp x9, _NSLinkAttributeName@GOTPAGE
     ldr x9, [x9, _NSLinkAttributeName@GOTPAGEOFF]
     ldr x2, [x9]
-    mov x3, x23
+    ldr x3, [sp, #192]
+    add x3, x3, x23
     mov x4, #0
     MSG attributeIndex
     cbz x0, Lcompile_next

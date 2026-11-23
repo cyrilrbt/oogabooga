@@ -16,3 +16,5 @@
 .set AT_NODE, 96
 .set AT_SOURCE_BASE, 104
 .set AT_META, 256
+
+.set AT_REPLACED, 112

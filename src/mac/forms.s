@@ -266,18 +266,23 @@ Lcontrol_common:
     SELECT x2, formToggle
 Lcontrol_action:
     cmp x22, #8
-    csel x2, xzr, x2, eq
+    SELECT x9, engineSubmit
+    csel x2, x9, x2, eq
     MSG setAction
     ldr x9, [x19, #ATTR_DISABLED]
     cmp x9, #0
     cset w2, eq
     cmp x22, #3
     csel x2, xzr, x2, eq
-    cmp x22, #8
-    csel x2, xzr, x2, eq
+
     mov x0, x23
     MSG setEnabled
 Lcontrol_dictionary:
+    cbnz x22, Lcontrol_js_delegate_done
+    mov x0, x23
+    LOAD x2, _mac_delegate
+    MSG setDelegate
+Lcontrol_js_delegate_done:
     mov x0, x21
     bl _mac_control_key
     mov x3, x0
@@ -546,6 +551,23 @@ _mac_form_submit:
     mov x0, x19
     MSG tag
     mov x21, x0                     // submitter index
+    ADDR x1, _mac_js_click_name
+    bl _mac_js_event_node
+    cbnz x0, Lsubmit_done
+    mov x21, x1
+    LOAD x20, _engine_document
+    ldr x9, [x20, #24]
+    cmp x21, x9
+    b.hs Lsubmit_done
+    ldr x9, [x20, #72]
+    add x0, x9, x21, lsl #11
+    ldr x9, [x20, #16]
+    mov x10, #40
+    madd x9, x21, x10, x9
+    ldr x1, [x9]
+    bl _mac_control_kind
+    cmp x0, #8
+    b.eq Lsubmit_done
     ldr x9, [x20, #24]
     cmp x21, x9
     b.hs Lsubmit_done
@@ -562,6 +584,12 @@ Lsubmit_find_form:
     b.hs Lsubmit_find_form
     b Lsubmit_done
 Lsubmit_form:
+    mov x0, x22
+    ADDR x1, mac_js_submit_name
+    bl _mac_js_event_node
+    cbnz x0, Lsubmit_done
+    mov x22, x1
+    LOAD x20, _engine_document
     str xzr, [sp, #176]
     ldr x23, [x20, #72]
     add x23, x23, x22, lsl #11
@@ -833,3 +861,5 @@ form_content_type: .asciz "application/x-www-form-urlencoded"
 .section __TEXT,__cstring,cstring_literals
 button_type: .asciz "button"
 reset_type: .asciz "reset"
+
+mac_js_submit_name: .asciz "submit"

@@ -48,7 +48,7 @@ mac_dom_transfer:
     ENTER
     mov x19, x0
     mov x20, x1
-    mov x0, #4097
+    mov x0, #(DOM_MAX_NODES+1)
     mov x1, #8
     bl _calloc
     cbz x0, Ldom_transfer_fail

@@ -2,6 +2,7 @@
 // overflow is not scrollable; fixed boxes never enlarge their document/ancestor.
 .include "src/mac/mac.inc"
 .include "src/engine/scene.inc"
+.include "src/engine/dom.inc"
 .text
 .p2align 2
 .globl _engine_scene_copy_scroll
@@ -17,7 +18,7 @@ _engine_scene_copy_scroll:
     b.ne Lscroll_copy_done
     ldr x2, [x1, #88]
     mov x3, #0
-    mov x4, #4097
+    mov x4, #(DOM_MAX_NODES+1)
 Lscroll_copy_clear:
     str xzr, [x2, x3, lsl #3]
     add x3, x3, #1
@@ -29,7 +30,7 @@ Lscroll_copy_index:
     cbz x3, Lscroll_copy_new
     ldr x5, [x4, #SC_DOM]
     cbz x5, Lscroll_copy_old_next
-    cmp x5, #4096
+    cmp x5, #DOM_MAX_NODES
     b.hi Lscroll_copy_old_next
     str x4, [x2, x5, lsl #3]
 Lscroll_copy_old_next:
@@ -43,7 +44,7 @@ Lscroll_copy_record:
     cbz x3, Lscroll_copy_done
     ldr x5, [x4, #SC_DOM]
     cbz x5, Lscroll_copy_next
-    cmp x5, #4096
+    cmp x5, #DOM_MAX_NODES
     b.hi Lscroll_copy_next
     ldr x5, [x2, x5, lsl #3]
     cbz x5, Lscroll_copy_next

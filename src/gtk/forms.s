@@ -25,7 +25,19 @@ _gtk_form_clicked:
     ADDR x1, gtk_form_node_key
     bl _g_object_get_data
     cbz x0, Lgtk_form_click_done
-    sub x0, x0, #1
+    sub x19, x0, #1
+    mov x0, x19
+    ADDR x1, _gtk_js_click_name
+    bl _gtk_js_event_node
+    cbnz x0, Lgtk_form_click_done
+    mov x19, x1
+    mov x0, x19
+    bl _gtk_engine_node
+    ldr x1, [x2]
+    bl _gtk_control_kind
+    cmp x0, #8
+    b.eq Lgtk_form_click_done
+    mov x0, x19
     bl _gtk_form_submit
 Lgtk_form_click_done:
     LEAVE
@@ -76,6 +88,11 @@ _gtk_form_submit:
     bl _gtk_form_owner
     cbz x0, Lgtk_submit_done
     sub x20, x0, #1
+    mov x0, x20
+    ADDR x1, gtk_js_submit_name
+    bl _gtk_js_event_node
+    cbnz x0, Lgtk_submit_done
+    mov x20, x1
     mov x0, #0
     bl _g_string_new
     mov x21, x0
@@ -256,3 +273,5 @@ gtk_form_radio: .asciz "radio"
 gtk_form_on: .asciz "on"
 
 gtk_form_node_key: .asciz "oogabooga-control-node"
+
+gtk_js_submit_name: .asciz "submit"

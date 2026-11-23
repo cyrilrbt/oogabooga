@@ -252,25 +252,46 @@ Lmeasure_filtered:
     ldr x3, [x9]
     mov x0, x24
     MSG setObjectKey
+    CLASS NSAttributedString
+    MSG alloc
+    mov x2, x23
+    mov x3, x24
+    MSG initStringAttributes
+    str x0, [sp, #160]
+    bl _mac_intrinsic_cache_get
+    cbz x0, Lmeasure_uncached
+    MSG bytes
+    ldp x25, x26, [x0]
+    ldr x9, [x0, #16]
+    str x9, [x21, #FLOW_MIN_CONTENT]
+    b Lmeasure_cached
+Lmeasure_uncached:
     mov x0, x23
     mov x2, x24
     MSG sizeAttributes
     fcvtps x25, d0
     fcvtps x26, d1
+    mov x0, x23
+    mov x1, x24
+    bl _mac_min_content
+    str x0, [x21, #FLOW_MIN_CONTENT]
+    mov x3, x0
+    ldr x0, [sp, #160]
+    mov x1, x25
+    mov x2, x26
+    bl _mac_intrinsic_cache_put
+Lmeasure_cached:
     str x25, [x21, #FLOW_MAX_CONTENT]
     ldr x9, [x21, #888]
     cmp x9, #1
     b.eq Lmeasure_no_break_min
     cmp x9, #2
-    b.eq Lmeasure_no_break_min
-    mov x0, x23
-    mov x1, x24
-    bl _mac_min_content
-    str x0, [x21, #FLOW_MIN_CONTENT]
-    b Lmeasure_release_text
+    b.ne Lmeasure_release_text
 Lmeasure_no_break_min:
     str x25, [x21, #FLOW_MIN_CONTENT]
 Lmeasure_release_text:
+    ldr x0, [sp, #160]
+    MSG release
     mov x0, x23
     MSG release
     mov x0, x24
@@ -376,6 +397,42 @@ _mac_grid_cell:
     mov x10, #40
     madd x9, x23, x10, x9
     ldr x25, [x9]
+    // A one-column CSS flow needs ordinary block layout, not a one-cell
+    // NSTextTable wrapper. Nested wrappers can stop TextKit after one glyph.
+    cmp x25, #NODE_TABLE
+    b.eq Lgrid_multi_column
+    ldr x9, [x22, #FLOW_COLUMNS]
+    cmp x9, #1
+    b.ne Lgrid_multi_column
+    mov x26, #0
+    add x27, x23, #1
+Lgrid_single_item_scan:
+    ldr x9, [x19, #24]
+    cmp x27, x9
+    b.hs Lgrid_single_item_found
+    ldr x9, [x19, #16]
+    mov x10, #40
+    madd x9, x27, x10, x9
+    ldr x9, [x9, #8]
+    cmp x9, x23
+    b.lo Lgrid_single_item_found
+    b.ne Lgrid_single_item_next
+    mov x0, x19
+    mov x1, x27
+    bl _engine_flow_item
+    cbz x0, Lgrid_single_item_next
+    add x26, x26, #1
+    cmp x26, #2
+    b.hs Lgrid_multi_column
+Lgrid_single_item_next:
+    add x27, x27, #1
+    b Lgrid_single_item_scan
+Lgrid_single_item_found:
+    mov x0, x22
+    mov x1, x21
+    bl _mac_css_block
+    LEAVE
+Lgrid_multi_column:
     add x9, x23, #1
     lsl x26, x9, #16
     ldr x9, [x24, #88]
@@ -402,6 +459,9 @@ Lgrid_key:
     MSG tableColumns
     mov x0, x28
     mov x2, #1
+    ldr x9, [x24, #88]
+    cmp x9, #4
+    csel x2, xzr, x2, eq          // Grid widths can be declared after spanning rows
     MSG tableLayoutAlgorithm
     mov x0, x28
     ldr x9, [x24, #768]

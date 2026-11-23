@@ -610,5 +610,123 @@
         "right_max": 400
       }
     ]
+  },
+  {
+    "name": "article-shell",
+    "file": "tests/fixtures/compat-article-shell.html",
+    "width": 800,
+    "height": 450,
+    "budget_ms": 75,
+    "text": [
+      "Assembly notes",
+      "Encyclopedia",
+      "Introduction"
+    ],
+    "pixels": [
+      {
+        "name": "header background",
+        "x": 450,
+        "y": 25,
+        "rgb": [
+          238,
+          238,
+          255
+        ]
+      },
+      {
+        "name": "contents background",
+        "x": 150,
+        "y": 150,
+        "rgb": [
+          238,
+          255,
+          238
+        ]
+      }
+    ]
+  },
+  {
+    "name": "results-shell",
+    "file": "tests/fixtures/compat-results-shell.html",
+    "width": 800,
+    "height": 600,
+    "budget_ms": 75,
+    "text": [
+      "Assembly language reference",
+      "Programming guide",
+      "example.org/assembly"
+    ],
+    "pixels": [
+      {
+        "name": "summary heading background",
+        "x": 20,
+        "y": 85,
+        "rgb": [
+          242,
+          242,
+          242
+        ]
+      },
+      {
+        "name": "transparent result edge",
+        "x": 80,
+        "y": 190,
+        "rgb": [
+          255,
+          255,
+          255
+        ]
+      }
+    ]
+  },
+  {
+    "name": "formatting-contexts",
+    "file": "tests/fixtures/compat-formatting-contexts.html",
+    "width": 800,
+    "height": 300,
+    "budget_ms": 75,
+    "text": [
+      "Panel heading",
+      "Panel content caf\u00e9 \ud83c\udf10",
+      "After floats",
+      "Middle",
+      "Right"
+    ],
+    "text_geometry": [
+      {
+        "text": "Panel heading",
+        "x": 192
+      },
+      {
+        "text": "Middle",
+        "x": 120
+      },
+      {
+        "text": "Right",
+        "same_baseline_as": "Middle"
+      }
+    ],
+    "pixels": [
+      {
+        "name": "float retains authored height",
+        "x": 10,
+        "y": 50,
+        "rgb": [
+          255,
+          238,
+          238
+        ]
+      },
+      {
+        "name": "panel avoids float",
+        "x": 495,
+        "y": 25,
+        "rgb": [
+          238,
+          238,
+          255
+        ]
+      }
+    ]
   }
 ]

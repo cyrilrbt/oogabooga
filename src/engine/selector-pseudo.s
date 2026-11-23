@@ -186,8 +186,6 @@ Lpseudo_not_end:
     b.eq Lpseudo_not_test
     cmp w9, #40
     b.eq Lpseudo_no
-    cmp w9, #58
-    b.eq Lpseudo_no
     cmp w9, #44
     b.eq Lpseudo_no
     add x25, x25, #1
@@ -204,6 +202,9 @@ Lpseudo_not_test:
     mov x2, #1
     ldrb w9, [x24]
     cmp w9, #46
+    mov x10, #100
+    csel x2, x10, x2, eq
+    cmp w9, #58
     mov x10, #100
     csel x2, x10, x2, eq
     cmp w9, #35

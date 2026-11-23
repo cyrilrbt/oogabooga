@@ -3,6 +3,7 @@
 // null glyphs in this shaping context. Their own context shapes the real text.
 .include "src/mac/mac.inc"
 .include "src/mac/atomic.inc"
+.include "src/engine/css.inc"
 .text
 .p2align 2
 // sorted context bytes, local UTF-16 index -> containing direct record or nil.
@@ -97,6 +98,17 @@ Lat_generate_loop:
     ldr x9, [x21, x27, lsl #3]
     ldr x10, [x0, #AT_START]
     cmp x9, x10
+    b.ne Lat_generate_property
+    add x11, x0, #AT_META
+    ldr x11, [x11, #(1840+(CSS_POSITION-48)*8)]
+    cmp x11, #2
+    b.lo Lat_generate_first
+    ldr x11, [x0, #AT_REPLACED]
+    cmp x11, #1
+    b Lat_generate_property
+Lat_generate_first:
+    cmp xzr, xzr
+Lat_generate_property:
     mov x9, #1                     // NSGlyphPropertyNull
     cinc x9, x9, eq                // first = NSGlyphPropertyControlCharacter
     str x9, [x26, x27, lsl #3]
@@ -142,6 +154,10 @@ atomic_control_box:
     mov x1, x5
     bl _mac_atomic_lookup
     cbz x0, Lat_control_zero
+    add x9, x0, #AT_META
+    ldr x9, [x9, #(1840+(CSS_POSITION-48)*8)]
+    cmp x9, #2
+    b.hs Lat_control_zero
     ldr d2, [x0, #AT_WIDTH]
     ldr d3, [x0, #AT_HEIGHT]
     ldr d1, [x0, #AT_BASELINE]

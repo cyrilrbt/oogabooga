@@ -52,7 +52,7 @@ Lgtk_kind_unsupported:
 .p2align 3
 gtk_kind_names:
 .quad gtk_kind_text,0,gtk_kind_search,0,gtk_kind_email,0,gtk_kind_url,0,gtk_kind_tel,0,gtk_kind_number,0
-.quad gtk_kind_submit,1,gtk_kind_hidden,2,gtk_kind_check,4,gtk_kind_radio,5,0,0
+.quad gtk_kind_submit,1,gtk_kind_hidden,2,gtk_kind_check,4,gtk_kind_radio,5,gtk_kind_button,8,gtk_kind_reset,8,0,0
 .section __TEXT,__cstring,cstring_literals
 gtk_kind_text: .asciz "text"
 gtk_kind_search: .asciz "search"
@@ -64,3 +64,6 @@ gtk_kind_submit: .asciz "submit"
 gtk_kind_hidden: .asciz "hidden"
 gtk_kind_check: .asciz "checkbox"
 gtk_kind_radio: .asciz "radio"
+
+gtk_kind_button: .asciz "button"
+gtk_kind_reset: .asciz "reset"

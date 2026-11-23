@@ -13,13 +13,13 @@ python3 tools/asm/engine_x86.py build/linux/engine/core.s
 "$cc" $flags -c build/linux/engine/core.s -o build/linux/engine/core.o
 "$cc" $flags -c src/linux/engine/runtime.s -o build/linux/engine/runtime.o
 ar rcs build/linux/engine/liboogabooga-engine.a build/linux/engine/core.o build/linux/engine/runtime.o
-"$cc" $flags -pie -Wl,-z,relro,-z,now,-z,noexecstack src/linux/engine/inspect.s build/linux/engine/liboogabooga-engine.a -o build/linux/engine-inspect
+"$cc" $flags -pie -Wl,-z,relro,-z,now,-z,noexecstack src/linux/engine/inspect.s build/linux/engine/liboogabooga-engine.a -lm -o build/linux/engine-inspect
 if [ "$mode" = test ]; then
     python3 tools/asm/test_engine_x86.py
     python3 -c 'import sys;sys.path.insert(0,"tools/asm");from engine_x86 import Backend;from pathlib import Path;Path("build/linux/engine/abi.s").write_text(Backend().generate(["tests/engine-abi.s"]))'
     "$cc" -g -D_GNU_SOURCE -Wall -Wextra -Werror tests/engine-abi.c build/linux/engine/abi.s -o build/linux/engine/abi-test -lm
     build/linux/engine/abi-test
-    for name in engine dom css imports fonts display-list scene linux-engine-profile; do
+    for name in engine dom js css imports fonts display-list scene linux-engine-profile; do
         "$cc" -g -D_GNU_SOURCE -Wall -Wextra -Werror "tests/$name.c" build/linux/engine/liboogabooga-engine.a -o "build/linux/engine/$name-test" -lm
         timeout 90 "build/linux/engine/$name-test"
     done

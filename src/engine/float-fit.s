@@ -8,6 +8,8 @@
 .globl _engine_float_fit
 _engine_float_fit:
     mov x13, x2
+    ldr x15, [x1, #56]            // bit 6: immutable block-avoidance query
+    ldr x16, [x1]                 // query source position
     ldr x2, [x0]
     add x3, x0, #8
     ldr x4, [x1, #120]
@@ -24,6 +26,11 @@ Lfit_source_top:
     add x8, x3, x14, lsl #7
     cmp x8, x1
     b.eq Lfit_source_top_done
+    tbz x15, #6, Lquery_source_ok
+    ldr x17, [x8, #8]
+    cmp x17, x16
+    b.hi Lfit_source_top_next
+Lquery_source_ok:
     ldr x9, [x8, #56]
     tst x9, #3
     b.eq Lfit_source_top_next
@@ -46,6 +53,11 @@ Lfit_clear:
     add x8, x3, x14, lsl #7
     cmp x8, x1
     b.eq Lfit_band
+    tbz x15, #6, Lquery_clear_ok
+    ldr x17, [x8, #8]
+    cmp x17, x16
+    b.hi Lfit_clear_next
+Lquery_clear_ok:
     ldr x9, [x8, #48]
     cbz x9, Lfit_clear_next
     ldr x9, [x8, #120]
@@ -72,6 +84,11 @@ Lfit_obstacle:
     add x8, x3, x7, lsl #7
     cmp x8, x1
     b.eq Lfit_available
+    tbz x15, #6, Lquery_obstacle_ok
+    ldr x17, [x8, #8]
+    cmp x17, x16
+    b.hi Lfit_next
+Lquery_obstacle_ok:
     ldr x9, [x8, #56]
     tst x9, #3
     b.eq Lfit_next
@@ -153,4 +170,26 @@ Lclear_bottom_advance:
     sub x4, x4, #1
     b Lclear_bottom_next
 Lclear_bottom_done:
+    ret
+
+// records,context,source position,clear sides; available rect left/top/
+// width in d0..d2 and requested outer width d3. Returns fitted origin d0/d1.
+// Source offsets use the same units as the caller's records (UTF-16 or UTF-8).
+// The query is stack-owned; source bounds exclude future records independently
+// of allocation order. Existing float records are never changed.
+.globl _engine_float_avoid
+CORE_C_ABI_ARGS _engine_float_avoid, 4
+_engine_float_avoid:
+    sub sp, sp, #160
+    str x30, [sp, #144]
+    str x2, [sp]
+    str d3, [sp, #32]
+    mov x9, #64
+    str x9, [sp, #56]
+    str x1, [sp, #120]
+    mov x1, sp
+    mov x2, x3
+    bl _engine_float_fit
+    ldr x30, [sp, #144]
+    add sp, sp, #160
     ret

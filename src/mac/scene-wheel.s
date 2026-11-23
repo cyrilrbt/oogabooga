@@ -64,6 +64,7 @@ _mac_scene_scroll_wheel:
     mov x19, x0
     mov x20, x1
     mov x21, x2
+    bl _mac_hover_scroll
     LOAD x9, _mac_scene
     cbz x9, Lwheel_super
     mov x0, x21

@@ -1,0 +1,23 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Assembly JavaScript lab</title>
+<style>body{font:16px Arial;margin:32px;max-width:760px;color:#243044;background:#fafafa}button,input{padding:8px;border:1px solid #888}button{background:#e8edf5}section{margin:24px 0;padding:16px;border:1px solid #bcc8d8}#output{color:#17613a}</style></head>
+<body><h1>Assembly JavaScript lab</h1><p>Small scripts execute in the handwritten assembly VM on macOS and Linux. This page tests the supported subset; modern JavaScript applications remain unsupported.</p>
+<section><h2>Events and live input</h2><p><input id="name" value="café 🌐"> <button id="count" type="button">Count a click</button></p><p id="output">Waiting for scripts</p><form id="form"><input name="q" value="local submission"><button>Prevent navigation</button></form></section>
+<section><h2>Async execution</h2><p id="order">Waiting for external script</p><p id="data">Waiting for same-origin fetch</p><p id="timer">Waiting for timer</p></section>
+<p><a href="/">All tests</a></p>
+<script>
+var order='inline';
+let clicks=0;
+const output=document.getElementById('output');
+output.textContent='Scripts running';
+document.getElementById('count').addEventListener('click',()=>{clicks++;output.textContent='Clicks: '+clicks;});
+document.getElementById('name').addEventListener('input',()=>{output.textContent=document.getElementById('name').value;});
+document.getElementById('form').addEventListener('submit',event=>{event.preventDefault();output.textContent='Submission canceled by assembly JavaScript';});
+</script>
+<script src="engine-javascript.js"></script>
+<script>
+order+=' → final';
+document.getElementById('order').textContent=order;
+fetch('engine-javascript.json').then(response=>response.json()).then(data=>{document.getElementById('data').textContent=data.message;});
+setTimeout(()=>{document.getElementById('timer').textContent='Timer completed';},500);
+</script></body></html>

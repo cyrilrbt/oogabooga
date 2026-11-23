@@ -44,6 +44,12 @@ Lblock_create:
     b.ne Lblock_create_next
     ldr x24, [x19, #72]
     add x24, x24, x23, lsl #11
+    ldr x9, [x24, #(1840+(CSS_POSITION-48)*8)]
+    cmp x9, #2
+    b.lo Lblock_parent_format_ready
+    ldr x9, [x24, #872]
+    cbz x9, Lblock_create_next
+Lblock_parent_format_ready:
     ldr x9, [x19, #16]
     mov x10, #40
     madd x9, x23, x10, x9
@@ -176,6 +182,12 @@ Lblock_store:
     mov x0, x25
     str x0, [x22, x23, lsl #3]
     ldr x9, [x24, #768]
+    ldr x10, [x24, #FLOAT_ACTIVE]
+    cbz x10, Lblock_native_width_ready
+    ldr x10, [x24, #FLOW_MIN_CONTENT]
+    cmp x9, x10
+    csel x9, x10, x9, lt
+Lblock_native_width_ready:
     scvtf d0, x9
     mov x2, #0
     MSG blockWidth

@@ -23,6 +23,7 @@ Lengine_have_menu:
 Lengine_menu_done:
     LOAD x0, _mac_web
     MSG stopLoading
+    bl _mac_js_reset
     bl _mac_engine_cancel
     bl _mac_resources_reset
     LOAD x0, _engine_scroll
@@ -337,6 +338,14 @@ Lresponse_resource_done:
     LEAVE
 Lresponse_document:
     mov x0, x20
+    STR mac_js_csp_header
+    mov x2, x0
+    mov x0, x20
+    MSG jsHeader
+    cmp x0, #0
+    cset x9, ne
+    STORE x9, _mac_js_csp
+    mov x0, x20
     MSG expectedLength
     mov x9, #ENGINE_MAX_INPUT
     cmp x0, #0
@@ -523,6 +532,8 @@ Lcomplete_done:
 _mac_engine_commit:
     ENTER
     mov x19, x0
+    bl _mac_js_reset
+    mov x0, x19
     LOAD x1, _engine_pending_url
     bl _mac_engine_display
     cbz w0, Lcommit_failed
@@ -915,7 +926,7 @@ Ldisplay_fail:
 history_error: .asciz "Assembly engine: page loaded, but history could not be saved."
 invalid_text: .asciz "Enter an HTTP(S) address or search terms."
 loading_text: .asciz "Assembly engine (experimental): loading HTML…"
-ready_text: .asciz "Assembly engine — static HTML, CSS, images and GET forms; JavaScript is not supported. ⌘E switches back to WebKit."
+ready_text: .asciz "Assembly engine — static HTML, CSS, images and GET forms; Experimental JavaScript subset enabled. ⌘E switches back to WebKit."
 stopped_text: .asciz "Assembly engine: loading stopped."
 large_text: .asciz "Assembly engine: this page exceeds the 1 MiB limit. Switch to WebKit with ⌘E."
 http_error: .asciz "Assembly engine: the server did not return a successful page. Try WebKit for login pages."
@@ -962,3 +973,6 @@ _engine_render_base: .quad 0
 .globl engine_index,engine_traversal,engine_pending_index
 
 .globl _mac_engine_record
+
+.section __TEXT,__cstring,cstring_literals
+mac_js_csp_header: .asciz "Content-Security-Policy"

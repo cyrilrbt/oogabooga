@@ -10,8 +10,11 @@ typedef struct {uint64_t q[64];} Record;
 typedef struct {uint64_t count;Record *records;uint64_t *order,order_count;uint64_t rest[8];} Scene;
 typedef struct {uint64_t q[16];} Command;
 typedef struct {uint64_t count,capacity;Command *commands;uint64_t overflow;} List;
+typedef struct {double x,y;} FloatOrigin;
+extern FloatOrigin engine_float_avoid(void *,uint64_t,uint64_t,uint64_t,double,double,double,double);
 extern Doc *engine_parse(const char *,size_t);
 extern void engine_document_free(Doc *);
+extern void engine_css_apply(Doc *),engine_box_tree(Doc *,uint64_t);
 extern Scene *engine_scene_new(Doc *,uint64_t,uint64_t);
 extern void engine_scene_free(Scene *);
 extern void engine_scene_update(Scene *,double,double);
@@ -29,6 +32,22 @@ static uint64_t id(Doc *d,const char *name) {for(uint64_t i=0;i<d->count;i++){ch
 static double scalar(Scene *s,uint64_t i,size_t offset){double v;memcpy(&v,(unsigned char *)&s->records[i]+offset,8);return v;}
 static uint64_t rank(Scene *s,uint64_t i){return s->records[i].q[208/8];}
 int main(void) {
+    uint64_t floatRecords[1+3*16]={3},savedFloatRecords[1+3*16];
+    for(size_t i=0;i<3;i++) {
+        uint64_t *r=floatRecords+1+i*16;double *geometry=(void *)r;
+        r[1]=i==1?200:10;r[6]=1;r[7]=1;r[15]=i==2?8:7;
+        geometry[2]=0;geometry[3]=0;geometry[4]=i==0?180:900;geometry[5]=80;
+    }
+    memcpy(savedFloatRecords,floatRecords,sizeof(floatRecords));
+    FloatOrigin fit=engine_float_avoid(floatRecords,7,50,0,0,0,600,300);
+    assert(fabs(fit.x-180)<.01&&fabs(fit.y)<.01);
+    fit=engine_float_avoid(floatRecords,7,5,0,0,0,600,300);
+    assert(fabs(fit.x)<.01&&fabs(fit.y)<.01);
+    fit=engine_float_avoid(floatRecords,7,50,0,0,0,600,500);
+    assert(fabs(fit.x)<.01&&fabs(fit.y-80)<.01);
+    fit=engine_float_avoid(floatRecords,7,50,3,0,0,600,300);
+    assert(fabs(fit.x)<.01&&fabs(fit.y-80)<.01);
+    assert(!memcmp(savedFloatRecords,floatRecords,sizeof(floatRecords)));
     const char *html="<div id=normal>n</div><div id=low style='position:relative;z-index:-2'><div id=trapped style='position:relative;z-index:999'>t</div></div><div id=auto style='position:relative'>a</div><div id=zero style='position:relative;z-index:0'>z</div><div id=high style='position:relative;z-index:4'>h</div><div id=opacity style='opacity:.5'>o</div><div id=fixed style='position:fixed'>f</div>";
     Doc *d=engine_parse(html,strlen(html));assert(d);
     assert(!engine_scene_new(NULL,100,100));
@@ -122,5 +141,9 @@ int main(void) {
     assert(engine_scene_scroll(s,scroll,1000,1000));assert(!engine_scene_scroll(s,scroll,1,1));assert(!engine_scene_scroll(s,scroll,NAN,NAN));
     assert(engine_scene_scroll(s,scroll,-1000,-1000));assert(scalar(s,scroll,232)==0&&scalar(s,scroll,240)==0);
     engine_scene_free(s);engine_document_free(d);
+    html="<div id=math style='position:relative;left:calc(10px + 5%);width:100px;height:20px'>Math</div>";
+    d=engine_parse(html,strlen(html));assert(d);engine_box_tree(d,400);s=engine_scene_new(d,400,300);assert(s);
+    // Re-cascading frees the document expression pool; the old scene remains valid.
+    engine_css_apply(d);engine_scene_update(s,0,0);engine_scene_free(s);engine_document_free(d);
     puts("PASS: assembly stacking contexts, trapped descendants, stable paint ordering, transforms, clips, hit occlusion and finite geometry");
 }

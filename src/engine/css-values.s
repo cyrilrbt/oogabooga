@@ -377,6 +377,8 @@ _css_value:
     ADDR x2, unset_text
     bl _css_eq
     cbnz w0, Lvalue_unset
+    cmp x19, #CSS_GRID_AREAS
+    b.hs Lvalue_grid_names
     cmp x19, #CSS_BG_IMAGE
     b.eq Lvalue_background_image
     cmp x19, #CSS_BG_WIDTH
@@ -489,6 +491,12 @@ Lvalue_weight_number:
     cmp x0, #900
     b.hi Lvalue_bad
     b Lvalue_good
+Lvalue_grid_names:
+    mov x0, x20
+    mov x1, x21
+    mov x2, x19
+    bl _css_grid_names
+    LEAVE
 Lvalue_layout:
     mov x0, x19
     mov x1, x20
@@ -838,6 +846,8 @@ Ldecl_property_next:
     b Ldecl_property_next
 Ldecl_property_found:
     ldr x28, [x27, #8]
+    cmp x28, #110
+    b.eq Ldecl_grid_template
     cmp x28, #1001
     b.hs Ldecl_background
     cmp x28, #CSS_OVERFLOW
@@ -870,6 +880,13 @@ Ldecl_property_found:
     mov x3, x0
     mov x0, x21
     bl _css_store_decl
+    b Ldecl_advance
+Ldecl_grid_template:
+    mov x0, x24
+    mov x1, x25
+    mov x2, x21
+    mov x3, x26
+    bl _css_grid_template
     b Ldecl_advance
 Ldecl_background:
     cmp x28, #1001
@@ -1128,6 +1145,9 @@ property_table:
 .quad p_overflow, CSS_OVERFLOW
 .quad p_overflow_x, CSS_OVERFLOW_X
 .quad p_overflow_y, CSS_OVERFLOW_Y
+.quad p_grid_areas, CSS_GRID_AREAS
+.quad p_grid_area, CSS_GRID_AREA_NAME
+.quad p_grid_template, 110
 .quad p_grid_columns, CSS_GRID_COLUMNS
 .quad p_grid_rows, CSS_GRID_ROWS
 .quad p_grid_column, 108
@@ -1489,3 +1509,7 @@ math_unit_vw: .asciz "vw"
 math_unit_vh: .asciz "vh"
 math_unit_vmin: .asciz "vmin"
 math_unit_vmax: .asciz "vmax"
+
+p_grid_areas: .asciz "grid-template-areas"
+p_grid_area: .asciz "grid-area"
+p_grid_template: .asciz "grid-template"

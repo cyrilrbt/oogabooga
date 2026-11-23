@@ -14,6 +14,7 @@ _mac_scene_begin:
     STORE xzr, _mac_scene
     STORE xzr, _mac_scene_anchor
     mov x19, x0
+    bl _mac_hover_cancel
     ldr x20, [x19, #72]
     ldr x21, [x19, #24]
     ldr x0, [x19, #56]
@@ -247,6 +248,9 @@ Lscene_measure_next:
     add x23, x23, #1
     b Lscene_measure_node
 Lscene_measure_finish:
+    mov x0, x19
+    LOAD x1, _mac_scene
+    bl _mac_scene_repair_empty
     LOAD x0, _mac_scene
     ldr x9, [x0, #32]
     scvtf d2, x9

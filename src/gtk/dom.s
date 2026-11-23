@@ -1,12 +1,13 @@
 // Stable DOM handles preserve editors and accepted resources during rebuilds.
 .include "src/gtk/gtk.inc"
+.include "src/engine/dom.inc"
 .text
 // old,new -> BOOL. Resources transfer only with unchanged source/rel/media.
 gtk_dom_transfer:
     ENTER
     mov x19, x0
     mov x20, x1
-    mov x0, #4097
+    mov x0, #(DOM_MAX_NODES+1)
     mov x1, #8
     bl _calloc
     cbz x0, Lgtk_dom_transfer_failed
@@ -20,7 +21,7 @@ Lgtk_dom_index:
     add x9, x9, x22, lsl #11
     ldr x9, [x9, #DOM_HANDLE]
     cbz x9, Lgtk_dom_index_next
-    cmp x9, #4096
+    cmp x9, #DOM_MAX_NODES
     b.hi Lgtk_dom_index_next
     str x22, [x21, x9, lsl #3]
 Lgtk_dom_index_next:
@@ -35,7 +36,7 @@ Lgtk_dom_transfer_node:
     ldr x23, [x20, #72]
     add x23, x23, x22, lsl #11
     ldr x9, [x23, #DOM_HANDLE]
-    cmp x9, #4096
+    cmp x9, #DOM_MAX_NODES
     b.hi Lgtk_dom_transfer_next
     ldr x24, [x21, x9, lsl #3]
     cbz x24, Lgtk_dom_transfer_next

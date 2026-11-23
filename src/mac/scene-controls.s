@@ -33,6 +33,28 @@ _mac_scene_controls_commit:
     bl _engine_scene_update
     LOAD x0, _mac_scene
     bl _engine_scene_extents
+    LOAD x0, _engine_controls
+    MSG count
+    cbz x0, Lscene_controls_commit_update
+    // Controls can extend beyond the native text layout (absolute positioning,
+    // transforms, or short pages). AppKit rejects hits outside parent bounds.
+    // Fixed controls need viewport coverage without enlarging scroll extents.
+    LOAD x0, _engine_scroll
+    MSG contentSize
+    stp d0, d1, [sp, #144]
+    LOAD x0, _engine_text
+    MSG frame
+    ldp d0, d1, [sp, #144]
+    fmax d0, d0, d2
+    fmax d1, d1, d3
+    LOAD x9, _mac_scene
+    ldr x9, [x9, #8]
+    ldp d2, d3, [x9, #SC_CONTENT_W]
+    fmax d0, d0, d2
+    fmax d1, d1, d3
+    LOAD x0, _engine_text
+    MSG setFrameSize
+Lscene_controls_commit_update:
     bl _mac_scene_controls_update
 Lscene_controls_commit_done:
     LEAVE

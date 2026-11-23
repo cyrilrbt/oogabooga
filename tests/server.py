@@ -15,6 +15,7 @@ REQUEST_COUNTS = {}
 def fixture_catalog():
     """Expose only known fixture files, including their relative resources."""
     mime = {'.html': 'text/html; charset=utf-8', '.xht': 'text/html; charset=utf-8',
+            '.js': 'application/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8',
             '.css': 'text/css; charset=utf-8', '.png': 'image/png',
             '.svg': 'image/svg+xml', '.ttf': 'font/ttf'}
     return {'/fixtures/' + file.relative_to(ROOT / 'fixtures').as_posix():
@@ -62,6 +63,9 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(data)
             return
         fixture_files = {
+            '/engine/javascript': ('fixtures/engine-javascript.html', 'text/html; charset=utf-8'),
+            '/engine/engine-javascript.js': ('fixtures/engine-javascript.js', 'application/javascript; charset=utf-8'),
+            '/engine/engine-javascript.json': ('fixtures/engine-javascript.json', 'application/json; charset=utf-8'),
             '/engine/foundations': ('fixtures/engine-foundations.html', 'text/html; charset=utf-8'),
             '/engine/inputs': ('fixtures/engine-inputs.html', 'text/html; charset=utf-8'),
             '/engine/backgrounds': ('fixtures/engine-backgrounds.html', 'text/html; charset=utf-8'),

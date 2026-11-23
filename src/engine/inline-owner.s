@@ -1,6 +1,8 @@
-// doc,node -> nearest enclosing inline-block node index + 1, or zero.
+// doc,node -> nearest independent formatting root index + 1, or zero.
+// Inline blocks, positioned roots and nested flex/Grid own their glyph shaping.
 // The element itself belongs to its parent's formatting context.
 .include "src/engine/engine.inc"
+.include "src/engine/css.inc"
 .text
 .p2align 2
 .globl _engine_inline_owner
@@ -17,9 +19,19 @@ Linline_owner_parent:
     cbz x6, Linline_owner_none
     sub x6, x6, #1
     add x5, x3, x1, lsl #11
+    ldr x7, [x5, #(1840+(CSS_POSITION-48)*8)]
+    cmp x7, #2
+    b.hs Linline_owner_candidate
     ldr x7, [x5, #88]
     cmp x7, #5
-    b.ne Linline_owner_next
+    b.eq Linline_owner_candidate
+    cmp x7, #3
+    b.lo Linline_owner_next
+    cmp x7, #4
+    b.hi Linline_owner_next
+    ldr x7, [x5, #FLOW_OWNER]
+    cbz x7, Linline_owner_next
+Linline_owner_candidate:
     ldr x7, [x5, #872]             // existing styled-link native attachment
     cbz x7, Linline_owner_yes
 Linline_owner_next:

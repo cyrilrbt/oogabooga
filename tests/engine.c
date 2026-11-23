@@ -15,7 +15,7 @@ extern Layout *engine_layout(Document *,size_t);
 extern void engine_layout_free(Layout *);
 static Document *parse(const char *html) { Document *d=engine_parse(html,strlen(html)); assert(d); return d; }
 static void check(Document *d) {
-    assert(d->count>=1 && d->count<=4096 && strlen(d->text)==d->length);
+    assert(d->count>=1 && d->count<=16384 && strlen(d->text)==d->length);
     assert(strlen(d->title)==d->title_length && d->title_length<=1024);
     for (uint64_t i=0;i<d->count;i++) {
         Node *n=&d->nodes[i]; assert(n->start<=n->end && n->end<=d->length);
@@ -52,6 +52,11 @@ int main(void) {
     for(int i=0;i<399;i++) strcat(title,"🌐");
     strcat(title,"</title>body");
     d=parse(title); check(d); assert(d->title_length==1021); engine_document_free(d);
+    // Article-sized trees must bind every source offset without filling the hash.
+    char *article=calloc(300000,1);assert(article);strcpy(article,"<html><body>");
+    for(int i=0;i<4500;i++){strcat(article,"<span>entry</span>");}
+    strcat(article,"<p id=article-end>Article end</p></body></html>");
+    d=parse(article);assert(d->count>8192&&strstr(d->text,"Article end"));engine_document_free(d);free(article);
     assert(!engine_parse(NULL,0)); assert(!engine_parse("",1048577));
     char deep[1024]=""; for(int i=0;i<70;i++) strcat(deep,"<div>"); assert(!engine_parse(deep,strlen(deep)));
     d=parse("bad\xff"); assert(!engine_layout(d,20)); assert(!engine_layout(d,0)); engine_document_free(d);

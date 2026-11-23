@@ -187,6 +187,12 @@ Llayout_no_clearance:
     mov x1, x20
     mov x2, x26
     mov x3, x25
+    bl _gtk_block_avoid
+    mov x26, x1
+    mov x1, x0
+    mov x0, x28
+    mov x2, x26
+    mov x3, x25
     bl _gtk_layout_node
     LOAD x9, _gtk_nodes
     add x9, x9, x28, lsl #8

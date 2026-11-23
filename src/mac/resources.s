@@ -8,6 +8,7 @@
 .globl _mac_resources_reset
 _mac_resources_reset:
     ENTER
+    bl _mac_intrinsic_cache_reset
     bl _mac_imports_reset
     bl _mac_fonts_reset
     LOAD x0, resource_base_url
@@ -220,6 +221,8 @@ Lresources_history_error:
     STR resources_history_error
 Lresources_status:
     bl _mac_status_text
+    LOAD x0, _engine_document
+    bl _mac_js_begin
 Lresources_done:
     LEAVE
 
@@ -609,7 +612,7 @@ Lstyles_done:
     LEAVE
 .section __TEXT,__cstring,cstring_literals
 resources_loading: .asciz "Assembly engine: HTML ready; loading styles, images and fonts…"
-resources_ready: .asciz "Assembly engine: ready. JavaScript is not supported. ⌘E switches to WebKit."
+resources_ready: .asciz "Assembly engine: ready. Experimental JavaScript subset enabled. ⌘E switches to WebKit."
 
 resources_history_error: .asciz "Assembly engine: page ready, but history could not be saved."
 .section __DATA,__bss

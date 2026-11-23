@@ -21,7 +21,7 @@ _engine_dom_bind_flow:
     mov x19, x0
     mov x20, x1
     cbz x0, Lbind_dom_fail
-    mov x0, #8192
+    mov x0, #(DOM_MAX_NODES*2)
     mov x1, #16
     bl _calloc
     cbz x0, Lbind_dom_fail
@@ -40,7 +40,7 @@ Lbind_dom_node:
     adds x23, x23, #1
     b.eq Lbind_dom_node
     eor x24, x23, x23, lsr #13
-    and x24, x24, #8191
+    and x24, x24, #(DOM_MAX_NODES*2-1)
 Lbind_dom_probe:
     add x9, x21, x24, lsl #4
     ldr x10, [x9]
@@ -48,7 +48,7 @@ Lbind_dom_probe:
     cmp x10, x23
     b.eq Lbind_dom_node
     add x24, x24, #1
-    and x24, x24, #8191
+    and x24, x24, #(DOM_MAX_NODES*2-1)
     b Lbind_dom_probe
 Lbind_dom_store:
     stp x23, x22, [x9]
@@ -66,7 +66,7 @@ Lbind_flow_node:
     adds x26, x26, #1
     b.eq Lbind_flow_advance
     eor x27, x26, x26, lsr #13
-    and x27, x27, #8191
+    and x27, x27, #(DOM_MAX_NODES*2-1)
 Lbind_flow_probe:
     add x9, x21, x27, lsl #4
     ldr x10, [x9]
@@ -74,7 +74,7 @@ Lbind_flow_probe:
     cmp x10, x26
     b.eq Lbind_flow_found
     add x27, x27, #1
-    and x27, x27, #8191
+    and x27, x27, #(DOM_MAX_NODES*2-1)
     b Lbind_flow_probe
 Lbind_flow_found:
     ldr x10, [x9, #8]

@@ -1,7 +1,7 @@
 # Engine implementation notes
 
-The custom engine is macOS ARM64. Production algorithms live in `src/engine/`
-and `src/mac/` assembly; C/Objective-C/Python files in `tests/` and `tools/` are
+The custom engine targets macOS ARM64 and Linux x86-64. Production algorithms live in `src/engine/`
+and the `src/mac/` / `src/gtk/` assembly adapters; C/Objective-C/Python files in `tests/` and `tools/` are
 verification tools. AppKit/CoreText supply native text/font services, Foundation
 supplies HTTP/TLS/encoding, and ImageIO supplies raster decoding.
 
@@ -16,7 +16,7 @@ Do not retain raw node/string pointers across mutations.
 Assembly APIs create elements/text/comments, insert before a child (zero appends),
 detach, remove a subtree, set attributes/text/text-content, and look up IDs.
 Mutators return zero on success and minus one on failure; creation returns a
-handle or zero. Limits are 4,096 allocated handles, depth 64, 64 attributes per
+handle or zero. Limits are 16,384 allocated handles, depth 64, 64 attributes per
 node, and 4 MiB of owned strings. These are serialized main-thread APIs.
 
 `engine_dom_snapshot(document)` returns an owned render snapshot retaining the
@@ -90,3 +90,70 @@ behavior. Full widget stacking/group opacity and selection-aware scrolling throu
 all keyboard editing/scroll cases remain unfinished. `tests/fixtures/wpt/README.md` records
 which imported tests are computed checks and which visual tests remain pending;
 none of these checks establishes broad WPT conformance.
+
+
+## Assembly JavaScript
+
+`src/engine/js*.s` implements a bounded tokenizer, parser, stack bytecode VM,
+lexical environments, values, DOM bindings and event loop. The existing build-time
+assembly backend emits native x86-64 for Linux. Production code does not embed
+an existing JavaScript engine. Platform adapters supply main-thread timers,
+editor access, and native HTTP/TLS; parsing and execution stay in assembly.
+
+`engine_js_new(dom)` retains the mutable document; `engine_js_free(vm)` releases
+its page arena. `engine_js_prepare` collects initial handlers/classic scripts;
+`engine_js_start` executes in document order, pausing at external scripts.
+Adapters pull `engine_js_request_next`, validate the resolved origin and MIME,
+and complete with bounded UTF-8 through `engine_js_complete`. Initial scripts run
+post-parse (after initial resources on macOS). Dynamic script insertion,
+parser-blocking execution, modules and full async/defer behavior are unfinished.
+
+DOM mutations are batched into retained-document rebuilds, preserving native
+editors and avoiding duplicate history visits. `engine_js_control` feeds native
+entry/toggle state before event dispatch. Capture/target/bubble listeners support
+cancellation and propagation control; input/change/submit/click plus
+DOMContentLoaded are wired. Native entry and toggle synchronization is supported;
+textarea/select script synchronization and the full browser event catalog remain.
+Timers and promise reactions run on the UI thread. Navigation/switching cancels
+page work; transport callbacks check generations before accessing VM memory.
+
+Bounds: 64 KiB source/response, 8,192 tokens and bytecode instructions, 512 stack
+values, 32 calls, 64 parser levels, 4 MiB arena, 256 array entries, 128 listeners,
+32 script/fetch requests, 32 timer callbacks and 128 microtasks per checkpoint,
+and 100,000 bytecode steps per evaluation/checkpoint. Arena memory is reclaimed on navigation;
+tracing garbage collection is unfinished. Finite number-to-string formatting is
+currently limited to six fractional digits and signed 64-bit integer range.
+
+Fetch is GET-only, same-origin HTTP(S), with redirects rejected and standard TLS
+validation retained. Native sessions share the page cookie jar. External scripts
+require a JavaScript MIME type. Any HTTP/meta CSP declaration disables scripting
+because the VM does not yet implement complete CSP policy evaluation. No native
+FFI, filesystem/process access or dynamic evaluation API is exposed.
+
+This is not an ECMAScript conformance claim. Semicolons are required except at
+block/end boundaries; hoisting/TDZ, custom constructors/prototypes, classes,
+exceptions, regular expressions, templates, modules, async/await and complete
+built-ins/coercions remain. Selectors support simple ID/class/tag queries.
+`tests/js.c` exercises the portable implementation; native browser suites test
+real editors, DOM rebuilds, external scripts, fetch/JSON and CSP. The manual lab
+is `/engine/javascript` (or `/fixtures/engine-javascript.html`).
+
+## Static page comparison
+
+After building on Apple silicon, run
+`sh tools/compare-page.sh 'https://en.wikipedia.org/wiki/Assembly_language' build/page-comparison/wiki`
+to capture `assembly.png`, `webkit.png` and comparison metadata. WebKit uses
+a nonpersistent profile with JavaScript disabled, so the reference measures
+server-rendered HTML/CSS. Live responses can vary; offline article/results
+fixtures in the compatibility report provide repeatable checks. This is a
+visual inspection tool, not a pixel-conformance claim.
+
+Grid supports bounded named areas, an unquoted `rows / columns` template
+shorthand, intrinsic tracks and relative `em`/`rem` tracks. Relative tracks
+currently retain tenths of a unit; nested quoted template shorthands and full
+Grid conformance remain incomplete. Default document typography starts at 16px.
+The macOS adapter isolates nested flex/Grid and positioned contexts for native shaping;
+assembly retains sizing, paint, clipping and hit testing.
+
+For implementation references and upcoming layout regression targets, see
+[Layout implementation references](layout-references.md).

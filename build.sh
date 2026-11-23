@@ -33,6 +33,8 @@ if [ "$mode" = test ]; then
     build/engine-test
     xcrun clang $flags -Wall -Wextra -Werror tests/dom.c build/obj/engine_*.o -o build/dom-test
     build/dom-test
+    xcrun clang $flags -Wall -Wextra -Werror tests/js.c build/obj/engine_*.o -o build/js-test
+    build/js-test
     xcrun clang $flags -Wall -Wextra -Werror tests/css.c build/obj/engine_*.o -o build/css-test
     build/css-test
     xcrun clang $flags -Wall -Wextra -Werror tests/imports.c build/obj/engine_*.o -o build/imports-test

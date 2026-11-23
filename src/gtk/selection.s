@@ -140,6 +140,12 @@ _gtk_engine_release:
     b.gt Lgtk_release_done
     cmn x9, #3
     b.lt Lgtk_release_done
+    mov x0, x19
+    mov x1, x20
+    bl _gtk_js_click_at
+    cbnz x0, Lgtk_release_done
+    mov x0, x19
+    mov x1, x20
     bl _gtk_engine_link_at
     cbz x0, Lgtk_release_done
     mov x1, x0

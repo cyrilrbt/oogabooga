@@ -16,6 +16,8 @@ extern Layout *engine_layout(Doc *,size_t);
 extern void engine_layout_free(Layout *);
 extern void css_declarations(const char *,const char *,void *);
 extern void engine_css_apply(Doc *);
+extern void css_rule_filter_build(uint64_t *);
+extern int css_rule_filter_maybe(Meta *,uint64_t *);
 extern char *engine_base_href(Doc *);
 extern int engine_same_document(const char *,const char *);
 extern int64_t engine_fragment_node(Doc *,const char *);
@@ -24,6 +26,7 @@ extern void engine_interaction_transfer(Doc *,Doc *);
 extern int engine_interaction_set(Doc *,uint64_t,uint64_t,uint64_t);
 extern void engine_inline_boxes(Doc *);
 extern void engine_flow_tree(Doc *);
+extern void engine_intrinsic_tree(Doc *);
 extern void engine_float_tree(Doc *);
 extern void engine_margin_reset(Doc *);
 extern void engine_margin_tree(Doc *);
@@ -78,7 +81,7 @@ int main(void) {
     for(size_t i=0;i<d->length;i++) assert(l->map[i]<=l->map[i+1]);
     engine_layout_free(l); engine_document_free(d);
     d=parse("<p id=x style='font-family: unknown, Arial, serif; color: bogus; font-size:-20px; line-height:normal; background:#123456; text-align:center; text-decoration:underline'>x</p>");
-    s=&d->meta[id(d,"x")]; assert(s->value[11]==1 && s->value[1]==0x123456 && s->value[6]==2 && s->value[5]==1 && s->value[2]==14);
+    s=&d->meta[id(d,"x")]; assert(s->value[11]==1 && s->value[1]==0x123456 && s->value[6]==2 && s->value[5]==1 && s->value[2]==16);
     engine_document_free(d);
     d=parse("<p id=x style='color:rgb(100%,0%,50%);background:rgb(10, 20, 300)'>x</p>");
     assert(d->meta[id(d,"x")].value[0]==0xff0080 && d->meta[id(d,"x")].value[1]==0x0a14ff);
@@ -344,9 +347,9 @@ int main(void) {
     for(size_t k=0;k<=strlen(extendedDecl);k++) { char *p=guard+page-k;memcpy(p,extendedDecl,k);uint64_t decl[78]={0};css_declarations(p,p+k,decl); }
     const char *backgroundDecl="background:no-repeat center url('tile.png');background-size:50% auto;background-position:right bottom;background-repeat:repeat-x";
     for(size_t k=0;k<=strlen(backgroundDecl);k++){char *p=guard+page-k;memcpy(p,backgroundDecl,k);uint64_t decl[78]={0};css_declarations(p,p+k,decl);}
-    // Guard the output ABI as well as input truncation: 624 bytes exactly.
+    // Guard the output ABI as well as input truncation: 640 bytes exactly.
     char *outputGuard=mmap(NULL,page*2,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0);assert(outputGuard!=MAP_FAILED&&!mprotect(outputGuard+page,page,PROT_NONE));
-    uint64_t *boundedDecl=(void *)(outputGuard+page-624);memset(boundedDecl,0,624);
+    uint64_t *boundedDecl=(void *)(outputGuard+page-640);memset(boundedDecl,0,640);
     css_declarations(extendedDecl,extendedDecl+strlen(extendedDecl),boundedDecl);
     assert(boundedDecl[66]==15 && boundedDecl[67]==2);
     munmap(outputGuard,page*2);
@@ -446,6 +449,40 @@ int main(void) {
         d=engine_parse(html,7+n+strlen(tail));
         if(d) { l=engine_layout(d,40); engine_layout_free(l); engine_document_free(d); }
     }
+    d=parse("<style>html{font-size:16px}#named{display:grid;width:600px;column-gap:20px;grid-template:min-content 1fr / 12.25rem minmax(0,1fr);grid-template-areas:'left right' 'left bottom'}#left{grid-area:left}#right{grid-area:right}#bottom{grid-area:bottom}</style><div id=named><div id=bottom>Bottom</div><div id=right>Right</div><div id=left>Left</div></div><a id=skip class=skip>Skip</a><style>.skip:not(:focus){width:1px;position:absolute}</style>");
+    engine_box_tree(d,800);engine_flow_tree(d);uint64_t namedTracks[82]={0};assert(engine_grid_geometry(d,id(d,"named"),namedTracks)==2);
+    uint64_t *left=(void *)&d->meta[id(d,"left")],*right=(void *)&d->meta[id(d,"right")],*bottom=(void *)&d->meta[id(d,"bottom")];
+    assert(left[1912/8]==1&&left[1928/8]==1&&left[1936/8]==2);
+    assert(right[1912/8]==2&&right[1928/8]==1&&bottom[1912/8]==2&&bottom[1928/8]==2);
+    assert(left[1440/8]==0&&left[1432/8]==0&&right[1440/8]==1&&right[1432/8]==0&&bottom[1440/8]==1&&bottom[1432/8]==1);
+    assert(namedTracks[2]>=195&&namedTracks[2]<=197&&namedTracks[3]>=383&&namedTracks[3]<=385);
+    assert(d->meta[id(d,"skip")].value[14]==1);engine_interaction_set(d,id(d,"skip"),4,4);engine_css_apply(d);assert(d->meta[id(d,"skip")].value[14]==-1);engine_document_free(d);
+    d=parse("<style>#row{display:flex;gap:7px}#col{display:flex;flex-direction:column;row-gap:9px}</style><div id=row><span>A</span> \n<span>B</span><i style='display:none'>Hidden</i><b style='position:absolute'>Absolute</b></div><div id=col><span>C</span><span>D</span></div>");
+    engine_box_tree(d,800);
+    for(uint64_t i=0;i<d->count;i++) {
+        uint64_t *m=(void *)&d->meta[i];
+        m[1008/8]=10;m[1016/8]=10;m[1504/8]=10;m[1512/8]=20;
+    }
+    engine_intrinsic_tree(d);
+    uint64_t *rowIntrinsic=(void *)&d->meta[id(d,"row")],*colIntrinsic=(void *)&d->meta[id(d,"col")];
+    assert(rowIntrinsic[1008/8]==27&&rowIntrinsic[1016/8]==27&&rowIntrinsic[1512/8]==20);
+    assert(colIntrinsic[1008/8]==10&&colIntrinsic[1016/8]==10&&colIntrinsic[1512/8]==49);
+    engine_document_free(d);
+    d=parse("<main><div id=target class='card café'><span class=child>Text</span></div><span id=other class=other data-x='a b'>Other</span></main>");
+    const char *filterSelectors[]={"div",".card","#target","main .card","main > .card",".card+span",".card ~ span",".card:hover","div:first-child",".absent","main, .card",":is(.card,.other)",".card:not(.other)","[data-x='a b'] .card",".ca\\72 d",".café",".card/* comment */",".card ","#TARGET","SPAN"};
+    unsigned rejected=0,compiled=0;
+    for(size_t k=0;k<sizeof(filterSelectors)/sizeof(*filterSelectors);k++) {
+        const char *selector=filterSelectors[k];
+        uint64_t rule[88]={0};rule[0]=(uintptr_t)selector;rule[1]=strlen(selector);
+        css_rule_filter_build(rule);compiled+=rule[86]!=0;
+        for(size_t n=0;n<d->count;n++) {
+            d->work=134217728;
+            if(!css_rule_filter_maybe(&d->meta[n],rule)) {
+                rejected++;assert(!match(d,n,selector));
+            }
+        }
+    }
+    assert(compiled>=10 && rejected>=20);engine_document_free(d);
     puts("PASS: assembly CSS selectors, cascade/important, inheritance, relative typography, margins, hidden Unicode/link ranges, and guarded malformed declarations");
     return 0;
 }

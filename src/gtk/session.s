@@ -43,6 +43,7 @@ _gtk_engine_load_target:
     bl _strcasecmp
     cbnz x0, Lgtk_load_scheme_bad
 Lgtk_load_scheme_ok:
+    bl _gtk_js_reset
     mov x0, x20
     bl _g_free
     LOAD x0, _gtk_cancel
@@ -183,6 +184,14 @@ Lgtk_loaded_current:
     mov x0, x26
     cbz x0, Lgtk_loaded_cleanup
     mov x23, x0
+    bl _gtk_js_reset
+    ldr x0, [x19]
+    bl _soup_message_get_response_headers
+    ADDR x1, gtk_js_csp_header
+    bl _soup_message_headers_get_one
+    cmp x0, #0
+    cset x9, ne
+    STORE x9, _gtk_js_csp
     bl _gtk_selection_reset
     bl _gtk_imports_reset
     bl _gtk_fonts_reset
@@ -223,6 +232,8 @@ Lgtk_commit_fragment:
     bl _gtk_fragment_scroll
 Lgtk_commit_resources:
     bl _gtk_resources_begin
+    LOAD x0, _gtk_doc
+    bl _gtk_js_begin
     b Lgtk_loaded_cleanup
 Lgtk_loaded_decode_error:
     ADDR x0, gtk_decode_error
@@ -273,3 +284,5 @@ gtk_form_content_type: .asciz "application/x-www-form-urlencoded"
 gtk_auth_signal: .asciz "authenticate"
 
 gtk_decode_error: .asciz "Assembly engine: response is too large or has an unsupported text encoding."
+
+gtk_js_csp_header: .asciz "Content-Security-Policy"

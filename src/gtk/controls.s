@@ -108,7 +108,7 @@ Lcontrol_created:
     cmp x25, #3
     b.eq Lcontrol_show
     cmp x25, #8
-    b.eq Lcontrol_show
+    b.eq Lcontrol_connect_button
     mov x0, x23
     ADDR x1, gtk_control_activate
     ldr x9, [x21]
@@ -146,6 +146,25 @@ Lcontrol_connect:
     add x3, x19, #1
     bl _gtk_engine_connect
 Lcontrol_show:
+    cbnz x25, Lcontrol_js_toggle
+    mov x0, x23
+    ADDR x1, gtk_js_changed_signal
+    CALLBACK x2, _gtk_js_input
+    mov x3, #0
+    bl _gtk_engine_connect
+    b Lcontrol_js_connected
+Lcontrol_js_toggle:
+    cmp x25, #4
+    b.eq Lcontrol_js_wire_toggle
+    cmp x25, #5
+    b.ne Lcontrol_js_connected
+Lcontrol_js_wire_toggle:
+    mov x0, x23
+    ADDR x1, gtk_live_toggle_signal
+    CALLBACK x2, _gtk_js_change
+    mov x3, #0
+    bl _gtk_engine_connect
+Lcontrol_js_connected:
     mov x0, x23
     ADDR x1, gtk_live_key_signal
     CALLBACK x2, _gtk_state_keyboard
@@ -182,8 +201,7 @@ Lcontrol_state_wired:
     cset x1, eq
     cmp x25, #3
     csel x1, xzr, x1, eq
-    cmp x25, #8
-    csel x1, xzr, x1, eq
+
     bl _gtk_widget_set_sensitive
     LOAD x0, _gtk_controls
     mov x1, x22
@@ -334,3 +352,5 @@ gtk_live_toggle_signal: .asciz "toggled"
 .section __TEXT,__cstring,cstring_literals
 gtk_live_key_signal: .asciz "key-press-event"
 gtk_live_pointer_signal: .asciz "button-press-event"
+
+gtk_js_changed_signal: .asciz "changed"

@@ -4,6 +4,7 @@
 .globl _gtk_engine_shutdown
 _gtk_engine_shutdown:
     ENTER
+    bl _gtk_js_reset
     bl _gtk_engine_cancel_load
     bl _gtk_engine_clear_layout
     LOAD x19, _gtk_doc

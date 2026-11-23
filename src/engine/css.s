@@ -280,6 +280,8 @@ Lrules_selector:
     mov x9, #CSS_RULE_SIZE
     madd x26, x22, x9, x19
     stp x23, x24, [x26]
+    mov x0, x26
+    bl _css_rule_filter_build
     add x9, x26, #CSS_RULE_SOURCE
     stp x20, x25, [x9]
     mov x0, x20
@@ -632,7 +634,7 @@ Lapply_default:
     ldr x0, [x23, #CSS_BG_SIDECAR]
     cbnz x0, Lapply_background_storage
     mov x0, #1
-    mov x1, #80
+    mov x1, #128
     bl _calloc
     str x0, [x23, #CSS_BG_SIDECAR]
     cbnz x0, Lapply_background_storage
@@ -640,7 +642,7 @@ Lapply_default:
     b Lapply_node_next
 Lapply_background_storage:
     mov x1, #0
-    mov x2, #80
+    mov x2, #128
     bl _memset
     add x0, x23, #1024
     mov x1, #0
@@ -829,6 +831,10 @@ Lapply_rule:
     b.hs Lapply_inline
     mov x9, #CSS_RULE_SIZE
     madd x27, x26, x9, x20
+    mov x0, x23
+    mov x1, x27
+    bl _css_rule_filter_maybe
+    cbz x0, Lapply_rule_next
     mov x0, x19
     mov x1, x22
     ldr x2, [x27]
@@ -1030,6 +1036,7 @@ Lapply_length:
 Lapply_signed_length:
     cmn x0, #1
     b.eq Lapply_resolved_store
+    tbnz x0, #61, Lapply_resolved_store // math owns its sign; never tag its pointer
     tbz x5, #62, Lapply_resolved_store
     orr x0, x0, #0x10000000000
 Lapply_resolved_store:
@@ -1147,11 +1154,11 @@ Lapply_done:
 .p2align 3
 css_inherited_mask: .quad (3197 | (7 << 39))
 css_defaults:
-.quad -1, -1, 14, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0
+.quad -1, -1, 16, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0
 .quad 0, 0, 0, 0, 0, 0, 1000, -1, -1, -1, -1, -6, -1, 1, 1000, 0, 0, 0, 0, 0
 .quad 0,-1,-1,-1,-1,-1,-1,0,0,0,1,0,1,0,0,0
 .quad -16,0,0,0
-.quad -1,-1,0,0,0
+.quad -1,-1,0,0,0,0,0
 .section __TEXT,__cstring,cstring_literals
 id_name: .asciz "id"
 class_name: .asciz "class"

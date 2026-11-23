@@ -63,6 +63,8 @@ Lregister_failed:
 .section __DATA,__const
 .p2align 3
 method_table:
+.quad _sel_jsTick,_mac_js_tick,encoding_0
+.quad _sel_jsInput,_mac_js_input,encoding_0
 .quad _sel_launch, _mac_launch, encoding_0
 .quad _sel_focus, _mac_focus, encoding_1
 .quad _sel_navigate, _mac_navigate, encoding_2
@@ -101,6 +103,7 @@ method_table:
 .quad _sel_selectToggle, _mac_select_toggle, encoding_0
 .quad _sel_windowResize, _mac_engine_resize, encoding_0
 .quad _sel_liveRestyle, _mac_state_restyle, encoding_0
+.quad _sel_hoverRestyle, _mac_hover_restyle, encoding_0
 .quad _sel_engineResponse, _mac_engine_response, engine_encoding_2
 .quad _sel_engineData, _mac_engine_data, engine_encoding_3
 .quad _sel_engineComplete, _mac_engine_complete, engine_encoding_4
@@ -1583,6 +1586,7 @@ Lselector_extra_next:
     str x0, [x20]
     b Lselector_extra_next
 Lselector_extra_done:
+    bl _mac_js_init_selectors
     mov x0, #1
     STORE x0, selectors_ready
 Lselectors_done:
@@ -1742,6 +1746,6 @@ input_scroll_point_name: .asciz "scrollToPoint:"
 engine_extra_selectors:
 .quad _sel_navFragment,_sel_navDecode,_sel_navPoint,_sel_navPointValue
 .quad _sel_liveTrackingInit,_sel_liveTrackingAdd
-.quad _sel_liveLater,_sel_liveRestyle,_sel_liveFirstResponder
+.quad _sel_liveLater,_sel_liveRestyle,_sel_liveFirstResponder,_sel_hoverRestyle
 .quad _sel_currentEvent,_sel_type,_sel_responds,_sel_liveBecome,_sel_liveResign
 .quad 0

@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8"><title>Article layout regression</title>
+<style>
+body{margin:0;background:white;font-family:Arial;color:#202122}
+.skip:not(:focus){display:block;position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden}
+.page{display:grid;width:800px;gap:20px;grid-template:min-content 1fr / 10rem minmax(0,1fr);grid-template-areas:'header header' 'toc content'}
+header{grid-area:header;display:flex;align-items:center;gap:20px;height:50px;background:#eef}
+header strong{width:160px}header input{width:200px}
+.dropdown{position:relative}.popup{position:absolute;top:100%;left:0;width:200px;height:0;opacity:0;overflow:hidden}
+nav{grid-area:toc;background:#efe;height:200px}article{grid-area:content;height:300px;background:white}
+h1{font-size:28px;margin:0 0 12px}p{margin:0 0 12px;line-height:1.5}a{color:#36c}
+.infobox{float:right;width:100px;height:120px;border:1px solid #aaa;background:#eee;margin-left:12px}
+</style>
+<a class=skip href=#content>Jump to article</a>
+<div class=page><header><strong>Encyclopedia</strong><div class=dropdown><input aria-label=Search value=Search><div class=popup><p>Hidden menu item</p><p>Another hidden item</p><p>Hidden menu text must never make the header taller.</p></div></div></header>
+<nav>Contents<p><a href=#content>Introduction</a></p><p>Examples</p></nav>
+<article id=content><h1>Assembly notes</h1><div class=infobox>Info</div><p>An article should start beside its contents column, below a compact header.</p><p>Named areas and relative tracks preserve a readable article column.</p></article></div>

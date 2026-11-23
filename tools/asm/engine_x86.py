@@ -53,7 +53,7 @@ class Backend:
     # and x9 in real registers; other virtual registers spill per invocation.
     regs = {0: 'rdi', 1: 'rsi', 2: 'rdx', 3: 'rcx', 4: 'r8', 5: 'r9', 9: 'r10', 19: 'rbx', 20: 'r12', 21: 'r13', 22: 'r14', 23: 'r15'}
     low = {'rax': 'eax', 'r11': 'r11d', 'rdi': 'edi', 'rsi': 'esi', 'rdx': 'edx', 'rcx': 'ecx', 'rbx': 'ebx', 'rsp': 'esp', **{f'r{i}': f'r{i}d' for i in range(8, 16)}}
-    externals = {'calloc', 'free', 'malloc', 'memchr', 'memcmp', 'memcpy', 'memmem', 'memset', 'realloc', 'strcasecmp', 'strcasestr', 'strcmp', 'strlen', 'strchr', 'strncasecmp', 'strndup', 'strnlen', 'strstr', 'strtod', 'strtol', 'clock_gettime_nsec_np'}
+    externals = {'calloc', 'fmod', 'free', 'malloc', 'memchr', 'memcmp', 'memcpy', 'memmem', 'memset', 'realloc', 'strcasecmp', 'strcasestr', 'strcmp', 'strlen', 'strchr', 'strncasecmp', 'strndup', 'strnlen', 'strstr', 'strtod', 'strtol', 'clock_gettime_nsec_np'}
     conditions = {'eq': 'e', 'ne': 'ne', 'hs': 'ae', 'cs': 'ae', 'lo': 'b', 'cc': 'b', 'hi': 'a', 'ls': 'be', 'lt': 'l', 'le': 'le', 'gt': 'g', 'ge': 'ge', 'vs': 'o', 'vc': 'no', 'mi': 's', 'pl': 'ns'}
 
     def __init__(self):

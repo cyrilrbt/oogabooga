@@ -202,3 +202,15 @@ _mac_atomic_text_baseline:
     ldr d0, [sp, #152]
     fadd d0, d0, d1
     LEAVE
+
+// index, out {manager,container,localIndex,sourceBase,x,y}: debug/native adapter.
+// Keep this ABI explicit: the internal helper returns integer pairs plus HFA.
+.globl _mac_atomic_context
+_mac_atomic_context:
+    ENTER
+    mov x19, x1
+    bl _mac_atomic_target
+    stp x0, x1, [x19]
+    stp x2, x3, [x19, #16]
+    stp d0, d1, [x19, #32]
+    LEAVE

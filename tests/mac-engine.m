@@ -26,7 +26,9 @@ extern void mac_engine_reload(void);
 extern __unsafe_unretained NSDictionary *engine_controls;
 extern id mac_control_key(uint64_t);
 extern __unsafe_unretained NSURLSession *engine_session;
-extern void *engine_document;
+extern void *engine_document,*mac_js_vm;
+extern uintptr_t engine_js_global(void *,const char *);
+extern int mac_js_event_node(uint64_t,const char *);
 typedef struct {char *text; uint64_t length,*map,lines;} TestLayout;
 extern TestLayout *engine_layout(void *,size_t);
 extern void engine_layout_free(TestLayout *);
@@ -37,9 +39,15 @@ extern void mac_form_submit(id,SEL,id);
 extern void mac_engine_complete(id,SEL,id,id,NSError *);
 extern int history_add(sqlite3 *,const char *,const char *);
 extern void mac_engine_refresh(void);
+extern NSData *mac_intrinsic_cache_get(NSAttributedString *);
+extern void mac_intrinsic_cache_put(NSAttributedString *,uint64_t,uint64_t,uint64_t),mac_intrinsic_cache_reset(void);
+extern int engine_interaction_set(void *,uint64_t,uint64_t,uint64_t);
+extern void mac_hover_schedule(void),mac_hover_scroll(void),engine_profile_reset(void);
+extern uint64_t engine_profile_enabled,engine_profile_counts[8];
 extern NSURL *mac_scene_link_at_point(double,double);
 extern NSRect mac_atomic_text_rect(NSUInteger,NSUInteger);
 extern double mac_atomic_text_baseline(NSUInteger);
+extern uint64_t mac_float_context_at(NSTextContainer *,NSUInteger);
 extern int mac_scene_scroll_at_point(double,double,double,double);
 extern int history_open(const char *, sqlite3 **);
 extern __unsafe_unretained id mac_app,mac_delegate;
@@ -91,7 +99,13 @@ static BOOL slowStarted;
     if ([path isEqual:@"/assets/slow.css"]) { slowStarted=YES; return; }
     NSDictionary *headers=@{@"Content-Type":@"text/html; charset=utf-8"};
     NSInteger status=200;
-    NSString *html=@"<title>First</title><h1>Hello 🌐</h1><p><a href='/second?a=1&amp;b=2'>next café</a> <a href='javascript:alert(1)'>bad link</a></p><script>SHOULD NOT RENDER</script>";
+    NSString *html=@"<title>First</title><h1>Hello 🌐</h1><p><a href='/second?a=1&amp;b=2'>next café</a> <a href='javascript:alert(1)'>bad link</a></p><script>var SHOULD_NOT_RENDER=1;</script>";
+    if([path isEqual:@"/formatting-contexts"]) html=[NSString stringWithContentsOfFile:@"tests/fixtures/compat-formatting-contexts.html" encoding:NSUTF8StringEncoding error:NULL];
+    if([path isEqual:@"/results-shell"]) html=[NSString stringWithContentsOfFile:@"tests/fixtures/compat-results-shell.html" encoding:NSUTF8StringEncoding error:NULL];
+    if([path isEqual:@"/javascript"]) html=@"<title>JS initial</title><p id=jsout>before</p><input id=jsfield value=initial><button id=jsbutton type=button>Click</button><form id=jsform><button>Send</button></form><script>var order='I';var clicks=0;var blocked=0;fetch('https://other.invalid/data').catch(()=>{blocked++;});document.getElementById('jsbutton').addEventListener('click',()=>{clicks++;document.getElementById('jsout').textContent='clicked';});document.getElementById('jsfield').addEventListener('input',()=>{document.getElementById('jsout').textContent=document.getElementById('jsfield').value;});document.getElementById('jsform').addEventListener('submit',event=>{event.preventDefault();});</script><script src='/javascript.js'></script><script>order+='F';fetch('/javascript.json').then(r=>r.json()).then(data=>{document.title=data.title;});setTimeout(()=>{document.getElementById('jsfield').value='timer';},30);</script>";
+    if([path isEqual:@"/javascript.js"]){html=@"order+='E';";headers=@{@"Content-Type":@"application/javascript"};}
+    if([path isEqual:@"/javascript.json"]){html=@"{\"title\":\"JS fetched\"}";headers=@{@"Content-Type":@"application/json"};}
+    if([path isEqual:@"/javascript-csp"]){html=@"<title>CSP</title><script>document.title='escaped';</script>";headers=@{@"Content-Type":@"text/html",@"Content-Security-Policy":@"script-src 'none'"};}
     if([path isEqual:@"/foundations"]) html=[NSString stringWithContentsOfFile:@"tests/fixtures/engine-foundations.html" encoding:NSUTF8StringEncoding error:NULL];
     if([path isEqual:@"/atomic"]) html=[NSString stringWithContentsOfFile:@"tests/fixtures/compat-inline-boxes.html" encoding:NSUTF8StringEncoding error:NULL];
     if([path isEqual:@"/backgrounds"]) html=@"<title>Background images</title><link rel=stylesheet media='handheld, all' href='/bg-assets/sheet.css'><link rel=stylesheet media='screen and (min-width:900px)' href='/bg-assets/wide.css'><link rel=stylesheet media='print, speech' href='/must-not-load.css'><div id=bgpaint></div><div id=bgtile></div><div id=bgmissing></div><form id=bgform action='/form-result' style='position:relative;width:300px;height:50px;padding:0;border:1px solid gray'><input type=submit id=bgsubmit name=go value='' style='position:absolute;right:2px;top:0;width:60px;height:30px'></form>";
@@ -101,6 +115,9 @@ static BOOL slowStarted;
     if([path isEqual:@"/bg-assets/missing.png"]) status=404;
     assert(![path isEqual:@"/must-not-load.css"]);
     if([path isEqual:@"/button-styles"]) html=@"<title>Button styles</title><form action='/form-result' method=get><input name=query value='CSS button'><input id=plainbutton type=submit value='Plain'><input id=flatbutton type=submit name=go value='Styled' style='background:#123456;color:white;border:2px solid red;border-radius:8px;padding:8px 20px;width:200px;height:50px'><input id=clearbutton type=submit value='Clear' style='border:none;background:transparent;padding:0'></form>";
+    if([path isEqual:@"/intrinsic-cache"]) html=@"<title>Intrinsic cache</title><style>body{margin:0;font:16px Arial}.row{display:flex;width:600px}.nowrap{white-space:nowrap}</style><div class=row><span id=metricnormal>café words 🌐</span><span id=metricnowrap class=nowrap>café words 🌐</span></div>";
+    if([path isEqual:@"/hover-scroll"]) html=@"<title>Hover scroll scheduling</title><style>body{margin:0}a:hover{color:red}div{height:1800px}</style><a id=hoverlink href=/next>Hover link</a><div>Scrollable content</div>";
+    if([path isEqual:@"/positioned-editor"]) html=@"<title>Positioned editor</title><style>body{margin:0}form{position:absolute;top:400px;left:50px;width:300px;height:50px}input{width:280px;height:38px}</style><form><input id=positionededitor name=q></form>";
     if([path isEqual:@"/input-editor-box"]) html=@"<title>Input editor geometry</title><style>body{margin:0;background:white}.searchbox{position:relative;box-sizing:border-box;width:500px;max-width:100%;height:50px;padding:0 60px 0 10px;border:1px solid gray}.searchbox input{display:block;width:100%;height:48px;padding:0;border:none;background:transparent;font:16px Arial}</style><form id=searchbox class=searchbox><input id=csseditor name=q value='A long editable search value'></form><input id=paddededitor value='Padding' style='width:300px;height:50px;padding:6px 20px;border:2px solid blue'>";
     if([path isEqual:@"/input-borders"]) html=@"<title>Input borders</title><style>body{background:white}input{width:300px;height:30px}</style><input id=defaultborder value='Editable café'><input id=noborder style='border:none' value='No outline'><input id=customborder style='border:2px solid red;border-radius:0' value='Red outline'><input id=roundborder style='border:1px solid blue;border-radius:50%' value='Rounded'>";
     if([path isEqual:@"/typography"]) html=@"<title>Typography</title><style>body{margin:0;font:16px monospace}.track{letter-spacing:2px;word-spacing:5px}.pre{white-space:pre}.nowrap{white-space:nowrap;width:100px}#image{min-width:120px;max-width:160px;max-height:80px}</style><p class=track>A café 🌐 B</p><p>base <span style='vertical-align:super'>raised</span> <span style='vertical-align:-3px'>lowered</span></p><div class=pre> a  b\n c </div><div class=nowrap>Long unbroken text stays on a single line beyond the box</div><img id=image src=/assets/image.png>";
@@ -180,7 +197,7 @@ static id config(id cls,SEL cmd) {
 static void waitFor(BOOL (^condition)(void)) {
     NSDate *deadline=[NSDate dateWithTimeIntervalSinceNow:5];
     while(!condition() && deadline.timeIntervalSinceNow>0) [NSRunLoop.mainRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.01]];
-    if(!condition()) { NSLog(@"Engine state: %@ / %@",mac_window.title,mac_status.stringValue); abort(); }
+    if(!condition()) { NSLog(@"Engine state: %@ / %@; VM %p active %llu order %p",mac_window.title,mac_status.stringValue,mac_js_vm,mac_js_vm?((uint64_t *)mac_js_vm)[34]:0,(void *)(mac_js_vm?engine_js_global(mac_js_vm,"order"):0)); abort(); }
 }
 static void navigate(NSString *path) {
     mac_address.stringValue=[@"https://engine.test" stringByAppendingString:path];
@@ -215,20 +232,32 @@ static id control(NSString *identifier) {
 // TextKit can report one containing line fragment for an entire table row.
 // Query the actual cell's allocated content rectangle instead of that fragment
 // or font-dependent glyph ink. NSLayoutManager APIs take glyph indices.
+typedef struct { void *manager,*container; NSUInteger index,base; NSPoint origin; } AtomicContext;
+extern void mac_atomic_context(NSUInteger,AtomicContext *);
+static NSParagraphStyle *contextStyle(NSRange characters) {
+    AtomicContext context;mac_atomic_context(characters.location,&context);
+    NSLayoutManager *manager=(__bridge id)context.manager;
+    return [manager.textStorage attribute:NSParagraphStyleAttributeName atIndex:context.index effectiveRange:NULL];
+}
 static NSRect blockRect(NSTextView *text,NSRange characters) {
+    (void)text;
     assert(characters.location!=NSNotFound && characters.length);
-    NSLayoutManager *manager=text.layoutManager;
-    [manager ensureLayoutForTextContainer:text.textContainer];
-    NSParagraphStyle *style=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:characters.location effectiveRange:NULL];
+    AtomicContext context;mac_atomic_context(characters.location,&context);
+    NSLayoutManager *manager=(__bridge id)context.manager;
+    NSTextContainer *container=(__bridge id)context.container;
+    [manager ensureLayoutForTextContainer:container];
+    characters.location=context.index;
+    NSParagraphStyle *style=contextStyle(NSMakeRange(context.index+context.base,characters.length));
     assert(style.textBlocks.count);
     NSUInteger tableCells=0;
     for(NSTextBlock *block in style.textBlocks) if([block isKindOfClass:NSTextTableBlock.class]) tableCells++;
-    assert(tableCells==1); // flex fixture has one real cell, no artificial outer table
+    assert(tableCells<=1); // one-column rows use ordinary blocks; no artificial nesting
     NSRange glyphs=[manager glyphRangeForCharacterRange:characters actualCharacterRange:NULL];
     assert(glyphs.length);
     NSRect rect=[manager layoutRectForTextBlock:style.textBlocks.lastObject atIndex:glyphs.location effectiveRange:NULL];
     if(NSIsEmptyRect(rect)) NSLog(@"Missing cell layout for %@: characters %@, glyphs %@, block %@",[text.string substringWithRange:characters],NSStringFromRange(characters),NSStringFromRange(glyphs),style.textBlocks.lastObject);
     assert(!NSIsEmptyRect(rect));
+    rect.origin.x+=context.origin.x;rect.origin.y+=context.origin.y;
     return rect;
 }
 static NSEvent *sceneMouse(NSTextView *text,NSEventType type,NSPoint viewPoint) {
@@ -329,7 +358,7 @@ int main(void) {
         navigate(@"/second"); waitFor(^BOOL { return [window.title hasPrefix:@"Second — Assembly"]; });
         assert([text.backgroundColor isEqual:NSColor.textBackgroundColor]);
         NSFont *reset=[text.textStorage attribute:NSFontAttributeName atIndex:0 effectiveRange:NULL];
-        assert(reset.pointSize==14);
+        assert(reset.pointSize==16);
         // All four features together, using in-process HTTP and no WebKit view.
         navigate(@"/features"); waitFor(^BOOL { return [window.title hasPrefix:@"Features — Assembly"] && [status.stringValue containsString:@"ready."]; });
         NSRange boxRange=[text.string rangeOfString:@"Box content"];
@@ -401,7 +430,7 @@ int main(void) {
             NSRect frame=[text convertRect:v.bounds fromView:v];
             CGFloat offset=v.firstBaselineOffsetFromTop+(frame.size.height-v.intrinsicContentSize.height)/2;
             assert(fabs(NSMinY(frame)+offset-baseline)<.01);
-            assert(v.font.pointSize==14);
+            assert(v.font.pointSize==16);
         }
         engine_layout_free(mapped);
         assert([edit.cell usesSingleLineMode]);
@@ -435,7 +464,7 @@ int main(void) {
         navigate(@"/compat"); waitFor(^BOOL { return [window.title hasPrefix:@"Compatibility — Assembly"] && [status.stringValue containsString:@"ready."]; });
         assert([text.string containsString:@"Mail Images"] && ![text.string containsString:@"icon source"]);
         NSButton *longSearch=control(@"search"),*more=control(@"more");
-        assert([more isKindOfClass:NSButton.class] && [more.title isEqual:@"More & options"] && !more.enabled && more.action==NULL);
+        assert([more isKindOfClass:NSButton.class] && [more.title isEqual:@"More & options"] && more.enabled && more.action!=NULL);
         assert(longSearch.frame.size.width>=longSearch.intrinsicContentSize.width && longSearch.frame.size.width>100);
         NSRange centered=[text.string rangeOfString:@"Centered search"],footer=[text.string rangeOfString:@"Advertising links"];
         NSParagraphStyle *centerStyle=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:centered.location effectiveRange:NULL];
@@ -503,11 +532,11 @@ int main(void) {
             NSLog(@"Flex cell boxes: %@ / %@ / %@; typesetter %@, behavior %ld, glyphs %lu",NSStringFromRect(flr),NSStringFromRect(fmr),NSStringFromRect(frr),text.layoutManager.typesetter,(long)text.layoutManager.typesetterBehavior,(unsigned long)text.layoutManager.numberOfGlyphs);
             for(NSValue *range in @[[NSValue valueWithRange:fl],[NSValue valueWithRange:fm],[NSValue valueWithRange:fr]]) {
                 NSParagraphStyle *style=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:range.rangeValue.location effectiveRange:NULL];
-                for(NSTextTableBlock *block in style.textBlocks) NSLog(@"Cell %@ width %.2f row %ld col %ld columns %ld table %@",block,block.contentWidth,(long)block.startingRow,(long)block.startingColumn,(long)block.table.numberOfColumns,block.table);
+                for(NSTextTableBlock *block in style.textBlocks) if([block isKindOfClass:NSTextTableBlock.class]) NSLog(@"Cell %@ width %.2f row %ld col %ld columns %ld table %@",block,block.contentWidth,(long)block.startingRow,(long)block.startingColumn,(long)block.table.numberOfColumns,block.table);
             }
         }
         assert(fabs(flr.origin.y-fmr.origin.y)<1 && fabs(flr.origin.y-frr.origin.y)<1 && fmr.origin.x>=NSMaxX(flr)+19 && frr.origin.x>=NSMaxX(fmr)+19);
-        NSParagraphStyle *flowStyle=[text.textStorage attribute:NSParagraphStyleAttributeName atIndex:fm.location effectiveRange:NULL];
+        NSParagraphStyle *flowStyle=contextStyle(fm);
         assert(flowStyle.textBlocks.count && fabs(flowStyle.textBlocks.lastObject.contentWidth-360)<1);
         NSRange wrapOne=[text.string rangeOfString:@"Wrap one"],wrapThree=[text.string rangeOfString:@"Wrap three"];
         NSRect wor=blockRect(text,wrapOne),wtr=blockRect(text,wrapThree); assert(wtr.origin.y>wor.origin.y);
@@ -583,6 +612,48 @@ int main(void) {
         [window setContentSize:NSMakeSize(600,780)];mac_engine_resize(nil,NULL,nil);
         assert(control(@"defaultborder")==defaultBorder && defaultBorder.currentEditor==borderEditor && NSEqualRanges(borderEditor.selectedRange,NSMakeRange(2,3)) && [borderEditor.string isEqual:@"Still editable 🌐"]);
         assert(defaultBorder.layer.borderWidth==1 && noBorder.layer.borderWidth==0 && customBorder.layer.borderWidth==2);
+        navigate(@"/intrinsic-cache");waitFor(^BOOL{return [window.title hasPrefix:@"Intrinsic cache — Assembly"]&&[status.stringValue containsString:@"ready."];});
+        uint64_t metricMin=metadata(@"metricnormal")[1008/8],metricMax=metadata(@"metricnormal")[1016/8];
+        assert(metricMin<metricMax && metadata(@"metricnowrap")[1008/8]==metricMax);
+        NSRange metricTextRange=[text.string rangeOfString:@"café words 🌐"];
+        NSRect coldMetricRect=mac_atomic_text_rect(metricTextRange.location,metricTextRange.length);
+        mac_engine_refresh();
+        assert(metadata(@"metricnormal")[1008/8]==metricMin && metadata(@"metricnormal")[1016/8]==metricMax);
+        assert(NSEqualRects(coldMetricRect,mac_atomic_text_rect(metricTextRange.location,metricTextRange.length)));
+        NSAttributedString *metricKey=[[NSAttributedString alloc] initWithString:@"café 🌐" attributes:@{NSFontAttributeName:[NSFont systemFontOfSize:16]}];
+        NSAttributedString *sameMetricKey=[[NSAttributedString alloc] initWithString:@"café 🌐" attributes:@{NSFontAttributeName:[NSFont systemFontOfSize:16]}];
+        NSAttributedString *largerMetricKey=[[NSAttributedString alloc] initWithString:@"café 🌐" attributes:@{NSFontAttributeName:[NSFont systemFontOfSize:24]}];
+        mac_intrinsic_cache_reset();assert(!mac_intrinsic_cache_get(metricKey));
+        mac_intrinsic_cache_put(metricKey,80,20,40);
+        const uint64_t *cachedMetrics=mac_intrinsic_cache_get(sameMetricKey).bytes;
+        assert(cachedMetrics && cachedMetrics[0]==80 && cachedMetrics[1]==20 && cachedMetrics[2]==40);
+        assert(!mac_intrinsic_cache_get(largerMetricKey));
+        mac_intrinsic_cache_reset();assert(!mac_intrinsic_cache_get(metricKey));
+        navigate(@"/hover-scroll");waitFor(^BOOL{return [window.title hasPrefix:@"Hover scroll scheduling — Assembly"]&&[status.stringValue containsString:@"ready."];});
+        uint64_t hoverNode=(metadata(@"hoverlink")-(uint64_t *)((uint64_t *)engine_document)[9])/256;
+        assert(engine_interaction_set(engine_document,hoverNode,1,1));
+        mac_hover_schedule();engine_profile_reset();engine_profile_enabled=1;
+        NSDate *scrollUntil=[NSDate dateWithTimeIntervalSinceNow:.4];
+        while(scrollUntil.timeIntervalSinceNow>0){
+            mac_hover_scroll();
+            [NSRunLoop.mainRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.02]];
+        }
+        assert(engine_profile_counts[7]==0); // no hover-induced layout during wheel activity
+        waitFor(^BOOL{return metadata(@"hoverlink")[4]==0xff0000;});
+        assert(engine_profile_counts[7]==1); // final hover style still applied after settling
+        NSLog(@"PASS: hover restyles stay off the scrolling path and apply after settling");
+        engine_profile_enabled=0;
+        navigate(@"/positioned-editor");waitFor(^BOOL{return [window.title hasPrefix:@"Positioned editor — Assembly"]&&[status.stringValue containsString:@"ready."];});
+        NSTextField *positionedEditor=control(@"positionededitor");assert(positionedEditor);
+        NSRect positionedFrame=[positionedEditor convertRect:positionedEditor.bounds toView:text];
+        assert(NSContainsRect(text.bounds,positionedFrame));
+        NSPoint clickPoint=[positionedEditor convertPoint:NSMakePoint(NSMidX(positionedEditor.bounds),NSMidY(positionedEditor.bounds)) toView:window.contentView];
+        NSView *inputHit=[window.contentView hitTest:clickPoint];
+        assert(inputHit==positionedEditor || [inputHit isDescendantOf:positionedEditor]);
+        assert([window makeFirstResponder:positionedEditor]);
+        NSTextView *positionedFieldEditor=(id)positionedEditor.currentEditor;assert(positionedFieldEditor);
+        [positionedFieldEditor insertText:@"café 🌐" replacementRange:NSMakeRange(0,0)];
+        assert([positionedFieldEditor.string isEqual:@"café 🌐"]);
         navigate(@"/input-editor-box");waitFor(^BOOL{return [window.title hasPrefix:@"Input editor geometry — Assembly"]&&[status.stringValue containsString:@"ready."];});
         NSTextField *cssEditor=control(@"csseditor"),*paddedEditor=control(@"paddededitor");
         assert(!cssEditor.bezeled&&!cssEditor.bordered&&cssEditor.focusRingType==NSFocusRingTypeNone&&cssEditor.layer.borderWidth==0);
@@ -619,7 +690,7 @@ int main(void) {
         NSButton *bgSubmit=control(@"bgsubmit");assert(bgSubmit && !bgSubmit.bordered);
         NSRect buttonForm=paintRect(@"bgform"),placedButton=[bgSubmit.superview convertRect:bgSubmit.frame toView:text];
         assert(fabs(NSMaxX(placedButton)-(NSMaxX(buttonForm)-3))<2 && fabs(NSMinY(placedButton)-(NSMinY(buttonForm)+1))<2);
-        assert(NSContainsRect(buttonForm,placedButton)&&!bgSubmit.superview.hidden);
+        if(!NSContainsRect(buttonForm,placedButton)||bgSubmit.superview.hidden)NSLog(@"Positioned control form %@ button %@ hidden %d",NSStringFromRect(buttonForm),NSStringFromRect(placedButton),bgSubmit.superview.hidden);assert(NSContainsRect(buttonForm,placedButton)&&!bgSubmit.superview.hidden);
 
         NSBitmapImageRep *buttonPixels=[[NSBitmapImageRep alloc]initWithBitmapDataPlanes:NULL pixelsWide:60 pixelsHigh:30 bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSCalibratedRGBColorSpace bytesPerRow:0 bitsPerPixel:0];
         [NSGraphicsContext saveGraphicsState];[NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithBitmapImageRep:buttonPixels]];
@@ -703,13 +774,50 @@ int main(void) {
         assert(!engine_dom_set_attribute(controlModel,clipperNode,"style",movedClip,strlen(movedClip)));mac_engine_refresh();
         assert(sceneField.superview==sceneHost&&sceneField.currentEditor==sceneEditor&&NSEqualRanges(sceneEditor.selectedRange,NSMakeRange(2,3))&&[sceneField.stringValue isEqual:@"kept editor value"]);
         assert(fabs(sceneHost.frame.origin.x-80)<1&&fabs(sceneField.frame.size.width-150)<1&&sceneHost.frame.size.width<=101);
+        navigate(@"/formatting-contexts");waitFor(^BOOL{return [window.title hasPrefix:@"Formatting context boundaries — Assembly"]&&[status.stringValue containsString:@"ready."];});
+        NSRange panelHeading=[text.string rangeOfString:@"Panel heading"],outsideFloat=[text.string rangeOfString:@"Float"],afterFloat=[text.string rangeOfString:@"After floats"];
+        assert(panelHeading.location!=NSNotFound&&outsideFloat.location!=NSNotFound&&afterFloat.location!=NSNotFound);
+        uint64_t panelContext=mac_float_context_at(text.textContainer,panelHeading.location),outsideContext=mac_float_context_at(text.textContainer,outsideFloat.location);
+        assert(panelContext&&outsideContext&&panelContext!=outsideContext);
+        uint64_t *contextDoc=engine_document,*contextMetadata=(void *)(uintptr_t)contextDoc[9],floatOwner=0;
+        for(uint64_t i=0;i<contextDoc[3];i++) {
+            uint64_t *m=contextMetadata+i*256;const char *classes=(void *)(uintptr_t)m[1];
+            if(classes&&!strcmp(classes,"float"))floatOwner=m[1672/8];
+        }
+        assert(floatOwner&&mac_float_context_at(text.textContainer,afterFloat.location)==floatOwner);
+        assert(floatOwner!=outsideContext&&floatOwner!=panelContext);
+        assert(!mac_float_context_at(text.textContainer,NSUIntegerMax));
+        NSRect panelHeadingRect=mac_atomic_text_rect(panelHeading.location,panelHeading.length);
+        assert(fabs(panelHeadingRect.origin.x-192)<2);
+        assert([mac_scene_link_at_point(NSMidX(panelHeadingRect),NSMidY(panelHeadingRect)).path isEqual:@"/first"]);
+        NSRange middleLabel=[text.string rangeOfString:@"Middle"],rightLabel=[text.string rangeOfString:@"Right"];
+        NSRect middleRect=mac_atomic_text_rect(middleLabel.location,middleLabel.length),rightRect=mac_atomic_text_rect(rightLabel.location,rightLabel.length);
+        assert(middleRect.size.height<25&&rightRect.size.height<25&&fabs(middleRect.origin.y-rightRect.origin.y)<2);
+        assert([text.textStorage attribute:NSLinkAttributeName atIndex:rightLabel.location effectiveRange:NULL]);
+        assert([mac_scene_link_at_point(NSMidX(rightRect),NSMidY(rightRect)).path isEqual:@"/second"]);
+        NSRect authorLinkCapture=NSInsetRect(rightRect,-2,-2);
+        NSBitmapImageRep *authorLinkPixels=[text bitmapImageRepForCachingDisplayInRect:authorLinkCapture];
+        [text cacheDisplayInRect:authorLinkCapture toBitmapImageRep:authorLinkPixels];
+        NSUInteger authorGreenPixels=0;
+        for(NSInteger y=0;y<authorLinkPixels.pixelsHigh;y++)for(NSInteger x=0;x<authorLinkPixels.pixelsWide;x++) {
+            NSColor *c=[[authorLinkPixels colorAtX:x y:y]colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+            authorGreenPixels+=fabs(c.redComponent-32./255)<.08&&fabs(c.greenComponent-80./255)<.08&&fabs(c.blueComponent-32./255)<.08;
+        }
+        assert(authorGreenPixels>5);
+
+        navigate(@"/results-shell");waitFor(^BOOL{return [window.title hasPrefix:@"Search results layout regression — Assembly"]&&[status.stringValue containsString:@"ready."];});
+        assert(!mac_float_context_at(text.textContainer,0));
+        NSRange resultURL=[text.string rangeOfString:@"example.org/assembly"];
+        NSRect resultURLRect=mac_atomic_text_rect(resultURL.location,resultURL.length);
+        assert(resultURL.location!=NSNotFound&&!NSIsEmptyRect(resultURLRect));
+        assert([mac_scene_link_at_point(NSMidX(resultURLRect),NSMidY(resultURLRect)).path isEqual:@"/first"]);
         navigate(@"/scene-scroll");waitFor(^BOOL{return [window.title hasPrefix:@"Scene scrolling — Assembly"]&&[status.stringValue containsString:@"ready."];});
-        NSRange scrollLink=[text.string rangeOfString:@"Scroll link"];NSRect scrollGlyph=[text.layoutManager boundingRectForGlyphRange:[text.layoutManager glyphRangeForCharacterRange:scrollLink actualCharacterRange:NULL] inTextContainer:text.textContainer];
+        NSRange scrollLink=[text.string rangeOfString:@"Scroll link"];NSRect scrollGlyph=mac_atomic_text_rect(scrollLink.location,scrollLink.length);
         assert(!mac_scene_link_at_point(NSMidX(scrollGlyph),NSMidY(scrollGlyph)));
         assert(mac_scene_scroll_at_point(5,5,0,120));
         assert([mac_scene_link_at_point(NSMidX(scrollGlyph),NSMidY(scrollGlyph)-120).path isEqual:@"/second"]);
         [window setContentSize:NSMakeSize(720,780)];mac_engine_resize(nil,NULL,nil);
-        scrollLink=[text.string rangeOfString:@"Scroll link"];scrollGlyph=[text.layoutManager boundingRectForGlyphRange:[text.layoutManager glyphRangeForCharacterRange:scrollLink actualCharacterRange:NULL] inTextContainer:text.textContainer];
+        scrollLink=[text.string rangeOfString:@"Scroll link"];scrollGlyph=mac_atomic_text_rect(scrollLink.location,scrollLink.length);
         assert([mac_scene_link_at_point(NSMidX(scrollGlyph),NSMidY(scrollGlyph)-120).path isEqual:@"/second"]); // contained scroll survives reflow
         assert(mac_scene_scroll_at_point(5,5,0,-120));
         assert(!mac_scene_link_at_point(NSMidX(scrollGlyph),NSMidY(scrollGlyph)-120));
@@ -859,6 +967,22 @@ int main(void) {
         navigate(@"/slow"); waitFor(^BOOL { return slowStarted; });
         navigate(@"/second"); waitFor(^BOOL { return [window.title hasPrefix:@"Second — Assembly"]; });
         assert(count()==beforeSlow+2 && ![text.string containsString:@"Must never commit"]);
+        navigate(@"/javascript"); waitFor(^BOOL { return [window.title hasPrefix:@"JS fetched — Assembly"]; });
+        assert(mac_js_vm); uintptr_t jsOrder=engine_js_global(mac_js_vm,"order");
+        assert(jsOrder>3&&!strcmp(*(char **)(jsOrder+8),"IEF"));
+        assert(*(double *)(engine_js_global(mac_js_vm,"blocked")+8)==1);
+        NSUInteger jsIndex=0; uint64_t *jsDoc=engine_document;
+        for(NSUInteger i=0;i<jsDoc[3];i++) if((void *)((char *)(uintptr_t)jsDoc[9]+i*2048)==metadata(@"jsfield"))jsIndex=i;
+        NSTextField *jsField=[engine_controls objectForKey:mac_control_key(jsIndex)]; assert(jsField);
+        waitFor(^BOOL { return [jsField.stringValue isEqual:@"timer"]; });
+        jsField.stringValue=@"typed café";
+        [mac_delegate controlTextDidChange:[NSNotification notificationWithName:NSControlTextDidChangeNotification object:jsField]];
+        assert([text.string containsString:@"typed café"]);
+        jsDoc=engine_document;NSUInteger jsButton=0,jsForm=0;
+        for(NSUInteger i=0;i<jsDoc[3];i++){void *m=(char *)(uintptr_t)jsDoc[9]+i*2048;if(m==metadata(@"jsbutton"))jsButton=i;if(m==metadata(@"jsform"))jsForm=i;}
+        NSButton *jsNativeButton=[engine_controls objectForKey:mac_control_key(jsButton)];assert(jsNativeButton.enabled);[jsNativeButton performClick:nil];assert([text.string containsString:@"clicked"]);
+        assert(mac_js_event_node(jsForm,"submit"));
+        navigate(@"/javascript-csp");waitFor(^BOOL { return [window.title hasPrefix:@"CSP — Assembly"]; });assert(!mac_js_vm);
         // Switching engines cancels in-flight work and hides the native renderer.
         address.stringValue=@"";
         mac_engine_toggle(nil,NULL,nil);

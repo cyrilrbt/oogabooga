@@ -202,6 +202,7 @@ int main(int argc,const char **argv) {@autoreleasepool{
     NSScrollView *scroll=[[NSScrollView alloc]initWithFrame:NSMakeRect(0,0,1000,700)];
     NSTextView *text=[[NSTextView alloc]initWithFrame:NSMakeRect(0,0,1000,700)];text.editable=NO;text.richText=YES;text.verticallyResizable=YES;text.horizontallyResizable=YES;scroll.documentView=text;
     [text.textContainer replaceLayoutManager:mac_display_manager_create()];
+    text.linkTextAttributes=@{};
     engine_text=text;engine_scroll=scroll;assert(history_open(":memory:",&mac_db)==SQLITE_OK);
     if(argc>3&&!strcmp(argv[1],"--report")) return report([NSString stringWithUTF8String:argv[2]],[NSString stringWithUTF8String:argv[3]]);
     NSString *acid=[NSString stringWithContentsOfFile:@"tests/fixtures/acid1.html" encoding:NSUTF8StringEncoding error:NULL];assert(acid);

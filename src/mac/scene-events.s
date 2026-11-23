@@ -165,6 +165,14 @@ _mac_scene_mouse_down:
     cbz x0, Lscene_down_state_ready
     bl _mac_state_schedule
 Lscene_down_state_ready:
+    ldr x0, [x22, #8]
+    ADDR x1, _mac_js_click_name
+    bl _mac_js_event_node
+    cbnz x0, Lscene_mouse_done
+    ldp d0, d1, [sp, #144]
+    bl _mac_scene_pick
+    cbz x0, Lscene_mouse_done
+    mov x22, x0
     mov x0, x22
     bl _mac_scene_command_link
     cbz x0, Lscene_mouse_select
@@ -296,7 +304,7 @@ Lscene_hover_set:
 Lscene_hover_apply:
     bl _engine_interaction_set
     cbz x0, Lscene_hover_ready
-    bl _mac_state_schedule
+    bl _mac_hover_schedule
 Lscene_hover_ready:
     mov x0, x19
     bl _mac_scene_command_link

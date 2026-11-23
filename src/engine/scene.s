@@ -124,6 +124,24 @@ Lscene_new_flags_store:
     str x9, [x26, #SC_HEIGHT]
     ldr x9, [x27, #144]
     str x9, [x26, #SC_WIDTH]
+    // Retained scenes outlive CSS pool resets during progressive loading.
+    // Copy bound math records and their expression bytes into scene ownership.
+    mov x28, #0
+Lscene_copy_length:
+    ADDR x9, scene_owned_lengths
+    ldr x9, [x9, x28, lsl #3]
+    ldr x0, [x26, x9]
+    bl scene_length_copy
+    ADDR x9, scene_owned_lengths
+    ldr x9, [x9, x28, lsl #3]
+    str x0, [x26, x9]
+    lsl x1, x1, x28
+    ldr x9, [x26, #400]
+    orr x9, x9, x1
+    str x9, [x26, #400]
+    add x28, x28, #1
+    cmp x28, #6
+    b.lo Lscene_copy_length
     cbz x25, Lscene_new_next
     mov x0, x23
     mov x1, x25
@@ -145,7 +163,66 @@ Lscene_new_fail:
 
 .globl _engine_scene_free
 _engine_scene_free:
-    b _free
+    ENTER
+    mov x19, x0
+    cbz x19, Lscene_freed
+    ldr x20, [x19]
+    ldr x21, [x19, #8]
+Lscene_free_node:
+    cbz x20, Lscene_free_allocation
+    mov x22, #0
+Lscene_free_length:
+    ldr x9, [x21, #400]
+    lsr x9, x9, x22
+    tbz x9, #0, Lscene_free_length_next
+    ADDR x9, scene_owned_lengths
+    ldr x9, [x9, x22, lsl #3]
+    ldr x0, [x21, x9]
+    and x0, x0, #0x1fffffffffffffff
+    bl _free
+Lscene_free_length_next:
+    add x22, x22, #1
+    cmp x22, #6
+    b.lo Lscene_free_length
+    add x21, x21, #512
+    sub x20, x20, #1
+    b Lscene_free_node
+Lscene_free_allocation:
+    mov x0, x19
+    bl _free
+Lscene_freed:
+    LEAVE
+// computed dimension -> scene-owned dimension, ownership bit.
+scene_length_copy:
+    mov x1, #0
+    tbnz x0, #63, Lscene_copy_plain
+    tbz x0, #61, Lscene_copy_plain
+    ENTER
+    and x19, x0, #0x1fffffffffffffff
+    ldr x0, [x19]
+    bl _strlen
+    mov x20, x0
+    add x0, x0, #41
+    bl _malloc
+    cbz x0, Lscene_copy_failed
+    mov x21, x0
+    mov x1, x19
+    mov x2, #40
+    bl _memcpy
+    add x0, x21, #40
+    str x0, [x21]
+    ldr x1, [x19]
+    add x2, x20, #1
+    bl _memcpy
+    orr x0, x21, #0x2000000000000000
+    mov x1, #1
+    LEAVE
+Lscene_copy_failed:
+    mov x0, #-1
+    mov x1, #0
+    LEAVE
+Lscene_copy_plain:
+    ret
 
 // scene,node,view-coordinate border box d0..d3 -> BOOL.
 .globl _engine_scene_set_box
@@ -193,3 +270,7 @@ _engine_scene_set_box:
 Lscene_box_bad:
     mov x0, #0
     ret
+
+.section __DATA,__const
+.p2align 3
+scene_owned_lengths: .quad SC_LEFT,SC_TOP,SC_RIGHT,SC_BOTTOM,SC_WIDTH,SC_HEIGHT

@@ -237,6 +237,11 @@ Lfloat_record_ready:
     fadd d1, d1, d4
     ldr x9, [x20, #FLOW_WIDTH]
     scvtf d2, x9
+    // TextKit refuses a block narrower than its first unbreakable glyph run.
+    // Shape overflow at min-content width; the scene retains the CSS box/clip.
+    ldr x10, [x20, #FLOW_MIN_CONTENT]
+    scvtf d4, x10
+    fmax d2, d2, d4
     // Supply a generous line-layout height; CSS height controls the painted box,
     // while overflowing content remains visible rather than clipped.
     NUM d3, 1048576
@@ -451,7 +456,7 @@ clear_rect:
     MSG bytes
     mov x21, x0
     ldr x9, [x21, #(32+CSS_CLEAR*8)]
-    cbz x9, Lclear_rect_return
+    cbz x9, Lclear_rect_avoid
     mov x0, x19
     ADDR x1, _mac_float_records_key
     bl _objc_getAssociatedObject
@@ -470,6 +475,64 @@ clear_rect:
     ldr d1, [sp, #152]
     fmax d1, d1, d0
     str d1, [sp, #152]
+    b Lclear_rect_avoid
+Lclear_rect_avoid:
+    ldr x9, [x21, #FLOW_OWNER]
+    cbnz x9, Lclear_rect_return
+    mov x0, x21
+    mov x1, #0
+    bl _engine_formatting_context
+    cbz x0, Lclear_rect_return
+    mov x0, x19
+    ADDR x1, _mac_float_records_key
+    bl _objc_getAssociatedObject
+    MSG bytes
+    cbz x0, Lclear_rect_return
+    ldr x1, [x21, #FLOAT_CONTEXT]
+    ldr x2, [sp, #200]
+    mov x3, #0
+    ldp d0, d1, [sp, #144]
+    ldr d2, [sp, #176]
+    ldr d3, [sp, #160]
+    // Fit the complete margin box, then restore its content origin.
+    ldr x9, [x21, #776]
+    ldr x10, [x21, #808]
+    add x9, x9, x10
+    ldr x10, [x21, #BOX_BORDER_LEFT]
+    add x9, x9, x10
+    scvtf d4, x9
+    fsub d0, d0, d4
+    ldr x10, [x21, #784]
+    add x9, x9, x10
+    ldr x10, [x21, #816]
+    add x9, x9, x10
+    ldr x10, [x21, #BOX_BORDER_RIGHT]
+    add x9, x9, x10
+    scvtf d4, x9
+    fadd d3, d3, d4
+    ldr x9, [x21, #792]
+    ldr x10, [x21, #824]
+    add x9, x9, x10
+    ldr x10, [x21, #BOX_BORDER_TOP]
+    add x9, x9, x10
+    scvtf d4, x9
+    fsub d1, d1, d4
+    bl _engine_float_avoid
+    ldr x9, [x21, #776]
+    ldr x10, [x21, #808]
+    add x9, x9, x10
+    ldr x10, [x21, #BOX_BORDER_LEFT]
+    add x9, x9, x10
+    scvtf d4, x9
+    fadd d0, d0, d4
+    ldr x9, [x21, #792]
+    ldr x10, [x21, #824]
+    add x9, x9, x10
+    ldr x10, [x21, #BOX_BORDER_TOP]
+    add x9, x9, x10
+    scvtf d4, x9
+    fadd d1, d1, d4
+    stp d0, d1, [sp, #144]
 Lclear_rect_return:
     mov x0, x19
     ADDR x1, float_meta_key

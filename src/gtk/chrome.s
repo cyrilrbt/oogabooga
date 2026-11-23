@@ -110,6 +110,6 @@ gtk_browser_title: .space 8
 gtk_browser_buttons: .space 8
 gtk_browser_visit: .space 8
 .section __TEXT,__cstring,cstring_literals
-gtk_engine_ready: .asciz "Assembly engine: ready. JavaScript is not supported. Ctrl+E switches engines."
+gtk_engine_ready: .asciz "Assembly engine: ready. Experimental JavaScript subset enabled. Ctrl+E switches engines."
 
 gtk_engine_history_error: .asciz "Assembly engine: page ready, but history could not be saved."

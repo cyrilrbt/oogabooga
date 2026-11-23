@@ -111,7 +111,18 @@ Ltrack_parse:
     mov x1, x24
     ADDR x2, auto_word
     bl _css_eq
+    cbnz x0, Ltrack_auto_value
+    mov x0, x19
+    mov x1, x24
+    ADDR x2, min_content_word
+    bl _css_eq
+    cbnz x0, Ltrack_auto_value
+    mov x0, x19
+    mov x1, x24
+    ADDR x2, max_content_word
+    bl _css_eq
     cbz x0, Ltrack_fr
+Ltrack_auto_value:
     mov x26, #0x3000
     b Ltrack_pack
 Ltrack_fr:
@@ -140,6 +151,10 @@ Ltrack_length:
     mov x1, x24
     bl _css_number
     cbz x2, Ltracks_bad
+    cmp x1, #2
+    b.eq Ltrack_relative_em
+    cmp x1, #4
+    b.eq Ltrack_relative_rem
     cmp x1, #3
     b.eq Ltrack_percent
     cmp x1, #1
@@ -148,6 +163,19 @@ Ltrack_length:
     udiv x26, x0, x9
     cmp x26, #4095
     b.hi Ltracks_bad
+    b Ltrack_pack
+Ltrack_relative_em:
+    mov x26, #0
+    b Ltrack_relative
+Ltrack_relative_rem:
+    mov x26, #0x800
+Ltrack_relative:
+    mov x9, #100
+    udiv x0, x0, x9
+    cmp x0, #2047
+    b.hi Ltracks_bad
+    orr x26, x26, x0
+    orr x26, x26, #0x3000
     b Ltrack_pack
 Ltrack_percent:
     mov x9, #100
@@ -302,3 +330,6 @@ repeat_word: .asciz "repeat("
 minmax_word: .asciz "minmax("
 auto_word: .asciz "auto"
 span_word: .asciz "span"
+
+min_content_word: .asciz "min-content"
+max_content_word: .asciz "max-content"

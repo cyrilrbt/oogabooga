@@ -3,6 +3,7 @@
 .include "src/mac/mac.inc"
 .include "src/mac/atomic.inc"
 .include "src/engine/css.inc"
+.include "src/engine/engine.inc"
 .text
 .p2align 2
 // doc,UTF16 map,mutable attributed source,main manager
@@ -109,6 +110,23 @@ Lat_build_record:
     mov x9, #40
     ldr x10, [x19, #16]
     madd x9, x27, x9, x10
+    ldr x12, [x9]
+    cmp x12, #NODE_INPUT
+    b.eq Lat_replaced_yes
+    cmp x12, #NODE_BUTTON
+    b.eq Lat_replaced_yes
+    cmp x12, #NODE_SELECT
+    b.eq Lat_replaced_yes
+    cmp x12, #NODE_TEXTAREA
+    b.eq Lat_replaced_yes
+    cmp x12, #NODE_IMG
+    b.eq Lat_replaced_yes
+    cmp x12, #NODE_SVG
+    b.ne Lat_replaced_done
+Lat_replaced_yes:
+    mov x12, #1
+    str x12, [x28, #AT_REPLACED]
+Lat_replaced_done:
     ldp x10, x11, [x9, #16]
     ldr x12, [x20, #16]
     ldr x10, [x12, x10, lsl #3]
@@ -176,6 +194,7 @@ Lat_build_explicit:
     ldr x2, [sp, #56]
     MSG atomicInitAttributed
     str x0, [x28, #AT_STORAGE]
+    bl _mac_atomic_strip_link_attributes
     mov x2, x0
     ldr x0, [sp, #16]
     MSG addObject
@@ -430,6 +449,9 @@ Lat_build_alignment_done:
     ldr x3, [sp, #80]
     ldp x4, x5, [x28]
     MSG addAttribute
+    mov x0, x24
+    mov x1, x28
+    bl _mac_atomic_flatten_parent
     ldr x0, [sp, #80]
     MSG release
     add x26, x26, #1
@@ -471,9 +493,19 @@ atomic_eligible:
     mov x24, x4
     ldr x9, [x19, #72]
     add x9, x9, x20, lsl #11
+    ldr x10, [x9, #(1840+(CSS_POSITION-48)*8)]
+    cmp x10, #2
+    b.hs Lat_eligible_candidate
     ldr x10, [x9, #88]
     cmp x10, #5
-    b.ne Lat_eligible_no
+    b.eq Lat_eligible_candidate
+    cmp x10, #3
+    b.lo Lat_eligible_no
+    cmp x10, #4
+    b.hi Lat_eligible_no
+    ldr x10, [x9, #FLOW_OWNER]
+    cbz x10, Lat_eligible_no
+Lat_eligible_candidate:
     ldr x10, [x9, #872]
     cbnz x10, Lat_eligible_no
     bl _engine_inline_owner

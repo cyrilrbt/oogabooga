@@ -9,7 +9,7 @@
 // Layout (32 bytes): wrapped UTF-8 text*, byte_length, UTF-16 offset map*, lines.
 // map[input byte offset] translates node ranges to native attributed-text ranges.
 .set ENGINE_MAX_INPUT, 1048576
-.set ENGINE_MAX_NODES, 4096
+.set ENGINE_MAX_NODES, 16384
 .set ENGINE_MAX_DEPTH, 64
 .set NODE_ROOT, 0
 .set NODE_TEXT, 1

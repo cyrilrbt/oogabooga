@@ -2,6 +2,7 @@
 // focus, focus-visible, checked override, checked value. Main-thread confined.
 .include "src/mac/mac.inc"
 .include "src/engine/css.inc"
+.include "src/engine/dom.inc"
 .text
 // document,node,mask,value -> changed. Hover/active also apply to ancestors.
 .globl _engine_interaction_set
@@ -77,7 +78,7 @@ _engine_interaction_transfer:
     cmp x9, x10
     b.ne Linteraction_transfer_done
     cbz x9, Linteraction_transfer_done
-    mov x0, #4097
+    mov x0, #(DOM_MAX_NODES+1)
     mov x1, #8
     bl _calloc
     cbz x0, Linteraction_transfer_done
@@ -91,7 +92,7 @@ Linteraction_index_old:
     add x9, x22, x23, lsl #11
     ldr x10, [x9, #DOM_HANDLE]
     cbz x10, Linteraction_index_next
-    cmp x10, #4096
+    cmp x10, #DOM_MAX_NODES
     b.hi Linteraction_index_next
     ldr x11, [x9, #744]
     str x11, [x21, x10, lsl #3]
@@ -108,7 +109,7 @@ Linteraction_copy_next:
     add x9, x22, x23, lsl #11
     ldr x10, [x9, #DOM_HANDLE]
     cbz x10, Linteraction_copy_advance
-    cmp x10, #4096
+    cmp x10, #DOM_MAX_NODES
     b.hi Linteraction_copy_advance
     ldr x11, [x21, x10, lsl #3]
     str x11, [x9, #744]

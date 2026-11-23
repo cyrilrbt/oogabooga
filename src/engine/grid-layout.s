@@ -8,7 +8,13 @@
 // descriptor, available, gap, widths[16] -> count.
 .globl _engine_grid_tracks
 _engine_grid_tracks:
+    mov x4, #16
+    mov x5, #16
+    b _engine_grid_tracks_context
+.globl _engine_grid_tracks_context
+_engine_grid_tracks_context:
     ENTER
+    stp x4, x5, [sp, #144]
     mov x19, x0
     mov x20, x1
     mov x21, x2
@@ -48,6 +54,18 @@ Lgrid_track_fixed:
     add x25, x25, x28
     b Lgrid_track_next
 Lgrid_track_auto:
+    cbz x28, Lgrid_track_intrinsic
+    ldr x9, [sp, #144]
+    tbz x28, #11, Lgrid_track_relative_font
+    ldr x9, [sp, #152]
+Lgrid_track_relative_font:
+    and x28, x28, #0x7ff
+    mul x28, x28, x9
+    add x28, x28, #5
+    mov x10, #10
+    udiv x28, x28, x10
+    b Lgrid_track_fixed
+Lgrid_track_intrinsic:
     mov x28, #1
 Lgrid_track_weight:
     add x26, x26, x28
@@ -117,7 +135,11 @@ _engine_grid_geometry:
     ldr x1, [x21, #768]
     mov x2, x24
     add x3, sp, #2560
-    bl _engine_grid_tracks
+    ldr x4, [x21, #48]
+    ldr x5, [x19, #72]
+    add x5, x5, #2048
+    ldr x5, [x5, #48]
+    bl _engine_grid_tracks_context
     mov x22, x0                    // columns
     mov x23, #0                    // item count
     mov x24, #0                    // rows
@@ -141,6 +163,9 @@ Lgrid_item:
     cbz x0, Lgrid_next_item
     ldr x9, [x19, #72]
     add x26, x9, x25, lsl #11
+    mov x0, x21
+    mov x1, x26
+    bl _engine_grid_named_item
     ldr x9, [x26, #(1840+(CSS_GRID_COLUMN-48)*8)]
     ldr x10, [x26, #(1840+(CSS_GRID_ROW-48)*8)]
     // Place definite positions before auto rows, independent of source order.
@@ -311,7 +336,11 @@ Lgrid_natural_height:
 Lgrid_explicit_height:
     ldr x2, [sp, #3848]
     add x3, sp, #3200
-    bl _engine_grid_tracks
+    ldr x4, [x21, #48]
+    ldr x5, [x19, #72]
+    add x5, x5, #2048
+    ldr x5, [x5, #48]
+    bl _engine_grid_tracks_context
     cmp x0, x24
     csel x25, x24, x0, lo
     mov x9, #0
@@ -320,11 +349,33 @@ Lgrid_explicit_height:
 Lgrid_copy_rows:
     cmp x9, x25
     b.hs Lgrid_span_rows
+    ldr x12, [x21, #BOX_HEIGHT]
+    tbz x12, #63, Lgrid_copy_definite_row
+    // Auto-height grids have no free height to distribute to auto/fr tracks.
+    ldr x12, [sp, #3864]
+    mov x13, #0
+    tbnz x12, #60, Lgrid_copy_row_code
+    mov x13, #14
+    mul x13, x13, x9
+Lgrid_copy_row_code:
+    lsr x12, x12, x13
+    and x12, x12, #0x3fff
+    lsr x13, x12, #12
+    cmp x13, #1
+    b.eq Lgrid_copy_row_next
+    cmp x13, #2
+    b.eq Lgrid_copy_row_next
+    cmp x13, #3
+    b.ne Lgrid_copy_definite_row
+    and x12, x12, #0xfff
+    cbz x12, Lgrid_copy_row_next
+Lgrid_copy_definite_row:
     ldr x12, [x11, x9, lsl #3]
     ldr x13, [x10, x9, lsl #3]
     cmp x13, x12
     csel x12, x13, x12, gt
     str x12, [x10, x9, lsl #3]
+Lgrid_copy_row_next:
     add x9, x9, #1
     b Lgrid_copy_rows
 Lgrid_span_rows:

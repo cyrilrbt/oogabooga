@@ -4,6 +4,62 @@ Record user-visible changes here whenever `VERSION` changes. Keep the newest
 version first, use the same SemVer as `VERSION`, and distinguish added features,
 behavior changes, and fixes. Historical entries summarize the repository history.
 
+## 0.19.0 — 2026-11-22
+
+### Added
+
+- Handwritten assembly JavaScript tokenizer, parser and bytecode VM on macOS
+  ARM64 and Linux x86-64: basic values, lexical closures, arrays/objects and loops.
+- Script-facing DOM text, attributes, classes and styles with retained editor
+  rebuilds; click/input/change/submit listeners, cancellation and event phases.
+- Main-thread timers, promises/microtasks, ordered classic external scripts and
+  bounded same-origin GET fetch with text/JSON responses. Transport keeps native
+  TLS validation, rejects redirects/cross-origin requests, and blocks scripting
+  on CSP pages conservatively.
+- Assembly JavaScript lab linked from the local test index, portable VM
+  regressions and native browser integration tests on both platforms.
+
+### Changed
+
+- Non-submit buttons now accept script events. Scripted title changes update the
+  macOS window and current history entry without adding another visit.
+- README and engine notes describe the supported scripting subset and limits.
+  Full ECMAScript, modules and modern application compatibility remain unfinished.
+
+### Fixed
+
+- Reduced macOS initial-page rendering cost by caching exact text/font intrinsic
+  measurements across resource updates. Added shared assembly selector rejection
+  keys to skip unrelated CSS rules on both platforms.
+
+- macOS coalesces hover restyles until pointer and wheel activity settle, avoiding
+  repeated full-page layout stalls while scrolling large pages such as Wikipedia.
+
+- macOS positioned search fields remain clickable and editable on short pages,
+  including the DuckDuckGo HTML homepage.
+
+- Scope macOS float exclusions to their owning formatting context; place
+  independent blocks beside preceding floats with the same assembly fitter on
+  macOS and Linux. Ignore future floats and floats from other contexts.
+- Include gaps in intrinsic flex sizes and take the maximum child width for
+  column flex containers, avoiding unintended wrapping in nested rows.
+- Preserve author link colors and underline choices in private macOS shaping
+  stores while retaining scene link navigation and source accessibility.
+- Add Unicode formatting-context geometry, paint and link regressions.
+- Raise the bounded HTML/DOM capacity to 16,384 nodes and size the binding
+  hash table accordingly, allowing long articles without truncation or a full
+  table loop.
+- Retain scene-owned CSS math expressions across stylesheet rebuilds and avoid
+  treating tagged expression pointers as signed numeric lengths.
+- Recover missing native container bounds from shaped children so clipped
+  search-result URLs remain visible and clickable.
+- Use a 16px default document font, composite transparent macOS box paint over
+  its background, and isolate nested formatting contexts during native shaping.
+- Add named Grid areas, relative tracks, template shorthand and simple state
+  selectors inside `:not()`, with article/results fixtures and a WebKit screenshot
+  comparison tool. Live DuckDuckGo/Wikipedia pages still have unresolved float,
+  header and toolbar differences; these fixes do not establish full-page parity.
+
 ## 0.18.0 — 2026-11-22
 
 ### Added

@@ -124,9 +124,14 @@ Lowner_none:
 .globl _mac_form_toggle
 _mac_form_toggle:
     ENTER
+    mov x19, x2
     mov x1, x2
     LOAD x0, _engine_document
     bl _mac_radio_group
+    mov x0, x19
+    MSG tag
+    ADDR x1, _mac_js_change_name
+    bl _mac_js_event_node
     bl _mac_state_schedule
     LEAVE
 // document, sender control: checkbox state is native; radio exclusivity follows

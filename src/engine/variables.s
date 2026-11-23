@@ -465,6 +465,10 @@ Lvariables_node_rule:
     madd x25, x24, x9, x21
     ldr x9, [x25, #CSS_RULE_FLAGS]
     tbz x9, #0, Lvariables_node_advance
+    mov x0, x23
+    mov x1, x25
+    bl _css_rule_filter_maybe
+    cbz x0, Lvariables_node_advance
     mov x0, x19
     mov x1, x20
     ldr x2, [x25]

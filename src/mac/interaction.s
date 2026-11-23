@@ -176,7 +176,7 @@ _mac_live_mouse_exit:
     mov x3, #0
     bl _engine_interaction_set
     cbz x0, Lmac_live_exited
-    bl _mac_state_schedule
+    bl _mac_hover_schedule
 Lmac_live_exited:
     LEAVE
 .section __TEXT,__cstring,cstring_literals

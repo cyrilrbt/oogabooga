@@ -87,6 +87,16 @@ Lrecords_fill_next:
     add x24, x24, #1
     b Lrecords_fill
 Lrecords_install:
+    cbz x25, Lrecords_clear_context_map
+    mov x0, x19
+    mov x1, x20
+    mov x2, x21
+    bl _mac_float_context_prepare
+    b Lrecords_context_map_ready
+Lrecords_clear_context_map:
+    mov x0, x21
+    bl _mac_float_context_clear
+Lrecords_context_map_ready:
     STORE x26, _mac_float_records
     mov x0, x21
     ADDR x1, _mac_float_records_key
@@ -153,6 +163,10 @@ float_fragment:
     stp d0, d1, [sp, #144]
     stp d2, d3, [sp, #160]
     mov x0, x19
+    mov x1, x21
+    bl _mac_float_context_at
+    str x0, [sp, #176]
+    mov x0, x19
     ADDR x1, _mac_float_records_key
     bl _objc_getAssociatedObject
     MSG bytes
@@ -171,6 +185,10 @@ Lfragment_obstacle:
     cmp x9, x24
     b.hs Lfragment_available
     add x10, x25, x9, lsl #7
+    ldr x11, [x10, #120]
+    ldr x12, [sp, #176]
+    cmp x11, x12
+    b.ne Lfragment_obstacle_next
     ldr x11, [x10, #56]
     tst x11, #3
     b.eq Lfragment_obstacle_next

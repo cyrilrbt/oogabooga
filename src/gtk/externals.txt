@@ -26,3 +26,18 @@ g_idle_add
 gtk_widget_get_state_flags
 
 g_uri_unescape_string
+
+g_timeout_add
+g_source_remove
+g_get_monotonic_time
+g_byte_array_new
+g_byte_array_append
+g_byte_array_unref
+soup_session_send_async
+soup_session_send_finish
+g_input_stream_read_bytes_async
+g_input_stream_read_bytes_finish
+g_utf8_make_valid
+soup_message_add_flags
+
+soup_session_set_timeout

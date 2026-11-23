@@ -368,6 +368,7 @@ toggle_engine:
     call gtk_widget_show_all@PLT
     jmp .Lengine_switch_done
 .Lengine_webkit:
+    call gtk_js_reset@PLT
     call gtk_engine_cancel_load@PLT
     mov rdi, [rip + assembly_view]
     call gtk_widget_hide@PLT
